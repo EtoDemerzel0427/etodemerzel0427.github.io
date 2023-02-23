@@ -1,16 +1,183 @@
-# The URL the site will be built for
-base_url = "https://huangweiran.club"
+# The base URL of the site.
+base_url = "https://huangweiran.club/"
 
-# Whether to automatically compile all Sass files in the sass directory
-compile_sass = true
+# To avoid problems with some variables due to multilingual support,
+# you will find repeated variables in the language section,
+# it is recommended that you keep those of your language and the general
+# ones with the same data.
+default_language = "en"
+theme = "ataraxia"
 
-# Whether to build a search index to be used later on by a JavaScript library
+# To find a detailed description of the following configuration variables
+# you can go to https://www.getzola.org/documentation/getting-started/configuration/
+
+output_dir = "public"
+
 build_search_index = true
+generate_feed = true
+feed_filename = "atom.xml"
+# feed_limit = 20
 
-[markdown]
-# Whether to do syntax highlighting
-# Theme can be customised by setting the `highlight_theme` variable to a theme supported by Zola
-highlight_code = true
+compile_sass = false
+
+minify_html = false
+hard_link_static = false
+
+# ignored_content = []
+
 
 [extra]
-# Put all your custom variables here
+    author = "Weiran Huang"
+
+    # Use a square image (same height as width)
+    avatar = "https://i.pinimg.com/736x/e7/d3/b6/e7d3b63a28a976d061696af520f80ee8.jpg"
+
+    # To use a favicon convert your image to https://realfavicongenerator.net/,
+    # then download and copy the package to static/images/favicon
+    favicon = true
+    locale = "en_US"
+
+    # Ataraxia uses Bootstrap icons,
+    # you can go to https://icons.getbootstrap.com/ to find the full list
+    [extra.menus]
+        nav = [
+            { name = "Home", url = "@/_index.md", icon = "bi-house" },
+            { name = "Blog", url = "@/blog/_index.md", icon = "bi-file-earmark-text" },
+            { name = "Author", url = "https://huangweiran.club", icon = "bi-person" },
+            { name = "About", url = "https://huangweiran.club/online-cv/", icon = "bi-question-octagon" },
+            { name = "Calendar", url = "https://huangweiran.club/LifeCalendar/", icon = "bi-calendar-date"},
+            { name = "Projects", url = "https://huangweiran.club/Projects/", icon = "bi-code-slash"}
+        ]
+    
+    [extra.social]
+        author_link = "https://huangweiran.club/"
+        twitter = "@user"
+        links = [
+            { name = "Email", url = "mailto:huangweiran1998@outlook.com", icon = "bi-envelope-fill" },
+            { name = "GitHub", url = "https://github.com/EtoDemerzel0427", icon = "bi-github" },
+            # { name = "Twitter", url = "https://twitter.com/", icon = "bi-twitter" },
+            { name = "LinkedIn", url = "https://www.linkedin.com/in/weiranhuang", icon = "bi-linkedin" },
+            { name = "Facebook", url = "https://www.facebook.com/profile.php?id=100006603762815", icon = "bi-facebook" },
+            { name = "Instagram", url = "https://www.instagram.com/etodemerzel0427", icon = "bi-instagram"},
+            { name = "Playstation", url="https://psnprofiles.com/eto-demerzel0427", icon="bi-playstation"}
+        ]
+
+    [extra.seo]
+        google_analytics = "G-CNYGLH4HFP"
+        google_search_console = "0123457890abcdefg"
+    
+    [extra.comments]
+        disqus = "user"
+
+    [extra.copyright]
+        name = "CC BY 4.0"
+        url = "https://creativecommons.org/licenses/by/4.0/"
+
+
+[languages]
+    [languages.en]
+        title = "My Trantor"
+        description = "Act Justly, Love Mercy, Walk Humbly."
+        generate_feed = true
+        feed_filename = "atom.xml"
+        taxonomies = [
+            { name = "tags", feed = true, paginate_by = 5  },
+            { name = "categories", feed = true, paginate_by = 5 }
+        ]
+
+    [languages.cn]
+        title = "我的川陀"
+        description = "行善，爱慈，谦卑。"
+        generate_feed = true
+        feed_filename = "atom.xml"
+        taxonomies = [
+            { name = "tags", feed = true, paginate_by = 5  },
+            { name = "categories", feed = true, paginate_by = 5 }
+        ]
+
+
+    [languages.en.translations]
+        post = "Post"
+        category = "Category"
+        tag = "Tag"
+        search = "Search"
+
+        404_message = "Page not found"
+
+        by = "By"
+        posted = "Posted"
+        updated = "Updated"
+        categories = "Categories"
+        tags = "Tags"
+        share = "Share"
+        
+        next = "Next"
+        previous = "Previous"
+
+        short_copyright = "Some rights reserved."
+        full_copyright = """\
+            Except where otherwise noted, the blog posts on this site are \
+            licensed under the Creative Commons Attribution 4.0 International \
+            (CC BY 4.0) License by the author.\
+            """
+
+    [languages.cn.translations]
+        post = "文章"
+        category = "分类"
+        tag = "标签"
+        search = "搜索"
+
+        404_message = "页面未找到"
+
+        by = "作者"
+        posted = "发布于"
+        updated = "更新于"
+        categories = "分类"
+        tags = "标签"
+        share = "分享"
+        
+        next = "后一篇"
+        previous = "前一篇"
+        
+        short_copyright = "保留部分权利。"
+        full_copyright = """\
+            除非另有说明，本站文章采用创意共享4.0国际许可协议（CC BY 4.0）授权。\
+            """
+         
+
+
+[markdown]
+    highlight_code = true
+    # extra_syntaxes_and_themes = []
+    highlight_theme = "gruvbox-dark"
+
+    render_emoji = true
+
+
+    external_links_target_blank = true
+    external_links_no_follow = true
+    external_links_no_referrer = true
+
+    smart_punctuation = false
+
+
+[search]
+    include_title = true
+    include_description = false
+    include_path = false
+    include_content = true
+    # truncate_content_length = 100
+
+
+[link_checker]
+    # skip_prefixes = []
+    # skip_anchor_prefixes = []
+
+    internal_level = "error"
+    external_level = "error"
+
+
+[slugify]
+    paths = "on"
+    taxonomies = "on"
+    anchors = "on"
