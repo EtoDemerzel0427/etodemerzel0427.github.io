@@ -2,3 +2,6 @@
 	path = themes/blow
 	url = https://github.com/tchartron/blow.git
 	branch = main
+[submodule "themes/ataraxia"]
+	path = themes/ataraxia
+	url = https://github.com/gersonbdev/ataraxia-zola.git
