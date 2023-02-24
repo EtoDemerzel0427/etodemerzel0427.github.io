@@ -49,10 +49,10 @@ hard_link_static = false
                 { name = "Calendar", url = "https://huangweiran.club/LifeCalendar/", icon = "bi-calendar-date"},
                 { name = "Projects", url = "https://huangweiran.club/Projects/", icon = "bi-code-slash"}
             ]},
-            { item = "cn", links = [
-                { name = "主页", url = "@/_index.cn.md", icon = "bi-house" },
-                { name = "博客", url = "@/blog/_index.cn.md", icon = "bi-file-earmark-text" },
-                { name = "作者", url = "@/_index.cn.md", icon = "bi-person" },
+            { item = "zh", links = [
+                { name = "主页", url = "@/_index.zh.md", icon = "bi-house" },
+                { name = "博客", url = "@/blog/_index.zh.md", icon = "bi-file-earmark-text" },
+                { name = "作者", url = "@/_index.zh.md", icon = "bi-person" },
                 { name = "关于", url = "https://huangweiran.club/online-cv/", icon = "bi-question-octagon" },
                 { name = "日历", url = "https://huangweiran.club/LifeCalendar/", icon = "bi-calendar-date"},
                 { name = "项目", url = "https://huangweiran.club/Projects/", icon = "bi-code-slash"}
@@ -129,7 +129,7 @@ hard_link_static = false
                 (CC BY 4.0) License by the author.\
                 """
 
-    [languages.cn]
+    [languages.zh]
         title = "我的川陀"
         description = "行善，爱慈，谦卑。"
         generate_feed = true
@@ -139,7 +139,7 @@ hard_link_static = false
             { name = "categories", feed = true, paginate_by = 5 }
         ]
 
-        [languages.cn.strings]
+        [languages.zh.strings]
             Home = "主页"
             Blog = "博客"
             Author = "作者"
@@ -149,7 +149,7 @@ hard_link_static = false
             Email = "邮箱"
 
 
-        [languages.cn.translations]
+        [languages.zh.translations]
             post = "文章"
             category = "分类"
             tag = "标签"
