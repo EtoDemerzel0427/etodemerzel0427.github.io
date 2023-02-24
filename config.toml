@@ -5,7 +5,7 @@ base_url = "https://huangweiran.club/"
 # you will find repeated variables in the language section,
 # it is recommended that you keep those of your language and the general
 # ones with the same data.
-default_language = "en"
+# default_language = "en"
 theme = "ataraxia"
 
 # To find a detailed description of the following configuration variables
@@ -41,12 +41,22 @@ hard_link_static = false
     # you can go to https://icons.getbootstrap.com/ to find the full list
     [extra.menus]
         nav = [
-            { name = "Home", url = "@/_index.md", icon = "bi-house" },
-            { name = "Blog", url = "@/blog/_index.md", icon = "bi-file-earmark-text" },
-            { name = "Author", url = "https://huangweiran.club", icon = "bi-person" },
-            { name = "About", url = "https://huangweiran.club/online-cv/", icon = "bi-question-octagon" },
-            { name = "Calendar", url = "https://huangweiran.club/LifeCalendar/", icon = "bi-calendar-date"},
-            { name = "Projects", url = "https://huangweiran.club/Projects/", icon = "bi-code-slash"}
+            { item = "en", links = [
+                { name = "Home", url = "@/_index.md", icon = "bi-house" },
+                { name = "Blog", url = "@/blog/_index.md", icon = "bi-file-earmark-text" },
+                { name = "Author", url = "@/_index.md", icon = "bi-person" },
+                { name = "About", url = "https://huangweiran.club/online-cv/", icon = "bi-question-octagon" },
+                { name = "Calendar", url = "https://huangweiran.club/LifeCalendar/", icon = "bi-calendar-date"},
+                { name = "Projects", url = "https://huangweiran.club/Projects/", icon = "bi-code-slash"}
+            ]},
+            { item = "cn", links = [
+                { name = "主页", url = "@/_index.cn.md", icon = "bi-house" },
+                { name = "博客", url = "@/blog/_index.cn.md", icon = "bi-file-earmark-text" },
+                { name = "作者", url = "@/_index.cn.md", icon = "bi-person" },
+                { name = "关于", url = "https://huangweiran.club/online-cv/", icon = "bi-question-octagon" },
+                { name = "日历", url = "https://huangweiran.club/LifeCalendar/", icon = "bi-calendar-date"},
+                { name = "项目", url = "https://huangweiran.club/Projects/", icon = "bi-code-slash"}
+            ]}
         ]
     
     [extra.social]
@@ -85,6 +95,40 @@ hard_link_static = false
             { name = "categories", feed = true, paginate_by = 5 }
         ]
 
+        [languages.en.strings]
+            Home = "Home"
+            Blog = "Blog"
+            Author = "Author"
+            About = "About"
+            Calendar = "Calendar"
+            Projects = "Projects"
+            Email = "Email"
+
+        [languages.en.translations]
+            post = "Post"
+            category = "Category"
+            tag = "Tag"
+            search = "Search"
+
+            404_message = "Page not found"
+
+            by = "By"
+            posted = "Posted"
+            updated = "Updated"
+            categories = "Categories"
+            tags = "Tags"
+            share = "Share"
+            
+            next = "Next"
+            previous = "Previous"
+
+            short_copyright = "Some rights reserved."
+            full_copyright = """\
+                Except where otherwise noted, the blog posts on this site are \
+                licensed under the Creative Commons Attribution 4.0 International \
+                (CC BY 4.0) License by the author.\
+                """
+
     [languages.cn]
         title = "我的川陀"
         description = "行善，爱慈，谦卑。"
@@ -95,54 +139,39 @@ hard_link_static = false
             { name = "categories", feed = true, paginate_by = 5 }
         ]
 
+        [languages.cn.strings]
+            Home = "主页"
+            Blog = "博客"
+            Author = "作者"
+            About = "关于"
+            Calendar = "日历"
+            Projects = "项目"
+            Email = "邮箱"
 
-    [languages.en.translations]
-        post = "Post"
-        category = "Category"
-        tag = "Tag"
-        search = "Search"
 
-        404_message = "Page not found"
+        [languages.cn.translations]
+            post = "文章"
+            category = "分类"
+            tag = "标签"
+            search = "搜索"
 
-        by = "By"
-        posted = "Posted"
-        updated = "Updated"
-        categories = "Categories"
-        tags = "Tags"
-        share = "Share"
+            404_message = "页面未找到"
+
+            by = "作者"
+            posted = "发布于"
+            updated = "更新于"
+            categories = "分类"
+            tags = "标签"
+            share = "分享"
+            
+            next = "后一篇"
+            previous = "前一篇"
+            
+            short_copyright = "保留部分权利。"
+            full_copyright = """\
+                除非另有说明，本站文章采用创意共享4.0国际许可协议（CC BY 4.0）授权。\
+                """
         
-        next = "Next"
-        previous = "Previous"
-
-        short_copyright = "Some rights reserved."
-        full_copyright = """\
-            Except where otherwise noted, the blog posts on this site are \
-            licensed under the Creative Commons Attribution 4.0 International \
-            (CC BY 4.0) License by the author.\
-            """
-
-    [languages.cn.translations]
-        post = "文章"
-        category = "分类"
-        tag = "标签"
-        search = "搜索"
-
-        404_message = "页面未找到"
-
-        by = "作者"
-        posted = "发布于"
-        updated = "更新于"
-        categories = "分类"
-        tags = "标签"
-        share = "分享"
-        
-        next = "后一篇"
-        previous = "前一篇"
-        
-        short_copyright = "保留部分权利。"
-        full_copyright = """\
-            除非另有说明，本站文章采用创意共享4.0国际许可协议（CC BY 4.0）授权。\
-            """
          
 
 
@@ -181,3 +210,6 @@ hard_link_static = false
     paths = "on"
     taxonomies = "on"
     anchors = "on"
+
+[dependencies]
+serde = { version = "1.0.130", features = ["derive"] }
