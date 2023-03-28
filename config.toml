@@ -5,7 +5,7 @@ base_url = "https://huangweiran.club/"
 # you will find repeated variables in the language section,
 # it is recommended that you keep those of your language and the general
 # ones with the same data.
-# default_language = "en"
+default_language = "en"
 theme = "ataraxia"
 
 # To find a detailed description of the following configuration variables
@@ -13,9 +13,9 @@ theme = "ataraxia"
 
 output_dir = "public"
 
-build_search_index = true
-generate_feed = true
-feed_filename = "atom.xml"
+# build_search_index = true
+# generate_feed = true
+# feed_filename = "atom.xml"
 # feed_limit = 20
 
 compile_sass = false
@@ -89,11 +89,12 @@ hard_link_static = false
         title = "My Trantor"
         description = "Act Justly, Love Mercy, Walk Humbly."
         generate_feed = true
-        feed_filename = "atom.xml"
+        feed_filename = "atom.zh.xml"
         taxonomies = [
             { name = "tags", feed = true, paginate_by = 5  },
             { name = "categories", feed = true, paginate_by = 5 }
         ]
+        build_search_index = true
 
         [languages.en.strings]
             Home = "Home"
@@ -138,6 +139,7 @@ hard_link_static = false
             { name = "tags", feed = true, paginate_by = 5  },
             { name = "categories", feed = true, paginate_by = 5 }
         ]
+        build_search_index = true
 
         [languages.zh.strings]
             Home = "主页"
