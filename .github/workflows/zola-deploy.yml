@@ -18,4 +18,4 @@ jobs:
           # Or if publishing to the same repo, use the automatic token
           #TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Build with the search/indexing-zh feature flag
-          BUILD_FLAG: --features search/indexing-zh
+          BUILD_FLAG: --features indexing-zh
