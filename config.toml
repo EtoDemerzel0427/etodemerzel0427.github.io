@@ -13,7 +13,7 @@ theme = "ataraxia"
 
 output_dir = "public"
 
-# build_search_index = true
+build_search_index = true
 # generate_feed = true
 # feed_filename = "atom.xml"
 # feed_limit = 20
@@ -88,13 +88,13 @@ hard_link_static = false
     [languages.en]
         title = "My Trantor"
         description = "Act Justly, Love Mercy, Walk Humbly."
+        build_search_index = true
         generate_feed = true
-        feed_filename = "atom.zh.xml"
+        feed_filename = "atom.xml"
         taxonomies = [
             { name = "tags", feed = true, paginate_by = 5  },
             { name = "categories", feed = true, paginate_by = 5 }
         ]
-        build_search_index = true
 
         [languages.en.strings]
             Home = "Home"
@@ -133,13 +133,13 @@ hard_link_static = false
     [languages.zh]
         title = "我的川陀"
         description = "行善，爱慈，谦卑。"
+        build_search_index = true
         generate_feed = true
         feed_filename = "atom.xml"
         taxonomies = [
             { name = "tags", feed = true, paginate_by = 5  },
             { name = "categories", feed = true, paginate_by = 5 }
         ]
-        build_search_index = true
 
         [languages.zh.strings]
             Home = "主页"
