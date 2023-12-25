@@ -1,6 +1,7 @@
 +++
 title = "主页"
 description = "我生活中的代码、数学和文学。"
+lang = "zh"
 sort_by = "date"
 template = "index.html"
 page_template = "page.html"
@@ -19,15 +20,15 @@ page_template = "page.html"
             "我是黄蔚然。我目前是一名：
             <ul>
               <li>在德州大学奥斯汀分校（UT Austin）攻读电子与计算机工程硕士学位的二年级学生。</li>
-              <li>CS 383C:数值分析:线性代数（Spring 2023）的助教。</li>
-              <li>程序员，既是业余爱好，也是（未来）职业。</li>
+              <li>前Akuna Capital和Amazon软件开发工程师实习生。</li>
+              <li>程序员，写程序是我的兴趣，也凑巧是我赖以生存的手段。</li>
             </ul>",
-            "我也是：
+            "与此同时，我也：
             <ul>
-              <li>一名任天堂Switch/PS5游戏爱好者 (<em>苦等王国之泪</em>)。</li>
-              <li>一名虔诚的科幻迷 (<em>我喜爱的作者：阿西莫夫、刘慈欣、菲利普·迪克等</em>)。</li>
-              <li>一名曾经的巴塞罗那足球俱乐部（FC Barcelona）球迷 (<em>MSN离开后，对球队的热情大减</em>)。 </li>
-              <li>一名相对较晚才转投巴黎圣日耳曼足球俱乐部（PSG）的球迷 (<em>只是因为内马尔和梅西，这支球队的其他部分都是垃圾</em>)。</li>
+              <li>是一名Switch/PS5游戏爱好者 (<em>最近每天都在蜘蛛侠2里荡蛛丝</em>)。</li>
+              <li>是一名虔诚的科幻迷 (<em>我喜爱的作者：阿西莫夫、刘慈欣、菲利普·迪克等</em>)。</li>
+              <li>最近恢复了每周踢足球的习惯。 </li>
+              <li>正在阅读博尔赫斯的《小径分岔的花园》。</li>
             </ul>",
             "欢迎通过邮件与我联络: <a href='mailto:huangweiran1998@outlook.com'>huangweiran1998@outlook.com</a>"
         ]
