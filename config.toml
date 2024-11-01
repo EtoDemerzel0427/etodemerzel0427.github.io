@@ -133,7 +133,7 @@ hard_link_static = false
     [languages.zh]
         title = "我的川陀"
         description = "行善，爱慈，谦卑。"
-        build_search_index = true
+        build_search_index = false
         generate_feed = true
         feed_filename = "atom.xml"
         taxonomies = [
@@ -180,7 +180,7 @@ hard_link_static = false
 [markdown]
     highlight_code = true
     # extra_syntaxes_and_themes = []
-    highlight_theme = "gruvbox-dark"
+    highlight_theme = "css"
 
     render_emoji = true
 

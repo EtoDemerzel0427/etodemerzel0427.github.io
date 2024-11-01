@@ -16,18 +16,17 @@ page_template = "page.html"
             "Contact"
         ]
         tab_contents = [
-            "My name is Weiran Huang. I am currently:
+            "My name is Weiran Huang. About me:
             <ul>
-              <li>A second-year Master's student in ECE at UT Austin (graduating May 2024).</li>
-              <li>An ex-intern at <em>Akuna Capital</em> and <em>Amazon</em>.</li>
-              <li>A programmer for fun and for a living.</li>
+              <li>C++ Software Engineer at Akuna Capital.</li>
+              <li>Recent graduate from UT Austin with a master's degree.</li>
+              <li>I write code for fun and for a living.</li>
             </ul>",
             "I am also:
             <ul>
-              <li>An avid Nintendo Switch/PS5 gamer (<em>Currently playing Marvel's Spider-Man 2 🕷️</em>).</li>
-              <li>A devout worshipper at the altar of Sci-Fi (<em>Issac Asimov, Cixin Liu, Philip Dick, etc.</em>).</li>
-              <li>Recently getting back into the habit of playing soccer once a week. </li> 
-              <li>Reading <em>The Garden of Forking Paths</em> by Jorge Luis Borges lately.</li>
+              <li>A budding vinyl collector who recently acquired a Pro-Ject T1 turntable.</li>
+              <li>A avid gamer, currently playing <em>Black Myth: Wukong</em> and <em>EA FC 24</em>.</li>
+              <li>Someone who enjoys cycling along Lake Michigan shoreline. </li> 
             </ul>",
             "Please feel free to contact me via email: <a href='mailto:huangweiran1998@outlook.com'>huangweiran1998@outlook.com</a>"
         ]
