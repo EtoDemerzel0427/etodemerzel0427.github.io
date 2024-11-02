@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://huangweiran.club/</loc>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/blog/</loc>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/blog/cpp-auto/</loc>
+        <lastmod>2023-11-01T00:34:00-05:00</lastmod>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/blog/page/1/</loc>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/categories/</loc>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/tags/</loc>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/zh/</loc>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/zh/blog/</loc>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/zh/blog/cpp-auto/</loc>
+        <lastmod>2024-10-23T22:24:00-05:00</lastmod>
+    </url>
+    <url>
+        <loc>https://huangweiran.club/zh/blog/page/1/</loc>
+    </url>
+</urlset>
