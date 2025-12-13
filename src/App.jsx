@@ -138,7 +138,7 @@ const Header = ({ universe, time, onShowStatus }) => (
 
 
       <h1 className={`text-6xl md:text-8xl font-bold mb-4 transition-all ${getFontClass(universe, 'title')}
-         ${universe === 'comic' ? 'text-white text-stroke-black drop-shadow-[4px_4px_0_#000] italic' : ''}
+         ${universe === 'comic' ? 'bg-black text-white px-6 py-2 transform -skew-x-12 block w-fit shadow-[8px_8px_0_rgba(0,0,0,0.2)]' : ''}
          ${universe === 'cyberpunk' ? 'text-[#fcee0a] drop-shadow-[2px_2px_0_#00f0ff]' : ''}
          ${universe === 'terminal' ? 'animate-pulse' : ''} 
          ${universe === 'bauhaus' ? 'text-[#1d3557]' : ''}
@@ -496,7 +496,7 @@ const App = () => {
           <div className="relative bg-white rounded-3xl w-full max-w-5xl h-[85vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-300">
             {/* Portal Content */}
             <div className="flex items-center justify-between p-6 border-b bg-white top-0 z-10 sticky">
-              <h2 className="text-xl font-bold tracking-tighter">CHOOSE YOUR UNIVERSE</h2>
+              <h2 className="text-xl font-bold">CHOOSE YOUR UNIVERSE</h2>
               <button onClick={() => setShowPortal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
                 <X size={24} className="text-gray-500" />
               </button>
