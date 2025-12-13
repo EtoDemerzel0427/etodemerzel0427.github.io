@@ -1,28 +1,39 @@
 // --- 🔧 用户配置区域 (修改这里即可更新主页内容) ---
 export const USER_CONTENT = {
     name: "Weiran Huang",
-    role: "C++ Engineer",
-    company: "Akuna Capital",
-    bio: "Digital Artist, Pianist & Console Gamer.",
+    role: "C++ Software Engineer",
+    bio: "Amateur Digital Artist, Pianist & Console Gamer.",
     location: "CHICAGO",
     status: {
         emoji: "🌴",
-        text: "Vacationing in Cali" // 修改这里更新状态
+        text: "Vacationing in Cali",
+        // Extended "Polaroid Moment" content
+        meta: {
+            photoUrl: "https://images.unsplash.com/photo-1538332576228-eb5b4c4de6f5?q=80&w=3570&auto=format&fit=crop", // Malibu Beach
+            note: "The sunsets here are unreal. Coding by the beach beats the office any day. 🌊",
+            date: "2025.12.12",
+            location: "Malibu, CA"
+        }
     },
+    defaultTheme: 'bauhaus', // Default universe on load
     nowPlaying: {
         song: "Pink + White",
-        artist: "Frank Ocean"
+        artist: "Frank Ocean",
+        audioUrl: "/music/Frank Ocean - Pink + White.mp3" // Local MP3 or URL
     },
     featuredArticle: {
+        // Fallback content if GitHub API fails to fetch the featured post
         date: "2024.03.15",
         category: "Engineering",
         title: "Modern C++: Understanding Memory Order",
-        desc: "Exploring std::memory_order_relaxed vs acquire/release semantics in lock-free queues. Why 'volatile' is not enough."
+        desc: "Exploring std::memory_order_relaxed vs acquire/release semantics in lock-free queues. Why 'volatile' is not enough.",
+        url: "https://huangweiran.club/notes/#oahu-travel-wiki"
     },
 
     social: {
-        twitter: "@weiran_dev",
-        github: "https://github.com/EtoDemerzel0427"
+        linkedin: "weiranhuang",
+        github: "EtoDemerzel0427",
+        email: "huangweiran1998@outlook.com"
     },
     game: {
         title: "EA SPORTS FC 25",
@@ -39,16 +50,23 @@ export const USER_CONTENT = {
         progress: 10,
         status: "Reading" // or "Finished", "To Read"
     },
-    github: {
-        username: "EtoDemerzel0427"
-    },
-    // New Config for Blog & Music
     blogRepo: {
         username: "EtoDemerzel0427",
         repo: "notes",
         rawBaseUrl: "https://raw.githubusercontent.com/EtoDemerzel0427/notes/main/",
-        siteUrl: "https://huangweiran.club/notes/",
+        siteBaseUrl: "https://huangweiran.club/notes/", // Base URL for constructing deep links
         featuredPostPath: "content/Travel/Hawaii/欧胡百科.md"
     },
-    musicUrl: "/music/Frank Ocean - Pink + White.mp3" // Local MP3
 };
+
+export const LAYOUT_CONFIG = [
+    { id: 'bio', type: 'bio', colSpan: 1, rowSpan: 2, className: 'sm:col-span-2 md:col-span-2' },
+    { id: 'music', type: 'music', colSpan: 1, rowSpan: 1 },
+    { id: 'archive', type: 'archive', colSpan: 1, rowSpan: 1 },
+    { id: 'tech', type: 'tech', colSpan: 1, rowSpan: 1, className: 'md:col-span-2' },
+    { id: 'reading', type: 'reading', colSpan: 1, rowSpan: 2 },
+    { id: 'score', type: 'score', colSpan: 1, rowSpan: 1 },
+    { id: 'quote', type: 'quote', colSpan: 1, rowSpan: 1 },
+    { id: 'game', type: 'game', colSpan: 1, rowSpan: 1, className: 'md:col-span-2' },
+    { id: 'activity', type: 'activity', colSpan: 1, rowSpan: 1 },
+];

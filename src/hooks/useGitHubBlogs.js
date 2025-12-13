@@ -46,7 +46,8 @@ export const useGitHubBlogs = () => {
                             category: attributes.category || 'Blog',
                             content: body, // Keep raw body if needed elsewhere
                             summary: cleanText, // Pre-cleaned summary
-                            filePath: featuredPostPath
+                            filePath: featuredPostPath,
+                            url: `${USER_CONTENT.blogRepo.siteBaseUrl}#${attributes.slug || featuredPostPath.split('/').pop().replace('.md', '')}` // Dynamically construct deep link
                         });
                     }
                 }
