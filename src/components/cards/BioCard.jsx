@@ -83,7 +83,8 @@ const BioCard = ({ universe, data, className }) => {
             <div className={`z-10 relative h-full flex flex-col justify-between 
         ${universe === 'newspaper' ? 'pt-12' : ''} 
         ${universe === 'cyberpunk' ? 'pb-8' : ''}
-        ${universe === 'terminal' ? 'pb-8 md:pb-12' : ''} 
+        ${universe === 'terminal' ? 'pb-8 md:pb-12' : ''}
+        ${universe === 'bauhaus' ? 'pt-20' : ''}
     `}>
                 <div className={universe === 'bauhaus' ? 'max-w-[80%]' : ''}>
                     <Cpu size={48} className={`mb-6 transition-colors 
@@ -95,12 +96,11 @@ const BioCard = ({ universe, data, className }) => {
     ${universe === 'comic' ? 'text-black drop-shadow-[2px_2px_0_rgba(0,0,0,0.2)]' : ''}
     ${universe === 'lofi' ? 'text-[#b58900]' : ''}
     ${universe === 'cyberpunk' ? 'text-black' : ''}
-    ${universe === 'bauhaus' ? 'text-white absolute -left-4 -top-4 w-16 h-16 bg-black p-3 rounded-full border-4 border-white' : ''}
+    ${universe === 'bauhaus' ? 'text-white absolute -left-2 -top-2 sm:-left-4 sm:-top-4 w-14 h-14 sm:w-16 sm:h-16 bg-black p-3 rounded-full border-4 border-white' : ''}
     ${universe === 'botanical' ? 'text-[#3a5a40] opacity-0' : ''} 
   `} />
                     {/* Botanical hides standard icon for custom leaf */}
                     <h2 className={`leading-tight mb-4 md:mb-6 ${getFontClass(universe, 'title')}
-    ${universe === 'bauhaus' ? 'mt-8' : ''}
     ${(universe === 'retro' || universe === 'terminal') ? 'text-base sm:text-lg md:text-xl' : 'text-xl sm:text-2xl md:text-4xl lg:text-5xl'}
   `}>
                         {universe === 'terminal' ? '> ' : ''}
