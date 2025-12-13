@@ -17,7 +17,7 @@ const ReadingCard = ({ universe, data, className }) => {
        ${universe === 'comic' ? 'bg-white border-[3px] border-black p-6 shadow-[8px_8px_0px_#000] hover:shadow-[12px_12px_0px_#000] hover:-translate-y-1 hover:-translate-x-1 rounded-sm comic-halftone' : ''}
        ${universe === 'lofi' ? 'bg-[#fff8e1] shadow-md hover:shadow-lg hover:-translate-y-1 p-6 rounded-sm border-none rotate-1' : ''}
        ${universe === 'botanical' ? 'bg-[#f0ead6] border border-[#a3b18a] p-6 shadow-sm hover:shadow-md hover:border-[#3a5a40] rounded-xl hover:-translate-y-0.5' : ''}
-       ${universe === 'cyberpunk' ? 'bg-[#1a1a1a] text-[#fcee0a] border border-[#fcee0a] p-6 cyber-clip hover:bg-white hover:text-black hover:shadow-[0_0_30px_rgba(252,238,10,0.6)] rounded-none transition-colors duration-200' : ''}
+       ${universe === 'cyberpunk' ? 'bg-[#1a1a1a] text-[#fcee0a] p-6 cyber-clip hover:bg-white hover:text-black hover:shadow-[0_0_30px_rgba(252,238,10,0.6)] rounded-none transition-colors duration-200' : ''}
        ${universe === 'newspaper' ? 'bg-white border-y-2 border-black p-6 hover:bg-[#fafafa] rounded-none shadow-sm' : ''}
        
        ${!['punk', 'retro', 'noir', 'aero', 'terminal', 'bauhaus', 'comic', 'lofi', 'botanical', 'cyberpunk', 'newspaper'].includes(universe) ? 'bg-white p-6 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-500' : ''}

@@ -204,7 +204,7 @@ const BentoGrid = React.memo(({ universe, blogCount, featuredPost, scores, userP
       // Resolve Data
       let data = {};
       if (cardConfig.type === 'music') data = USER_CONTENT.nowPlaying;
-      else if (cardConfig.type === 'archive') data = { count: blogCount, siteUrl: USER_CONTENT.blogRepo.siteUrl };
+      else if (cardConfig.type === 'archive') data = { count: blogCount, siteUrl: USER_CONTENT.blogRepo.siteBaseUrl };
       else if (cardConfig.type === 'tech') data = featuredPost || USER_CONTENT.featuredArticle;
       else if (cardConfig.type === 'reading') data = USER_CONTENT.reading;
       else if (cardConfig.type === 'score') data = scores;
