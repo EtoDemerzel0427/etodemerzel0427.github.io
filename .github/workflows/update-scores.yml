@@ -31,4 +31,4 @@ jobs:
           git config --global user.email 'action@github.com'
           git add public/scores.json
           # Only commit if there are changes
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update scores [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update scores" && git push)
