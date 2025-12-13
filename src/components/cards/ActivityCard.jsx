@@ -45,16 +45,44 @@ const ActivityCard = ({ universe, data, loading, className }) => {
                 <div className="flex justify-between items-end mb-2">
                     <div>
                         <div className="flex items-baseline gap-1">
-                            <span className={`text-xl font-black ${universe === 'punk' ? 'text-[#00BBF9]' : 'text-gray-900'}`}>
+                            <span className={`text-xl font-black 
+                                ${universe === 'punk' ? 'text-black' : ''}
+                                ${universe === 'cyberpunk' ? 'text-[#fcee0a]' : ''}
+                                ${universe === 'terminal' ? 'text-[#00ff41]' : ''}
+                                ${universe === 'retro' ? 'text-[#ff0055]' : ''}
+                                ${universe === 'noir' ? 'text-white' : ''}
+                                ${!['punk', 'cyberpunk', 'terminal', 'noir', 'retro'].includes(universe) ? 'text-gray-900' : ''}
+                            `}>
                                 {loading || !profile ? '-' : profile.publicRepos}
                             </span>
-                            <span className="text-[9px] font-bold uppercase tracking-wider opacity-50">Repos</span>
+                            <span className={`text-[9px] font-bold uppercase tracking-wider 
+                                ${universe === 'punk' ? 'text-black opacity-100' : ''}
+                                ${universe === 'cyberpunk' ? 'text-[#fcee0a] opacity-70' : ''}
+                                ${universe === 'terminal' ? 'text-[#00ff41] opacity-70' : ''}
+                                ${universe === 'retro' ? 'text-[#ff0055] opacity-70' : ''}
+                                ${universe === 'noir' ? 'text-gray-400' : ''}
+                                ${!['punk', 'cyberpunk', 'terminal', 'noir', 'retro'].includes(universe) ? 'opacity-50' : ''}
+                            `}>Repos</span>
                         </div>
                         <div className="flex items-baseline gap-1">
-                            <span className={`text-xs font-bold opacity-70`}>
+                            <span className={`text-xs font-bold 
+                                ${universe === 'punk' ? 'text-black' : ''}
+                                ${universe === 'cyberpunk' ? 'text-[#fcee0a]' : ''}
+                                ${universe === 'terminal' ? 'text-[#00ff41]' : ''}
+                                ${universe === 'retro' ? 'text-[#ff0055]' : ''}
+                                ${universe === 'noir' ? 'text-gray-200' : ''}
+                                ${!['punk', 'cyberpunk', 'terminal', 'noir', 'retro'].includes(universe) ? 'opacity-70' : ''}
+                            `}>
                                 {loading || !profile ? '-' : profile.followers}
                             </span>
-                            <span className="text-[8px] font-bold uppercase tracking-wider opacity-40">Followers</span>
+                            <span className={`text-[8px] font-bold uppercase tracking-wider 
+                                ${universe === 'punk' ? 'text-black opacity-100' : ''}
+                                ${universe === 'cyberpunk' ? 'text-[#fcee0a] opacity-60' : ''}
+                                ${universe === 'terminal' ? 'text-[#00ff41] opacity-60' : ''}
+                                ${universe === 'retro' ? 'text-[#ff0055] opacity-60' : ''}
+                                ${universe === 'noir' ? 'text-gray-500' : ''}
+                                ${!['punk', 'cyberpunk', 'terminal', 'noir', 'retro'].includes(universe) ? 'opacity-40' : ''}
+                            `}>Followers</span>
                         </div>
                     </div>
                 </div>
