@@ -1,6 +1,6 @@
 {
-  "competition": "UEFA Champions League",
-  "date": "2025-12-09",
+  "competition": "Primera Division",
+  "date": "2025-12-13",
   "status": "FINISHED",
   "homeTeam": {
     "name": "Barça",
@@ -8,9 +8,9 @@
     "crest": "https://crests.football-data.org/81.png"
   },
   "awayTeam": {
-    "name": "Frankfurt",
-    "score": 1,
-    "crest": "https://crests.football-data.org/19.png"
+    "name": "Osasuna",
+    "score": 0,
+    "crest": "https://crests.football-data.org/79.png"
   },
   "winner": "HOME_TEAM"
 }
