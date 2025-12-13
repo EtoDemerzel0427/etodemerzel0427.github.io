@@ -12,11 +12,10 @@ const GameCard = ({ universe, data, className }) => {
         /* Use dark bg as base, but respect theme for cyberpunk/noir/neon/retro */
        ${!['noir', 'neon', 'retro', 'cyberpunk'].includes(universe) ? '!bg-[#10141e]' : ''}
     `}
-            style={{
+            style={universe === 'bauhaus' ? {
                 WebkitMaskImage: '-webkit-radial-gradient(white, black)', // Force Safari/Chrome to respect border-radius clipping
                 isolation: 'isolate', // Create new stacking context
-                transform: 'translate3d(0,0,0)' // Force GPU layer to prevent flicker
-            }}
+            } : {}}
             onClick={() => window.open(data.link, '_blank')}>
 
             {/* Immersive Background Image */}

@@ -60,10 +60,23 @@ const BioCard = ({ universe, data, className }) => {
                 </>
             )}
 
-            {/* Cyberpunk Deco: Caution Tape + Tech Lines */}
+
             {universe === 'cyberpunk' && (
                 <>
-                    <div className="absolute top-0 right-0 w-32 h-32 border-t-4 border-r-4 border-[#00f0ff] rounded-tr-3xl opacity-50 pointer-events-none"></div>
+                    <div className="absolute top-5 right-5 flex flex-col items-end gap-1 pointer-events-none z-20">
+                        <div className="flex items-center gap-2">
+                            <div className="flex gap-0.5">
+                                <div className="w-1 h-1 bg-[#00f0ff] animate-pulse"></div>
+                                <div className="w-1 h-1 bg-[#00f0ff]/50"></div>
+                                <div className="w-1 h-1 bg-[#00f0ff] animate-pulse delay-75"></div>
+                            </div>
+                            <span className="text-[10px] font-cyber text-[#00f0ff] tracking-widest drop-shadow-[0_0_5px_#00f0ff]">NET.LINK_ACTIVE</span>
+                        </div>
+                        <div className="w-full h-[2px] bg-[#00f0ff] shadow-[0_0_8px_#00f0ff] relative overflow-hidden">
+                            <div className="absolute inset-0 bg-white/50 w-full -translate-x-full animate-[shimmer_2s_infinite]"></div>
+                        </div>
+                        <div className="h-4 w-[2px] bg-[#00f0ff] mr-0 shadow-[0_0_8px_#00f0ff]"></div>
+                    </div>
                     <div className="absolute bottom-0 left-0 w-full h-6 caution-tape border-t-2 border-black z-10"></div>
                 </>
             )}
@@ -100,7 +113,7 @@ const BioCard = ({ universe, data, className }) => {
     ${universe === 'botanical' ? 'text-[#3a5a40] opacity-0' : ''} 
   `} />
                     {/* Botanical hides standard icon for custom leaf */}
-                    <h2 className={`leading-tight mb-4 md:mb-6 ${getFontClass(universe, 'title')}
+                    <h2 className={`${universe === 'cyberpunk' ? 'leading-relaxed' : 'leading-tight'} mb-4 md:mb-6 ${getFontClass(universe, 'title')}
     ${(universe === 'retro' || universe === 'terminal') ? 'text-base sm:text-lg md:text-xl' : 'text-xl sm:text-2xl md:text-4xl lg:text-5xl'}
   `}>
                         {universe === 'terminal' ? '> ' : ''}
@@ -113,7 +126,7 @@ const BioCard = ({ universe, data, className }) => {
                                         universe === 'newspaper' ? 'italic decoration-4 underline' :
                                             universe === 'aero' ? 'text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600' :
                                                 universe === 'comic' ? 'bg-black text-white px-2 skew-x-[-5deg] inline-block' :
-                                                    universe === 'cyberpunk' ? 'bg-black text-[#fcee0a] px-1' :
+                                                    universe === 'cyberpunk' ? 'bg-black text-[#fcee0a] px-1 inline-block' :
                                                         universe === 'bauhaus' ? 'text-[#ffb703] underline decoration-4' :
                                                             universe === 'botanical' ? 'italic text-[#3a5a40]' :
                                                                 'text-transparent bg-clip-text bg-gradient-to-r from-[#3A86FF] to-[#8338EC]'

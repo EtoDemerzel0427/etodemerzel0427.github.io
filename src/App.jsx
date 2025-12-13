@@ -137,45 +137,46 @@ const Header = ({ universe, time, onShowStatus }) => (
       })()}
 
 
-      <h1 className={`text-6xl md:text-8xl font-bold mb-4 transition-all ${getFontClass(universe, 'title')}
-         ${universe === 'comic' ? 'bg-black text-white px-6 py-2 transform -skew-x-12 block w-fit shadow-[8px_8px_0_rgba(0,0,0,0.2)]' : ''}
-         ${universe === 'cyberpunk' ? 'text-[#fcee0a] drop-shadow-[2px_2px_0_#00f0ff]' : ''}
-         ${universe === 'terminal' ? 'animate-pulse' : ''} 
-         ${universe === 'bauhaus' ? 'text-[#1d3557]' : ''}
-      `}>
-        {universe === 'terminal' && <span className="mr-4">_</span>}
-        {universe === 'newspaper' && <span className="text-6xl float-left mr-2 font-serif leading-[0.8]">F</span>}
-        {USER_CONTENT.name}
-      </h1>
+      <>
+        <h1 className={`text-6xl md:text-8xl font-bold mb-4 transition-all ${getFontClass(universe, 'title')}
+           ${universe === 'comic' ? 'bg-black text-white px-6 py-2 transform -skew-x-12 block w-fit shadow-[8px_8px_0_rgba(0,0,0,0.2)]' : ''}
+           ${universe === 'cyberpunk' ? 'text-[#fcee0a] drop-shadow-[2px_2px_0_#00f0ff]' : ''}
+           ${universe === 'terminal' ? 'animate-pulse' : ''} 
+           ${universe === 'bauhaus' ? 'text-[#1d3557]' : ''}
+        `}>
+          {universe === 'terminal' && <span className="mr-4">_</span>}
+          {USER_CONTENT.name}
+        </h1>
 
-      <p className={`text-xl md:text-2xl max-w-2xl leading-relaxed transition-colors ${getFontClass(universe, 'body')}
-         ${universe === 'noir' ? 'text-gray-400' : ''}
-         ${universe === 'punk' ? 'text-black bg-white inline px-1 font-black uppercase' : ''}
-         ${universe === 'retro' ? 'text-white/70 text-sm leading-8' : ''}
-         ${universe === 'terminal' ? 'text-[#00ff41] opacity-80' : ''}
-         ${universe === 'newspaper' ? 'text-[#333] italic' : ''}
-         ${universe === 'aero' ? 'text-gray-800/80 drop-shadow-sm font-light' : ''}
-         ${universe === 'comic' ? 'text-black font-bold uppercase' : ''}
-         ${universe === 'lofi' ? 'text-[#586e75]' : ''}
-         ${universe === 'cyberpunk' ? 'text-[#00f0ff]' : ''}
-         ${universe === 'bauhaus' ? 'text-[#457b9d]' : ''}
-         ${universe === 'botanical' ? 'text-[#3a5a40]' : ''}
-         ${universe === 'neon' ? 'text-gray-500 font-medium' : ''}
-      `}>
-        {USER_CONTENT.role}.<br />
-        <span className={
-          universe === 'punk' ? 'bg-black text-white px-1' :
-            universe === 'retro' ? 'text-[#55ffff]' :
-              universe === 'terminal' ? 'text-white bg-[#00ff41] text-black px-1' :
-                universe === 'newspaper' ? 'italic font-serif' :
-                  universe === 'aero' ? 'text-blue-600 font-normal' :
-                    universe === 'comic' ? 'bg-black text-white px-1' :
-                      universe === 'cyberpunk' ? 'bg-black text-[#fcee0a] px-1' :
-                        universe === 'bauhaus' ? 'text-[#e63946] font-bold' :
-                          universe === 'botanical' ? 'italic text-[#3a5a40]' :
-                            universe === 'neon' ? 'text-[#3A86FF]' : 'text-blue-500'
-        }>{USER_CONTENT.bio}</span>
-      </p>
+        <p className={`text-xl md:text-2xl max-w-2xl leading-relaxed transition-colors ${getFontClass(universe, 'body')}
+           ${universe === 'noir' ? 'text-gray-400' : ''}
+           ${universe === 'punk' ? 'text-black bg-white inline px-1 font-black uppercase' : ''}
+           ${universe === 'retro' ? 'text-white/70 text-sm leading-8' : ''}
+           ${universe === 'terminal' ? 'text-[#00ff41] opacity-80' : ''}
+           ${universe === 'newspaper' ? 'text-[#333] italic' : ''}
+           ${universe === 'aero' ? 'text-gray-800/80 drop-shadow-sm font-light' : ''}
+           ${universe === 'comic' ? 'text-black font-bold uppercase' : ''}
+           ${universe === 'lofi' ? 'text-[#586e75]' : ''}
+           ${universe === 'cyberpunk' ? 'text-[#00f0ff]' : ''}
+           ${universe === 'bauhaus' ? 'text-[#457b9d]' : ''}
+           ${universe === 'botanical' ? 'text-[#3a5a40]' : ''}
+           ${universe === 'neon' ? 'text-gray-500 font-medium' : ''}
+        `}>
+          {USER_CONTENT.role}.<br />
+          <span className={
+            universe === 'punk' ? 'bg-black text-white px-1' :
+              universe === 'retro' ? 'text-[#55ffff]' :
+                universe === 'terminal' ? 'text-white bg-[#00ff41] text-black px-1' :
+                  universe === 'newspaper' ? 'italic font-serif' :
+                    universe === 'aero' ? 'text-blue-600 font-normal' :
+                      universe === 'comic' ? 'bg-black text-white px-1' :
+                        universe === 'cyberpunk' ? 'bg-black text-[#fcee0a] px-1' :
+                          universe === 'bauhaus' ? 'text-[#e63946] font-bold' :
+                            universe === 'botanical' ? 'italic text-[#3a5a40]' :
+                              universe === 'neon' ? 'text-[#3A86FF]' : 'text-blue-500'
+          }>{USER_CONTENT.bio}</span>
+        </p>
+      </>
     </div>
 
     <div className="mt-8 md:mt-0 flex flex-col items-end">
