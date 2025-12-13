@@ -1,0 +1,16 @@
+{
+  "competition": "UEFA Champions League",
+  "date": "2025-12-09",
+  "status": "FINISHED",
+  "homeTeam": {
+    "name": "Barça",
+    "score": 2,
+    "crest": "https://crests.football-data.org/81.png"
+  },
+  "awayTeam": {
+    "name": "Frankfurt",
+    "score": 1,
+    "crest": "https://crests.football-data.org/19.png"
+  },
+  "winner": "HOME_TEAM"
+}
