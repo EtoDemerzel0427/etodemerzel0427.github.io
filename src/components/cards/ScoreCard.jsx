@@ -4,7 +4,7 @@ import { getCardStyle, getFontClass } from '../../utils/theme';
 
 const ScoreCard = ({ universe, data, loading, className }) => {
     // data = scores object
-    const handleClick = () => window.open('https://www.fcbarcelona.com/en/football/first-team/schedule', '_blank');
+    const handleClick = () => window.open('https://www.fcbarcelona.com/en/football/first-team/results', '_blank');
 
     return (
         <div
