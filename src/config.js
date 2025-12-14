@@ -57,6 +57,10 @@ export const USER_CONTENT = {
         siteBaseUrl: "https://huangweiran.club/notes/", // Base URL for constructing deep links
         featuredPostPath: "content/Travel/Hawaii/欧胡百科.md"
     },
+    // Giscus removed.
+    disqus: {
+        shortname: "weiran-verse", // Placeholder: User needs to register on Disqus and replace this!
+    }
 };
 
 export const LAYOUT_CONFIG = [

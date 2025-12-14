@@ -10,6 +10,9 @@ const TechCard = ({ universe, data, loading, className }) => {
         }
     };
 
+    // Helper to detect Chinese characters
+    const hasChinese = (text) => /[\u4e00-\u9fa5]/.test(text);
+
     return (
         <div className={`${getCardStyle(universe, universe === 'punk' ? 'white' : 'white', `md:col-span-2 ${className}`)}`}>
 
@@ -53,11 +56,14 @@ const TechCard = ({ universe, data, loading, className }) => {
            ${universe === 'newspaper' ? 'italic' : ''}
            ${universe === 'comic' ? 'uppercase italic' : ''}
            ${universe === 'neon' ? 'text-gray-900 group-hover:text-[#3A86FF] transition-colors' : ''}
+           ${universe === 'retro' && hasChinese(data?.title || '') ? '!font-[Cubic]' : ''}
         `}>
                     {universe === 'newspaper' && <span className="bg-black text-white text-xs px-1 mr-2 not-italic align-middle">EXCLUSIVE</span>}
                     {data ? data.title : 'Loading...'}
                 </h3>
-                <p className={`text-base font-medium line-clamp-2 leading-relaxed opacity-60 ${getFontClass(universe, 'body')}`}>
+                <p className={`text-base font-medium line-clamp-2 leading-relaxed opacity-60 ${getFontClass(universe, 'body')}
+                    ${universe === 'retro' && hasChinese(data?.summary || '') ? '!font-[Cubic]' : ''}
+                `}>
                     {data ? data.summary : 'Fetching latest article...'}
                 </p>
             </div>

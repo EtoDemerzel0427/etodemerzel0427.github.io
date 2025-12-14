@@ -94,13 +94,13 @@ const BioCard = ({ universe, data, className }) => {
             )}
 
             <div className={`z-10 relative h-full flex flex-col justify-between 
-        ${universe === 'newspaper' ? 'pt-12' : ''} 
-        ${universe === 'cyberpunk' ? 'pb-8' : ''}
-        ${universe === 'terminal' ? 'pb-8 md:pb-12' : ''}
-        ${universe === 'bauhaus' ? 'pt-20' : ''}
+        ${universe === 'newspaper' ? 'pt-8 md:pt-12' : ''} 
+        ${universe === 'cyberpunk' ? 'pb-4 md:pb-8' : ''}
+        ${universe === 'terminal' ? 'pb-4 md:pb-12' : ''}
+        ${universe === 'bauhaus' ? 'pt-12 md:pt-20' : ''}
     `}>
-                <div className={universe === 'bauhaus' ? 'max-w-[80%]' : ''}>
-                    <Cpu size={48} className={`mb-6 transition-colors 
+                <div className={universe === 'bauhaus' ? 'max-w-[90%] md:max-w-[80%]' : ''}>
+                    <Cpu size={48} className={`mb-4 md:mb-6 transition-colors 
     ${universe === 'neon' ? 'text-[#3A86FF]' : ''}
     ${universe === 'retro' ? 'text-[#ff0055]' : ''}
     ${universe === 'terminal' ? 'text-[#00ff41]' : 'opacity-90'}
@@ -109,12 +109,12 @@ const BioCard = ({ universe, data, className }) => {
     ${universe === 'comic' ? 'text-black drop-shadow-[2px_2px_0_rgba(0,0,0,0.2)]' : ''}
     ${universe === 'lofi' ? 'text-[#b58900]' : ''}
     ${universe === 'cyberpunk' ? 'text-black' : ''}
-    ${universe === 'bauhaus' ? 'text-white absolute -left-2 -top-2 sm:-left-4 sm:-top-4 w-14 h-14 sm:w-16 sm:h-16 bg-black p-3 rounded-full border-4 border-white' : ''}
+    ${universe === 'bauhaus' ? 'text-white absolute -left-2 -top-2 sm:-left-4 sm:-top-4 w-12 h-12 sm:w-16 sm:h-16 bg-black p-2 sm:p-3 rounded-full border-4 border-white' : ''}
     ${universe === 'botanical' ? 'text-[#3a5a40] opacity-0' : ''} 
   `} />
                     {/* Botanical hides standard icon for custom leaf */}
-                    <h2 className={`${universe === 'cyberpunk' ? 'leading-relaxed' : 'leading-tight'} mb-4 md:mb-6 ${getFontClass(universe, 'title')}
-    ${(universe === 'retro' || universe === 'terminal') ? 'text-base sm:text-lg md:text-xl' : 'text-xl sm:text-2xl md:text-4xl lg:text-5xl'}
+                    <h2 className={`${universe === 'cyberpunk' ? 'leading-relaxed' : 'leading-tight'} mb-2 md:mb-6 ${getFontClass(universe, 'title')}
+    ${(universe === 'retro' || universe === 'terminal') ? 'text-base sm:text-lg md:text-xl' : 'text-lg sm:text-xl md:text-3xl lg:text-4xl'}
   `}>
                         {universe === 'terminal' ? '> ' : ''}
                         {universe === 'newspaper' ? 'Forging ultra-low latency ' : 'Forging ultra-low latency '}
@@ -137,16 +137,16 @@ const BioCard = ({ universe, data, className }) => {
                     </h2>
                 </div>
 
-                <div className={`space-y-4 md:space-y-6 ${universe === 'bauhaus' ? 'pl-4 border-l-4 border-white' : ''} pt-4`}>
-                    <p className={`text-sm sm:text-base md:text-lg max-w-md leading-relaxed ${getFontClass(universe, 'body')}
+                <div className={`space-y-4 md:space-y-6 ${universe === 'bauhaus' ? 'pl-4 border-l-4 border-white' : ''} pt-2`}>
+                    <p className={`text-xs sm:text-sm md:text-lg max-w-md leading-relaxed ${getFontClass(universe, 'body')}
             ${universe === 'neon' ? 'text-gray-500' : 'opacity-90'}
           `}>
                         Building the backbone of high-frequency trading. Obsessed with memory models, lock-free structures, and zero-cost abstractions.
                     </p>
-                    <div className="flex gap-4 pt-2">
+                    <div className="flex gap-4 pt-1 md:pt-2">
                         <button
                             onClick={() => window.open(data?.projectUrl || 'https://github.com', '_blank')}
-                            className={`px-8 py-4 font-bold text-sm transition-all flex items-center gap-2 cursor-pointer
+                            className={`px-5 py-2.5 md:px-8 md:py-4 font-bold text-xs md:text-sm transition-all flex items-center gap-2 cursor-pointer
               ${universe === 'punk' ? 'bg-black text-white shadow-[4px_4px_0px_#fff] hover:-translate-y-1' : ''}
               ${universe === 'retro' ? 'bg-[#ff0055] text-white border-2 border-white hover:scale-105 rounded-sm text-[10px] shadow-[2px_2px_0px_rgba(255,255,255,0.5)]' : ''}
               ${universe === 'terminal' ? 'bg-[#00ff41] text-black hover:bg-white rounded-none border border-[#00ff41]' : ''}

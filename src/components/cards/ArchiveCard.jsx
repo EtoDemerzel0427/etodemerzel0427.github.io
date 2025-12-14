@@ -1,10 +1,18 @@
-import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Library } from 'lucide-react';
 import { getCardStyle, getFontClass } from '../../utils/theme';
 
 const ArchiveCard = ({ universe, data, loading, className }) => {
     // data = { count: 35, siteUrl: '...' }
-    const handleClick = () => window.open(data.siteUrl, '_blank');
+    const navigate = useNavigate();
+
+    const handleClick = () => {
+        if (data.siteUrl && data.siteUrl.startsWith('/')) {
+            navigate(data.siteUrl);
+        } else {
+            window.open(data.siteUrl, '_blank');
+        }
+    };
 
     return (
         <div className={`${getCardStyle(universe, 'white', className)} cursor-pointer`} onClick={handleClick}>
