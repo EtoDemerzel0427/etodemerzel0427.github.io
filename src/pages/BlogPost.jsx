@@ -100,7 +100,7 @@ const BlogPost = () => {
                     h1: "text-5xl md:text-7xl font-comic tracking-wider mb-8 text-black -rotate-2",
                     h3: "text-2xl font-comic mt-8 mb-4 text-black uppercase decoration-wavy underline decoration-2 decoration-black",
                     p: "text-lg leading-normal text-black mb-6 font-comic",
-                    quote: "bg-white border-[3px] border-black p-6 my-8 rounded-[40%] shadow-[6px_6px_0_#000] text-center font-black relative after:content-[''] after:absolute after:bottom-[-20px] after:right-[30%] after:border-l-[20px] after:border-l-transparent after:border-r-[0px] after:border-r-transparent after:border-t-[20px] after:border-t-black",
+                    quote: "bg-white border-[3px] border-black p-8 my-8 rounded-[2rem] shadow-[6px_6px_0_#000] text-center font-black relative after:content-[''] after:absolute after:bottom-[-20px] after:right-[15%] after:border-l-[20px] after:border-l-transparent after:border-r-[0px] after:border-r-transparent after:border-t-[20px] after:border-t-black",
                     code: "bg-black text-white px-1 font-bold transform skew-x-[-10deg] inline-block",
                     pre: "border-[3px] border-black bg-gray-100 p-4 my-6 shadow-[6px_6px_0_#000]"
                 };
