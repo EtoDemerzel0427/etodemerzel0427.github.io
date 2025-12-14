@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useOutletContext, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Header from '../components/Header';
-import Footer from '../components/Footer';
+
 
 import { getFontClass, getCardStyle } from '../utils/theme';
 import { getAllPosts } from '../utils/blogLoader';
@@ -116,7 +116,7 @@ const BlogList = () => {
                 </div>
             </div>
 
-            <Footer universe={universe} />
+
         </div>
     );
 };
