@@ -4,7 +4,7 @@ import { getCardStyle, getFontClass } from '../../utils/theme';
 
 const MusicCard = ({ universe, data, isPlaying, onToggle, className }) => {
     return (
-        <div className={`${getCardStyle(universe, 'green', className)} group cursor-pointer`} onClick={onToggle}>
+        <div className={`${getCardStyle(universe, universe === 'neon' ? 'pink' : 'green', className)} group cursor-pointer`} onClick={onToggle}>
 
             {universe === 'neon' && (
                 <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-[#06D6A0] to-white opacity-20 rounded-full blur-xl"></div>
@@ -41,10 +41,11 @@ const MusicCard = ({ universe, data, isPlaying, onToggle, className }) => {
                 ${universe === 'newspaper' ? 'bg-black' : ''}
                 ${universe === 'aero' ? 'bg-blue-500/80 shadow-[0_0_10px_white]' : ''}
                 ${universe === 'comic' ? 'bg-black' : ''}
-                ${universe === 'cyberpunk' ? 'bg-black' : ''}
+                ${universe === 'cyberpunk' ? 'bg-[#fcee0a]' : ''}
+                ${universe === 'lofi' ? 'bg-[#b58900]' : ''}
                 ${universe === 'bauhaus' ? 'bg-white' : ''}
                 ${universe === 'botanical' ? 'bg-[#3a5a40]' : ''}
-                ${universe === 'noir' ? 'bg-green-500' : ''}
+                ${universe === 'noir' ? 'bg-white' : ''}
                 ${universe === 'neon' ? 'bg-white/80 rounded-full' : ''}
               `}
                             style={{ height: `${h * 100}%`, animationDelay: `${i * 0.1}s` }}
