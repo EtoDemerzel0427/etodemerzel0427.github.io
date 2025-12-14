@@ -19,16 +19,24 @@ import { LAYOUT_CONFIG } from './config';
 // --- 独立组件提取 (Clean Code & Perf) ---
 
 const Clock = () => {
-  const [time, setTime] = useState(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
+  const [time, setTime] = useState(new Date().toLocaleTimeString('en-US', {
+    timeZone: 'America/Chicago',
+    hour: '2-digit',
+    minute: '2-digit'
+  }));
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setTime(new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }));
-    }, 1000);
+      setTime(new Date().toLocaleTimeString('en-US', {
+        timeZone: 'America/Chicago',
+        hour: '2-digit',
+        minute: '2-digit'
+      }));
+    }, 1000); // Poll every second, but state only updates when string changes (every minute)
     return () => clearInterval(timer);
   }, []);
 
-  return <>{time}</>;
+  return <span className="font-mono text-sm opacity-60">{time}</span>;
 };
 
 const AeroBackground = () => (
