@@ -3,18 +3,16 @@ import { useStore } from '@nanostores/react';
 import { universe as universeStore } from '../stores/universeStore';
 import { isPlaying as isPlayingStore, toggleMusic } from '../stores/musicStore';
 import { USER_CONTENT, LAYOUT_CONFIG } from '../config';
-import { useGitHubBlogs } from '../hooks/useGitHubBlogs';
 import { useScores } from '../hooks/useScores';
 import { useGitHubStats } from '../hooks/useGitHubStats';
 import { CardRegistry } from '../components/CardRegistry';
 
-const BentoGrid = () => {
+const BentoGrid = ({ latestPost, postCount }) => {
     // Global State via Nano Stores
     const universe = useStore(universeStore);
     const isPlaying = useStore(isPlayingStore);
 
-    // Data Hooks (Client-side fetching for dynamic feel)
-    const { count: blogCount, featuredPost, loading: blogsLoading } = useGitHubBlogs();
+    // Data Hooks (Client-side fetching for other dynamic cards)
     const { scores, loading: scoresLoading } = useScores();
     const { userProfile, contributionStats, loading: githubLoading } = useGitHubStats(USER_CONTENT.social.github);
 
@@ -28,8 +26,8 @@ const BentoGrid = () => {
                     // Resolve Data
                     let data = {};
                     if (cardConfig.type === 'music') data = USER_CONTENT.nowPlaying;
-                    else if (cardConfig.type === 'archive') data = { count: blogCount, siteUrl: '/blog' };
-                    else if (cardConfig.type === 'tech') data = featuredPost || USER_CONTENT.featuredArticle;
+                    else if (cardConfig.type === 'archive') data = { count: postCount, siteUrl: '/blog' }; // Use prop
+                    else if (cardConfig.type === 'tech') data = latestPost || USER_CONTENT.featuredArticle; // Use prop
                     else if (cardConfig.type === 'reading') data = USER_CONTENT.reading;
                     else if (cardConfig.type === 'score') data = scores;
                     else if (cardConfig.type === 'game') data = USER_CONTENT.game;
@@ -42,7 +40,7 @@ const BentoGrid = () => {
                         extraProps.isPlaying = isPlaying;
                         extraProps.onToggle = toggleMusic;
                     }
-                    if (cardConfig.type === 'archive') extraProps.loading = blogsLoading;
+                    // Archive loading is no longer needed as it's SSR
                     if (cardConfig.type === 'score') extraProps.loading = scoresLoading;
                     if (cardConfig.type === 'activity') extraProps.loading = githubLoading;
 

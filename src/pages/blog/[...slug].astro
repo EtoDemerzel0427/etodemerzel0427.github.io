@@ -1,10 +1,10 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import BlogPost from '../../components/react-pages/BlogPost';
-import { getAllPosts } from '../../utils/blogLoader';
+import { getCollection, render } from 'astro:content';
 
 export async function getStaticPaths() {
-    const posts = getAllPosts();
+    const posts = await getCollection('posts');
     return posts.map(post => ({
         params: { slug: post.slug },
         props: { post },
@@ -12,8 +12,18 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
+const { Content } = await render(post);
+const postWithContent = {
+    ...post.data,
+    slug: post.slug,
+    content: '' // React component will receive rendered HTML via children or specialized prop if refactored, but here we keep existing structure logic or adapt.
+    // ACTUAL FIX: The React component expects `content` as a string of markdown.
+    // With getCollection, `post.body` contains the raw markdown!
+};
+// Re-assign raw markdown to content for the React component (which uses ReactMarkdown)
+postWithContent.content = post.body;
 ---
 
-<Layout title={post.title} showHeader={false}>
-    <BlogPost client:only="react" post={post} />
+<Layout title={post.data.title} showHeader={false}>
+    <BlogPost client:only="react" post={postWithContent} />
 </Layout>

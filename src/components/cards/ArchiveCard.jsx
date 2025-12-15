@@ -1,13 +1,11 @@
 import { Library } from 'lucide-react';
 import { getCardStyle, getFontClass } from '../../utils/theme';
 
-const ArchiveCard = ({ universe, data, loading, className }) => {
+const ArchiveCard = ({ universe, data, className }) => {
     // data = { count: 35, siteUrl: '...' }
     const handleClick = () => {
-        if (data.siteUrl && data.siteUrl.startsWith('/')) {
+        if (data.siteUrl) {
             window.location.href = data.siteUrl;
-        } else {
-            window.open(data.siteUrl, '_blank');
         }
     };
 
@@ -45,7 +43,7 @@ const ArchiveCard = ({ universe, data, loading, className }) => {
 
             <div className={universe === 'bauhaus' ? 'mt-8' : ''}>
                 <div className={`text-6xl font-black mb-0 tracking-tighter ${getFontClass(universe, 'title')}`}>
-                    {loading ? '...' : data.count}
+                    {data.count}
                 </div>
                 <div className="text-sm font-bold uppercase tracking-widest opacity-40">Posts</div>
             </div>

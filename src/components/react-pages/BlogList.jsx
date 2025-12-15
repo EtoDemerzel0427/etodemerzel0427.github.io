@@ -6,7 +6,7 @@ import { universe } from '../../stores/universeStore';
 import { lang, toggleLang } from '../../stores/langStore'; // Adjust path
 import { getFontClass, getCardStyle } from '../../utils/theme';
 
-const BlogList = ({ posts }) => {
+const BlogList = ({ posts, activeTag }) => {
     const $universe = useStore(universe);
     const $lang = useStore(lang);
 
@@ -16,9 +16,15 @@ const BlogList = ({ posts }) => {
     // Helper to detect Chinese characters
     const hasChinese = (text) => /[\u4e00-\u9fa5]/.test(text);
 
-    // 4. Navigation Bar Style (Copied & Adapted from BlogPost for consistency)
+    // Navigation logic for card click
+    const handleCardClick = (e, slug) => {
+        // Prevent navigation if clicking on a tag (which is an anchor)
+        if (e.target.closest('a')) return;
+        window.location.href = `/blog/${slug}`;
+    };
+
+    // 4. Navigation Bar Style
     const getHeaderClass = () => {
-        // Base: Fixed, full width, NO background, NO events on container
         const base = "fixed top-0 left-0 w-full p-6 flex justify-between items-center z-50 transition-all duration-500 pointer-events-none";
 
         switch ($universe) {
@@ -38,8 +44,27 @@ const BlogList = ({ posts }) => {
         }
     };
 
+
+
+    // Helper for highlight color
+    const getHighlightColor = (u) => {
+        switch (u) {
+            case 'terminal': return 'text-[#33ff00]';
+            case 'cyberpunk': return 'text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.8)]';
+            case 'retro': return 'text-[#ff0055]';
+            case 'neon': return 'text-[#3A86FF]';
+            case 'punk': return 'text-[#ff0090] bg-black text-white px-2 -rotate-1 inline-block';
+            case 'bauhaus': return 'text-[#e63946]';
+            case 'botanical': return 'text-[#3a5a40]';
+            case 'newspaper': return 'text-black underline decoration-4 underline-offset-4';
+            case 'comic': return 'text-black font-black underline decoration-wavy decoration-[#ff0055]';
+            case 'aero': return 'text-blue-600 drop-shadow-md';
+            default: return 'text-current opacity-100 underline decoration-2 underline-offset-4';
+        }
+    };
+
     return (
-        <div className="max-w-6xl mx-auto px-4 flex flex-col">
+        <div className="w-full px-2 flex flex-col">
 
             {/* Header Portal - Back to Home */}
             {createPortal(
@@ -59,8 +84,16 @@ const BlogList = ({ posts }) => {
 
                 <div className="space-y-6 mt-12 pb-20">
                     <div className="flex items-baseline gap-4 mb-8">
-                        <h2 className={`text-4xl font-bold ${getFontClass($universe, 'title')}`}>Articles</h2>
+                        <h2 className={`text-4xl font-bold ${getFontClass($universe, 'title')}`}>
+                            {activeTag ? (
+                                <>
+                                    <span className="opacity-50">Tag:</span>
+                                    <span className={`ml-2 ${getHighlightColor($universe)}`}>{activeTag}</span>
+                                </>
+                            ) : 'Articles'}
+                        </h2>
                         <div className={`text-xl font-bold ${getFontClass($universe, 'body')}`}>
+                            {/* Language Toggles */}
                             <span
                                 onClick={() => $lang !== 'zh' && toggleLang()}
                                 className={`cursor-pointer transition-all ${$lang === 'zh' ? 'opacity-100 border-b-2 border-current' : 'opacity-30 hover:opacity-100'}`}
@@ -81,10 +114,10 @@ const BlogList = ({ posts }) => {
                         <p className="opacity-50 italic">No articles found in this language.</p>
                     ) : (
                         filteredPosts.map(post => (
-                            <a
-                                href={`/blog/${post.slug}`}
+                            <div
+                                onClick={(e) => handleCardClick(e, post.slug)}
                                 key={post.slug}
-                                className={`block group no-underline ${getCardStyle($universe, 'default', '!min-h-0 !p-6 md:!p-8 h-auto')}`}
+                                className={`block group cursor-pointer relative ${getCardStyle($universe, 'default', '!min-h-0 !p-6 md:!p-8 h-auto')}`}
                             >
                                 <div className="flex flex-col gap-4">
                                     <div className="flex justify-between items-start gap-4">
@@ -102,8 +135,25 @@ const BlogList = ({ posts }) => {
                                     `}>
                                         {post.summary}
                                     </p>
+
+                                    {/* Tags Display */}
+                                    {post.tags && post.tags.length > 0 && (
+                                        <div className="flex gap-2 mt-2">
+                                            {post.tags.map(tag => (
+                                                <a
+                                                    key={tag}
+                                                    href={`/blog/tag/${tag}`}
+                                                    className={`text-xs font-bold px-2 py-1 border rounded z-10 transition-colors
+                                                        ${$universe === 'retro' ? 'border-white text-white hover:bg-white hover:text-black' : 'border-current opacity-60 hover:opacity-100 hover:bg-black/5'}
+                                                    `}
+                                                >
+                                                    #{tag}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            </a>
+                            </div>
                         ))
                     )}
                 </div>

@@ -252,8 +252,8 @@ const BlogPost = ({ post }) => {
                     <header className={`mb-12 ${universe === 'newspaper' ? '' : 'border-b border-current/10 pb-8'}`}>
                         <div className="flex flex-wrap gap-3 mb-6">
                             {tags && tags.map(tag => (
-                                <span key={tag} className={`
-                  px-3 py-1 font-bold uppercase tracking-wider
+                                <a href={`/blog/tag/${tag}`} key={tag} className={`
+                  px-3 py-1 font-bold uppercase tracking-wider hover:opacity-80 transition-opacity
                   ${universe === 'comic' ? 'text-sm border-2 border-black bg-white shadow-[2px_2px_0_#000]' : 'text-xs'}
                   ${universe === 'retro' ? 'border border-current' :
                                         universe === 'terminal' ? 'bg-[#33ff00] text-black' :
@@ -262,7 +262,7 @@ const BlogPost = ({ post }) => {
                                                     'bg-current/10 text-current rounded-full'}
                 `}>
                                     #{tag}
-                                </span>
+                                </a>
                             ))}
                         </div>
 

@@ -5,8 +5,14 @@ import { getCardStyle, getFontClass } from '../../utils/theme';
 const TechCard = ({ universe, data, loading, className }) => {
     // data = featuredPost object
     const handleClick = () => {
-        if (data && data.url) {
-            window.open(data.url, '_blank');
+        if (data) {
+            if (data.slug) {
+                // Local post -> internal navigation
+                window.location.href = `/blog/${data.slug}`;
+            } else if (data.url) {
+                // Fallback for external links (if any)
+                window.open(data.url, '_blank');
+            }
         }
     };
 
@@ -26,6 +32,7 @@ const TechCard = ({ universe, data, loading, className }) => {
 
             <div className="flex justify-between items-center mb-4 relative z-10">
                 <div className="flex items-center gap-2">
+                    {/* Icon Container */}
                     <div className={`p-1.5 rounded-lg transition-colors
              ${universe === 'punk' ? 'bg-[#00BBF9] border border-black text-white' : ''}
              ${universe === 'retro' ? 'bg-[#ff0055] text-white rounded-sm border-2 border-white' : ''}
@@ -41,9 +48,16 @@ const TechCard = ({ universe, data, loading, className }) => {
            `}>
                         <Terminal size={16} />
                     </div>
-                    <span className="text-xs font-bold uppercase tracking-wider opacity-60">
-                        {data ? data.category : '...'}
-                    </span>
+                    {data && (
+                        <a
+                            href={data.tags && data.tags.length > 0 ? `/blog/tag/${data.tags[0]}` : '#'}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100 hover:underline z-20"
+                        >
+                            {data.category || (data.tags && data.tags[0]) || 'Blog'}
+                        </a>
+                    )}
+                    {!data && <span className="text-xs font-bold uppercase tracking-wider opacity-60">...</span>}
                 </div>
                 <span className={`text-xs font-bold ${universe === 'punk' ? 'font-code' : 'opacity-40'} ${universe === 'retro' ? 'text-[8px]' : ''}`}>
                     {data ? data.date : '...'}

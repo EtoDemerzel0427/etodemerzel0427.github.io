@@ -1,8 +1,18 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import BentoGrid from '../components/BentoGrid';
+import { getCollection } from 'astro:content';
+
+const allPosts = await getCollection('posts');
+const posts = allPosts.map(p => ({
+    slug: p.slug,
+    ...p.data, // v5 collections use 'data' for frontmatter
+})).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+const latestPost = posts.length > 0 ? posts[0] : null;
+const postCount = posts.length;
 ---
 
 <Layout title="Weiran's Universe">
-    <BentoGrid client:only="react" />
+    <BentoGrid client:only="react" latestPost={latestPost} postCount={postCount} />
 </Layout>
