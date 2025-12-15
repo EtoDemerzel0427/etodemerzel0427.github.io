@@ -60,6 +60,9 @@ export const USER_CONTENT = {
     // Giscus removed.
     disqus: {
         shortname: "weiran-verse", // Placeholder: User needs to register on Disqus and replace this!
+    },
+    googleAnalytics: {
+        id: "G-GFJLECR3EB"
     }
 };
 

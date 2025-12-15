@@ -6,6 +6,7 @@ import ThemeSync from '../components/ThemeSync';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import MusicPlayer from '../components/MusicPlayer'; // We will create this wrapper next
+import { USER_CONTENT } from '../config';
 import '../index.css';
 
 const { title = "Weiran's Universe", showHeader = true } = Astro.props;
@@ -19,7 +20,21 @@ const { title = "Weiran's Universe", showHeader = true } = Astro.props;
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
+		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+
+        <!-- Google Analytics (Partytown) -->
+        {USER_CONTENT.googleAnalytics?.id && (
+            <>
+                <script type="text/partytown" async src={`https://www.googletagmanager.com/gtag/js?id=${USER_CONTENT.googleAnalytics.id}`}></script>
+                <script type="text/partytown" define:vars={{ gaId: USER_CONTENT.googleAnalytics.id }}>
+                    window.dataLayer = window.dataLayer || [];
+                    function gtag(){dataLayer.push(arguments);}
+                    gtag('js', new Date());
+                    gtag('config', gaId);
+                </script>
+            </>
+        )}
 
         <!-- Google Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@astrojs/partytown": "^2.1.4",
     "@astrojs/react": "^4.4.2",
     "@astrojs/tailwind": "^6.0.2",
     "@giscus/react": "^3.1.0",
