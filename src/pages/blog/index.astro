@@ -1,0 +1,11 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import BlogList from '../../components/react-pages/BlogList';
+import { getAllPosts } from '../../utils/blogLoader';
+
+const posts = getAllPosts();
+---
+
+<Layout title="Articles | Weiran's Universe">
+    <BlogList client:only="react" posts={posts} />
+</Layout>

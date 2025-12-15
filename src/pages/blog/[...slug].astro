@@ -1,0 +1,19 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import BlogPost from '../../components/react-pages/BlogPost';
+import { getAllPosts } from '../../utils/blogLoader';
+
+export async function getStaticPaths() {
+    const posts = getAllPosts();
+    return posts.map(post => ({
+        params: { slug: post.slug },
+        props: { post },
+    }));
+}
+
+const { post } = Astro.props;
+---
+
+<Layout title={post.title} showHeader={false}>
+    <BlogPost client:only="react" post={post} />
+</Layout>

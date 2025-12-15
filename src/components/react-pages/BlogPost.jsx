@@ -1,42 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useOutletContext, Link, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import 'highlight.js/styles/atom-one-dark-reasonable.css'; // User preference
+import 'highlight.js/styles/atom-one-dark-reasonable.css';
 import {
-    ArrowLeft, Calendar, Clock, Share2, MessageCircle,
-    Grid3X3, X
+    ArrowLeft, Calendar, Clock, Share2, MessageCircle
 } from 'lucide-react';
-import { getFontClass } from '../utils/theme';
+import { useStore } from '@nanostores/react';
+import { universe as universeStore } from '../../stores/universeStore';
+import { getFontClass } from '../../utils/theme';
+import DisqusComments from '../DisqusComments';
 
-import { getPostBySlug } from '../utils/blogLoader';
-import DisqusComments from '../components/DisqusComments';
-import SEO from '../components/SEO';
-
-const BlogPost = () => {
-    const { universe, handleShowStatus } = useOutletContext();
-    const { slug } = useParams();
+const BlogPost = ({ post }) => {
+    const universe = useStore(universeStore);
     const [scrollProgress, setScrollProgress] = useState(0);
 
-    // Fetch Post Data
-    const post = getPostBySlug(slug);
-
-    // 404 Handling
-    if (!post) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
-                <h1 className="text-4xl font-bold mb-4">404 - Article Not Found</h1>
-                <p className="mb-8">The article you are looking for does not exist.</p>
-                <Link to="/blog" className="px-6 py-2 bg-black text-white rounded-full">Back to Blog</Link>
-            </div>
-        );
-    }
-
-    // Use post data instead of global constant
-    const { title, date, readTime, tags, content } = post;
+    // Destructure post data
+    const { title, date, readTime, tags, content, slug } = post;
 
     useEffect(() => {
         const handleScroll = () => {
@@ -51,11 +33,7 @@ const BlogPost = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-
     // --- 样式配置工厂 ---
-
-    // 1. 全局背景与字体
-    // Handled by RootLayout
 
     // 2. 文章容器样式 (纸张/屏幕)
     const getArticleContainerStyle = () => {
@@ -95,7 +73,6 @@ const BlogPost = () => {
                     pre: "bg-gray-100 border border-black p-4 my-6 text-xs font-mono w-full overflow-x-auto"
                 };
             case 'comic':
-
                 return {
                     h1: "text-5xl md:text-7xl font-comic tracking-wider mb-8 text-black -rotate-2",
                     h3: "text-2xl font-comic mt-8 mb-4 text-black uppercase decoration-wavy underline decoration-2 decoration-black",
@@ -113,7 +90,6 @@ const BlogPost = () => {
                     code: "text-black bg-[#33ff00] px-1",
                     pre: "border border-[#33ff00] bg-[#001100] p-4 my-6 text-xs"
                 };
-            // ... (Keep other styles mostly same, just slight refinement)
             case 'neon':
                 return {
                     h1: "text-4xl md:text-5xl font-bold tracking-tight mb-6 text-gray-900",
@@ -156,39 +132,22 @@ const BlogPost = () => {
 
     // 4. Navigation Bar Style
     const getHeaderClass = () => {
-        // Base: Fixed, full width, but NO background, NO events on container (updates "float")
         const base = "fixed top-0 left-0 w-full p-6 flex justify-between items-center z-50 transition-all duration-500 pointer-events-none";
 
-        // We only care about TEXT colors now, as background is transparent
         switch (universe) {
-            case 'terminal':
-                return `${base} text-[#33ff00]`;
-            case 'neon':
-                // Neon might need a tiny text shadow if it overlaps generic content, but usually fine
-                return `${base} text-gray-900`;
-            case 'newspaper':
-                return `${base} text-black`;
-            case 'cyberpunk':
-                return `${base} text-[#fcee0a]`;
-            case 'retro':
-                return `${base} text-white mix-blend-difference`; // Reliable high contrast
-            case 'noir':
-                return `${base} text-gray-300 mix-blend-difference`;
-            case 'bauhaus':
-                return `${base} text-black`;
-            case 'comic':
-                return `${base} text-black`;
-            case 'punk':
-                // Keeping the cool mix-blend logic for floating text
-                return `${base} mix-blend-difference text-white`;
-            case 'lofi':
-                return `${base} text-[#5f5a4e]`;
-            case 'botanical':
-                return `${base} text-[#3a5a40]`;
-            case 'aero':
-                return `${base} text-white drop-shadow-md`;
-            default:
-                return `${base} text-gray-800`;
+            case 'terminal': return `${base} text-[#33ff00]`;
+            case 'neon': return `${base} text-gray-900`;
+            case 'newspaper': return `${base} text-black`;
+            case 'cyberpunk': return `${base} text-[#fcee0a]`;
+            case 'retro': return `${base} text-white mix-blend-difference`;
+            case 'noir': return `${base} text-gray-300 mix-blend-difference`;
+            case 'bauhaus': return `${base} text-black`;
+            case 'comic': return `${base} text-black`;
+            case 'punk': return `${base} mix-blend-difference text-white`;
+            case 'lofi': return `${base} text-[#5f5a4e]`;
+            case 'botanical': return `${base} text-[#3a5a40]`;
+            case 'aero': return `${base} text-white drop-shadow-md`;
+            default: return `${base} text-gray-800`;
         }
     };
 
@@ -203,7 +162,7 @@ const BlogPost = () => {
         } else {
             try {
                 await navigator.clipboard.writeText(url);
-                alert('Link copied to clipboard!'); // Simple feedback
+                alert('Link copied to clipboard!');
             } catch (err) {
                 console.error('Clipboard failed:', err);
             }
@@ -220,8 +179,6 @@ const BlogPost = () => {
     return (
         <div className={`min-h-screen transition-all duration-700 relative z-0`}>
 
-            {/* Font Injection - Handled by index.html */}
-
             {/* --- SCROLL PROGRESS BAR --- */}
             <div className="fixed top-0 left-0 w-full h-1.5 z-[60]">
                 <div
@@ -233,14 +190,12 @@ const BlogPost = () => {
             {/* --- NAVIGATION --- */}
             {createPortal(
                 <nav className={getHeaderClass()}>
-                    <Link to="/blog" className={`flex items-center gap-2 font-bold pointer-events-auto transition-opacity hover:opacity-100 opacity-60
+                    <a href="/blog" className={`flex items-center gap-2 font-bold pointer-events-auto transition-opacity hover:opacity-100 opacity-60
                         ${getFontClass(universe)}
                     `}>
                         <ArrowLeft size={20} />
                         <span>Back to Articles</span>
-                    </Link>
-
-                    {/* Universe Switcher is in RootLayout, we don't need it here */}
+                    </a>
                 </nav>,
                 document.body
             )}
@@ -256,13 +211,6 @@ const BlogPost = () => {
                         <div className="fixed left-6 bottom-1/3 text-[#00f0ff] font-mono text-xs rotate-90 origin-bottom-left hidden md:block">SYS.MONITORING</div>
                     </>
                 )}
-
-                <SEO
-                    title={title}
-                    description={content.slice(0, 150).replace(/[#*`]/g, '') + '...'}
-                    image={content.match(/!\[.*?\]\((.*?)\)/)?.[1] /* Extract first image URL */}
-                    type="article"
-                />
 
                 <article className={getArticleContainerStyle()}>
 
@@ -343,21 +291,19 @@ const BlogPost = () => {
                             rehypePlugins={[rehypeHighlight, rehypeKatex]}
                             components={{
                                 h1: ({ node, children, ...props }) => <h1 className={typo.h1} {...props}>{children}</h1>,
-                                h2: ({ node, children, ...props }) => <h2 className={typo.h3} {...props}>{children}</h2>, // Map h2 to h3 style for now or add h2 style
+                                h2: ({ node, children, ...props }) => <h2 className={typo.h3} {...props}>{children}</h2>,
                                 h3: ({ node, children, ...props }) => {
-                                    // Check if children text contains Chinese
                                     const text = Array.isArray(children) ? children.join('') : children;
                                     const fontClass = (universe === 'retro' && hasChinese(text)) ? '!font-[Cubic]' : '';
                                     return <h3 className={`${typo.h3} ${fontClass}`} {...props}>{children}</h3>
                                 },
                                 p: ({ node, children, ...props }) => {
                                     const text = Array.isArray(children) ? children.join('') : (typeof children === 'string' ? children : '');
-                                    // Relaxed check: if children is complex, we might skip, but mostly it works for text nodes
                                     const fontClass = (universe === 'retro' && hasChinese(text)) ? '!font-[Cubic]' : '';
                                     return <p className={`${typo.p} ${fontClass}`} {...props}>{children}</p>
                                 },
                                 blockquote: ({ node, children, ...props }) => {
-                                    const fontClass = (universe === 'retro') ? '!font-[Cubic]' : ''; // Quotes often look better in consistent font
+                                    const fontClass = (universe === 'retro') ? '!font-[Cubic]' : '';
                                     return <blockquote className={`${typo.quote} ${fontClass}`} {...props}>{children}</blockquote>
                                 },
                                 code: ({ node, inline, className, children, ...props }) => {

@@ -19,8 +19,9 @@ const ReadingCard = ({ universe, data, className }) => {
        ${universe === 'botanical' ? 'bg-[#f0ead6] border border-[#a3b18a] p-6 shadow-sm hover:shadow-md hover:border-[#3a5a40] rounded-xl hover:-translate-y-0.5' : ''}
        ${universe === 'cyberpunk' ? 'bg-[#1a1a1a] text-[#fcee0a] p-6 cyber-clip hover:bg-white hover:text-black hover:shadow-[0_0_30px_rgba(252,238,10,0.6)] rounded-none transition-colors duration-200' : ''}
        ${universe === 'newspaper' ? 'bg-white border-y-2 border-black p-6 hover:bg-[#fafafa] rounded-none shadow-sm' : ''}
+       ${universe === 'neon' ? 'bg-white text-gray-900 rounded-[2.5rem] p-8 border border-white/50 hover:-translate-y-1 neon-glow-card shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)]' : ''}
        
-       ${!['punk', 'retro', 'noir', 'aero', 'terminal', 'bauhaus', 'comic', 'lofi', 'botanical', 'cyberpunk', 'newspaper'].includes(universe) ? 'bg-white p-6 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-500' : ''}
+       ${!['punk', 'retro', 'noir', 'aero', 'terminal', 'bauhaus', 'comic', 'lofi', 'botanical', 'cyberpunk', 'newspaper', 'neon'].includes(universe) ? 'bg-white p-6 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-500' : ''}
     `} onClick={handleClick}>
 
             {/* Background Decorations */}

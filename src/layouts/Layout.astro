@@ -1,0 +1,150 @@
+---
+import { ViewTransitions } from 'astro:transitions';
+import BackgroundManager from '../components/BackgroundManager';
+import GlobalUI from '../components/GlobalUI';
+import ThemeSync from '../components/ThemeSync';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+import MusicPlayer from '../components/MusicPlayer'; // We will create this wrapper next
+import '../index.css';
+
+const { title = "Weiran's Universe", showHeader = true } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="A coding universe by Weiran" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Bangers&family=DM+Sans:ital,wght@0,400;0,700;1,400&family=Inter:wght@200;300;400;600&family=JetBrains+Mono:wght@400;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Orbitron:wght@400;700;900&family=Patrick+Hand&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Press+Start+2P&display=swap" rel="stylesheet">
+
+        <!-- Custom Fonts Injection -->
+        <style is:global>
+            @font-face {
+              font-family: 'Cubic';
+              src: url('/fonts/Cubic_11.woff2') format('woff2');
+              font-weight: normal;
+              font-style: normal;
+              font-display: swap;
+            }
+
+            /* Your custom fonts from RootLayout */
+            .font-academic { font-family: 'Playfair Display', serif; }
+            .font-code { font-family: 'JetBrains Mono', monospace; }
+            .font-pixel { font-family: 'Press Start 2P', 'Cubic', cursive; }
+            .font-serif { font-family: 'Lora', serif; }
+            .font-comic { font-family: 'Bangers', cursive; letter-spacing: 0.05em; }
+            .font-hand { font-family: 'Patrick Hand', cursive; }
+            .font-cyber { font-family: 'Orbitron', sans-serif; }
+            .font-geo { font-family: 'DM Sans', sans-serif; }
+            
+            .no-scrollbar::-webkit-scrollbar { display: none; }
+            .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+            .text-shadow-glow { text-shadow: 0 0 5px rgba(0, 255, 65, 0.5); }
+            
+            @keyframes blob {
+                0% { transform: translate(0px, 0px) scale(1); }
+                33% { transform: translate(50px, -80px) scale(1.2); }
+                66% { transform: translate(-40px, 40px) scale(0.8); }
+                100% { transform: translate(0px, 0px) scale(1); }
+            }
+            .animate-blob { animation: blob 5s infinite ease-in-out alternate; }
+            .animation-delay-2000 { animation-delay: 2s; }
+            .animation-delay-4000 { animation-delay: 4s; }
+            .animation-delay-6000 { animation-delay: 6s; }
+
+            /* Universe-specific CSS patterns (Scanlines, Halftone, etc) */
+            .scanlines {
+                background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+                background-size: 100% 4px;
+            }
+            .halftone {
+                background-image: radial-gradient(circle, #000 1px, transparent 1px);
+                background-size: 8px 8px;
+            }
+            .manga-speedlines {
+                background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.05) 10px, rgba(0,0,0,0.05) 20px);
+            }
+            .cyber-clip {
+                clip-path: polygon(0 0, 100% 0, 100% 90%, 95% 100%, 0 100%);
+            }
+            .cyber-glitch {
+                background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 0, 0.05) 3px);
+            }
+            .caution-tape {
+                background: repeating-linear-gradient(45deg, #fcee0a, #fcee0a 10px, #000 10px, #000 20px);
+            }
+            .comic-halftone {
+                position: relative;
+                z-index: 1;
+            }
+            .comic-halftone::before {
+                content: "";
+                position: absolute;
+                top: 0; left: 0; width: 100%; height: 100%;
+                background-image: radial-gradient(#000 1px, transparent 1px);
+                background-size: 6px 6px;
+                opacity: 0.02;
+                pointer-events: none;
+                z-index: -1;
+            }
+            .film-grain {
+                background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.15'/%3E%3C/svg%3E");
+            }
+            .terminal-scanlines {
+                background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+                background-size: 100% 2px, 3px 100%;
+            }
+            .neon-glow-card {
+                box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.5), inset 0 -2px 0 rgba(0,0,0,0.05);
+            }
+            .neon-glow-card::before {
+                content: "";
+                position: absolute;
+                top: 0; left: 0; right: 0; height: 100%;
+                background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%);
+                pointer-events: none;
+            }
+             @keyframes music-bar {
+                0%, 100% { height: 40%; }
+                50% { height: 100%; }
+            }
+        </style>
+		<ViewTransitions />
+	</head>
+	<body class="min-h-screen relative z-0">
+        <!-- Persistent Global UI (Backgrounds, Modals, Music) -->
+        <!-- client:only="react" ensures they run on client side from the start -->
+        <!-- Music Player: We need to implement it to verify "music continues playing" -->
+        <!-- <MusicPlayer client:only="react" transition:persist="music" /> -->
+        
+        <div class="relative z-10 flex flex-col min-h-screen p-4 md:p-8 overflow-hidden">
+            <ThemeSync client:only="react" />
+            <BackgroundManager client:only="react" />
+            <GlobalUI client:only="react" />
+            <MusicPlayer client:only="react" transition:persist="music" />
+
+            {/* HEADER - Wrapped for alignment */}
+            {showHeader && (
+                <div class="w-full max-w-7xl mx-auto pt-12">
+                    <Header client:only="react" />
+                </div>
+            )}
+
+            <!-- Main Content Slot -->
+            <main class="flex-1 w-full max-w-7xl mx-auto flex flex-col">
+    		    <slot />
+                <Footer client:only="react" />
+            </main>
+        </div>
+	</body>
+</html>

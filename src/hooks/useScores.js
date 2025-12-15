@@ -6,7 +6,7 @@ export const useScores = () => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        fetch('./scores.json')
+        fetch('/scores.json')
             .then(res => {
                 if (!res.ok) throw new Error('Scores not found');
                 return res.json();
