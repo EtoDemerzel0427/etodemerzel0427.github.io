@@ -106,6 +106,8 @@ const ScoreCard = ({ universe, data, loading, className }) => {
                             <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full
                           ${data.status === 'FINISHED' ? 'bg-green-500/20 text-green-700' : 'bg-yellow-500/20 text-yellow-700'}
                           ${universe === 'retro' ? '!bg-[#55ffff] !text-black border-2 border-black rounded-sm shadow-[2px_2px_0px_rgba(0,0,0,0.5)]' : ''}
+                          ${universe === 'bauhaus' ? '!bg-[#f4f1ea] !text-[#1d3557] !rounded-none shadow-sm font-bold' : ''}
+                          ${universe === 'punk' ? '!bg-[#F7E018] !text-black border-2 border-black -rotate-1 shadow-[2px_2px_0px_#000] !font-black' : ''}
                      `}>{data.date}</span>
                         </div>
                     </div>
