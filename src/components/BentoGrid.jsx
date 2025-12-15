@@ -6,6 +6,7 @@ import { USER_CONTENT, LAYOUT_CONFIG } from '../config';
 import { useScores } from '../hooks/useScores';
 import { useGitHubStats } from '../hooks/useGitHubStats';
 import { CardRegistry } from '../components/CardRegistry';
+import { libraryData } from '../data/library';
 
 const BentoGrid = ({ latestPost, postCount }) => {
     // Global State via Nano Stores
@@ -15,6 +16,13 @@ const BentoGrid = ({ latestPost, postCount }) => {
     // Data Hooks (Client-side fetching for other dynamic cards)
     const { scores, loading: scoresLoading } = useScores();
     const { userProfile, contributionStats, loading: githubLoading } = useGitHubStats(USER_CONTENT.social.github);
+
+    // Derived State: Latest Playing Game
+    // Find the last game in the library with status 'playing'
+    const latestGame = React.useMemo(() => {
+        const playingGames = libraryData.filter(item => item.type === 'game' && item.status === 'playing');
+        return playingGames.length > 0 ? playingGames[playingGames.length - 1] : USER_CONTENT.game;
+    }, []);
 
     return (
         <div className="max-w-7xl mx-auto relative z-10">
@@ -30,7 +38,17 @@ const BentoGrid = ({ latestPost, postCount }) => {
                     else if (cardConfig.type === 'tech') data = latestPost || USER_CONTENT.featuredArticle; // Use prop
                     else if (cardConfig.type === 'reading') data = USER_CONTENT.reading;
                     else if (cardConfig.type === 'score') data = scores;
-                    else if (cardConfig.type === 'game') data = USER_CONTENT.game;
+                    else if (cardConfig.type === 'game') {
+                        // Adapt library data format to GameCard format
+                        const source = latestGame;
+                        data = {
+                            title: source.title,
+                            platform: source.platform || 'PC', // Fallback
+                            status: 'Now Playing', // Override status text for homepage card
+                            cover: source.cover,
+                            link: '/gallery?tab=game' // Internal link is handled by Card onClick, avoiding data.link usage
+                        };
+                    }
                     else if (cardConfig.type === 'activity') data = { profile: userProfile, contributions: contributionStats, fallbackUrl: `https://github.com/${USER_CONTENT.social.github}` };
                     else if (cardConfig.type === 'bio') data = { projectUrl: `https://github.com/${USER_CONTENT.social.github}?tab=repositories` };
 

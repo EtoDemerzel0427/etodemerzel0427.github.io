@@ -27,7 +27,7 @@ const UniverseCard = ({ id, label, icon: Icon, color, desc, active, onSelect }) 
     </button>
 );
 
-const GlobalUI = () => {
+const GlobalUI = ({ children }) => {
     const $universe = useStore(universe);
     const $showStatusCard = useStore(showStatusCard);
     const [showPortal, setShowPortal] = useState(false);
@@ -40,7 +40,7 @@ const GlobalUI = () => {
     return (
         <>
             {/* --- MULTIVERSE PORTAL TRIGGER (Bottom Right or Top Right?) --- */}
-            <div className="fixed top-6 right-6 z-[40]">
+            <div className="absolute top-6 right-6 z-[40]">
                 {/* ... button content kept same ... */}
                 <button
                     onClick={() => setShowPortal(true)}
@@ -100,6 +100,9 @@ const GlobalUI = () => {
                 <StatusCard onClose={() => setShowStatusCard(false)} />,
                 document.body
             )}
+
+            {/* Render children, passing universe if it's a function */}
+            {typeof children === 'function' ? children($universe) : children}
         </>
     );
 };

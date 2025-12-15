@@ -3,7 +3,8 @@ import { BookOpen } from 'lucide-react';
 import { getFontClass } from '../../utils/theme';
 
 const ReadingCard = ({ universe, data, className }) => {
-    const handleClick = () => window.open(data.link, '_blank');
+    // Navigate to local gallery instead of external link
+    const handleClick = () => window.location.href = '/gallery';
 
     return (
         <div className={`md:row-span-2 relative group overflow-hidden flex flex-col items-center justify-center cursor-pointer transition-all duration-500 ease-out ${className || ''}

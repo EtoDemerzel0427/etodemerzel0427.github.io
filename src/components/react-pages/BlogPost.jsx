@@ -12,6 +12,7 @@ import { useStore } from '@nanostores/react';
 import { universe as universeStore } from '../../stores/universeStore';
 import { getFontClass } from '../../utils/theme';
 import DisqusComments from '../DisqusComments';
+import BackNavigation from '../BackNavigation';
 
 const BlogPost = ({ post }) => {
     const universe = useStore(universeStore);
@@ -130,26 +131,7 @@ const BlogPost = ({ post }) => {
     // Helper to detect Chinese characters
     const hasChinese = (text) => /[\u4e00-\u9fa5]/.test(text);
 
-    // 4. Navigation Bar Style
-    const getHeaderClass = () => {
-        const base = "fixed top-0 left-0 w-full p-6 flex justify-between items-center z-50 transition-all duration-500 pointer-events-none";
 
-        switch (universe) {
-            case 'terminal': return `${base} text-[#33ff00]`;
-            case 'neon': return `${base} text-gray-900`;
-            case 'newspaper': return `${base} text-black`;
-            case 'cyberpunk': return `${base} text-[#fcee0a]`;
-            case 'retro': return `${base} text-white mix-blend-difference`;
-            case 'noir': return `${base} text-gray-300 mix-blend-difference`;
-            case 'bauhaus': return `${base} text-black`;
-            case 'comic': return `${base} text-black`;
-            case 'punk': return `${base} mix-blend-difference text-white`;
-            case 'lofi': return `${base} text-[#5f5a4e]`;
-            case 'botanical': return `${base} text-[#3a5a40]`;
-            case 'aero': return `${base} text-white drop-shadow-md`;
-            default: return `${base} text-gray-800`;
-        }
-    };
 
     const handleShare = async () => {
         const url = window.location.href;
@@ -188,17 +170,7 @@ const BlogPost = ({ post }) => {
             </div>
 
             {/* --- NAVIGATION --- */}
-            {createPortal(
-                <nav className={getHeaderClass()}>
-                    <a href="/blog" className={`flex items-center gap-2 font-bold pointer-events-auto transition-opacity hover:opacity-100 opacity-60
-                        ${getFontClass(universe)}
-                    `}>
-                        <ArrowLeft size={20} />
-                        <span>Back to Articles</span>
-                    </a>
-                </nav>,
-                document.body
-            )}
+            <BackNavigation universe={universe} label="Back to Articles" href="/blog" />
 
             {/* --- MAIN BLOG CONTENT --- */}
             <main className="pt-32 pb-20 px-4 md:px-8 relative z-10">

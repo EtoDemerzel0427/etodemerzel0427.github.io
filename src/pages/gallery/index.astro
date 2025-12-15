@@ -1,0 +1,13 @@
+---
+import Layout from '../../layouts/Layout.astro'; // Assuming standard layout, but we use GlobalUI in this project usually inside standard Astro pages if needed, or just a raw component structure if the Layout handles it.
+// Checking existing pages, it seems index.astro uses GlobalUI directly.
+// Let's stick to the pattern found in /src/pages/index.astro if possible, or just wrap GlobalUI.
+
+import GlobalUI from '../../components/GlobalUI';
+import MediaGallery from '../../components/gallery/MediaGallery';
+import SEO from '../../components/SEO';
+---
+
+<Layout title="Gallery | Weiran Verse" description="A collection of books, movies, and music.">
+    <MediaGallery client:only="react" />
+</Layout>

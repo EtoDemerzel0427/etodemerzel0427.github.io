@@ -16,7 +16,7 @@ const GameCard = ({ universe, data, className }) => {
                 WebkitMaskImage: '-webkit-radial-gradient(white, black)', // Force Safari/Chrome to respect border-radius clipping
                 isolation: 'isolate', // Create new stacking context
             } : {}}
-            onClick={() => window.open(data.link, '_blank')}>
+            onClick={() => window.location.href = '/gallery?tab=game'}>
 
             {/* Immersive Background Image */}
             <div className={`absolute inset-0 z-0 transition-opacity duration-300

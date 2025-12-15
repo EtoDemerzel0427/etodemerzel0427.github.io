@@ -5,11 +5,41 @@ import { useStore } from '@nanostores/react';
 import { universe } from '../../stores/universeStore';
 import { lang, toggleLang } from '../../stores/langStore'; // Adjust path
 import { getFontClass, getCardStyle } from '../../utils/theme';
+import BackNavigation from '../BackNavigation';
 
 const BlogList = ({ posts, activeTag }) => {
     const $universe = useStore(universe);
     const $lang = useStore(lang);
 
+    // Sync URL with Language Store
+    React.useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const langParam = params.get('lang');
+
+            // 1. Init store from URL on load
+            if (langParam && (langParam === 'zh' || langParam === 'en') && langParam !== $lang) {
+                if (lang.get() !== langParam) toggleLang();
+            }
+
+            // 2. Update URL when store changes
+            const updateUrl = (newLang) => {
+                const url = new URL(window.location);
+                url.searchParams.set('lang', newLang);
+                window.history.pushState({}, '', url);
+            };
+
+            // Run immediately in case we need to set the URL to default
+            updateUrl($lang);
+
+            // Subscribe to store changes to keep URL in sync
+            const unsubscribe = lang.subscribe(value => {
+                updateUrl(value);
+            });
+
+            return () => unsubscribe();
+        }
+    }, []); // Empty dependency array as we use subscribe
     // Filter by language
     const filteredPosts = posts.filter(post => !post.lang || post.lang === $lang);
 
@@ -23,26 +53,7 @@ const BlogList = ({ posts, activeTag }) => {
         window.location.href = `/blog/${slug}`;
     };
 
-    // 4. Navigation Bar Style
-    const getHeaderClass = () => {
-        const base = "fixed top-0 left-0 w-full p-6 flex justify-between items-center z-50 transition-all duration-500 pointer-events-none";
 
-        switch ($universe) {
-            case 'terminal': return `${base} text-[#33ff00]`;
-            case 'neon': return `${base} text-gray-900`;
-            case 'newspaper': return `${base} text-black`;
-            case 'cyberpunk': return `${base} text-[#fcee0a]`;
-            case 'retro': return `${base} text-white mix-blend-difference`;
-            case 'noir': return `${base} text-gray-300 mix-blend-difference`;
-            case 'bauhaus': return `${base} text-black`;
-            case 'comic': return `${base} text-black`;
-            case 'punk': return `${base} mix-blend-difference text-white`;
-            case 'lofi': return `${base} text-[#5f5a4e]`;
-            case 'botanical': return `${base} text-[#3a5a40]`;
-            case 'aero': return `${base} text-white drop-shadow-md`;
-            default: return `${base} text-gray-800`;
-        }
-    };
 
 
 
@@ -66,18 +77,8 @@ const BlogList = ({ posts, activeTag }) => {
     return (
         <div className="w-full px-2 flex flex-col">
 
-            {/* Header Portal - Back to Home */}
-            {createPortal(
-                <nav className={getHeaderClass()}>
-                    <a href="/" className={`flex items-center gap-2 font-bold pointer-events-auto transition-opacity hover:opacity-100 opacity-60
-                        ${getFontClass($universe)}
-                    `}>
-                        <ArrowLeft size={20} />
-                        <span>Back to Home</span>
-                    </a>
-                </nav>,
-                document.body
-            )}
+            {/* Header - Back to Home */}
+            <BackNavigation universe={$universe} label="Back to Home" href="/" />
 
             <div className="flex-1">
                 {/* Internal Header removed, provided by Layout.astro */}
