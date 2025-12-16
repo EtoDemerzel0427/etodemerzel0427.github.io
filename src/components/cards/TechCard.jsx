@@ -20,7 +20,7 @@ const TechCard = ({ universe, data, loading, className }) => {
     const hasChinese = (text) => /[\u4e00-\u9fa5]/.test(text);
 
     return (
-        <div className={`${getCardStyle(universe, universe === 'punk' ? 'white' : 'white', `md:col-span-2 ${className}`)}`}>
+        <div className={`${getCardStyle(universe, universe === 'punk' ? 'white' : 'white', `md:col-span-2 !block !h-auto !pb-14 overflow-hidden ${className}`)}`}>
 
             {universe === 'neon' && (
                 <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-blue-100 rounded-full blur-2xl opacity-60"></div>
@@ -75,11 +75,13 @@ const TechCard = ({ universe, data, loading, className }) => {
                     {universe === 'newspaper' && <span className="bg-black text-white text-xs px-1 mr-2 not-italic align-middle">EXCLUSIVE</span>}
                     {data ? data.title : 'Loading...'}
                 </h3>
-                <p className={`text-base font-medium line-clamp-2 leading-relaxed opacity-60 ${getFontClass(universe, 'body')}
+                <div className={`hidden md:block ${universe === 'cyberpunk' ? '!hidden' : ''}`}>
+                    <p className={`text-base font-medium line-clamp-2 leading-relaxed opacity-60 ${getFontClass(universe, 'body')}
                     ${universe === 'retro' && hasChinese(data?.summary || '') ? '!font-[Cubic]' : ''}
                 `}>
-                    {data ? data.summary : 'Fetching latest article...'}
-                </p>
+                        {data ? data.summary : 'Fetching latest article...'}
+                    </p>
+                </div>
             </div>
         </div>
     );

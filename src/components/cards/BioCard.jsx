@@ -4,7 +4,7 @@ import { getCardStyle, getFontClass } from '../../utils/theme';
 
 const BioCard = ({ universe, data, className }) => {
     return (
-        <div className={`${getCardStyle(universe, 'primary', `col-span-1 row-span-2 sm:col-span-2 md:col-span-2 ${className}`)} p-6 md:!p-10 relative`}>
+        <div className={`${getCardStyle(universe, 'primary', `col-span-1 row-span-2 sm:col-span-2 md:col-span-2 ${className} ${universe === 'cyberpunk' ? '!pb-16' : ''}`)} p-6 md:!p-10 relative`}>
             {/* Universe Specific Decorations */}
             {universe === 'neon' && (
                 <>
@@ -138,7 +138,7 @@ const BioCard = ({ universe, data, className }) => {
                 </div>
 
                 <div className={`space-y-4 md:space-y-6 ${universe === 'bauhaus' ? 'pl-4 border-l-4 border-white' : ''} pt-2`}>
-                    <p className={`text-xs sm:text-sm md:text-lg max-w-md leading-relaxed ${getFontClass(universe, 'body')}
+                    <p className={`text-xs sm:text-sm md:text-lg max-w-md leading-relaxed line-clamp-2 ${getFontClass(universe, 'body')}
             ${universe === 'neon' ? 'text-gray-500' : 'opacity-90'}
           `}>
                         Building the backbone of high-frequency trading. Obsessed with memory models, lock-free structures, and zero-cost abstractions.

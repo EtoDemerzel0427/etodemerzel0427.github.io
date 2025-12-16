@@ -154,6 +154,7 @@ const MediaGallery = () => {
                                 ${universe === 'noir' ? 'text-gray-400' : ''}
                                 ${universe === 'terminal' ? 'text-[#00ff41]/80' : ''}
                                 ${universe === 'newspaper' ? 'italic text-black border-l-2 border-black pl-2' : ''}
+                                ${universe === 'aero' ? 'text-blue-900/80 font-medium' : ''}
                             `}>
                                 A refined collection of thoughts and inspirations.
                             </p>
