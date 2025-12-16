@@ -74,7 +74,7 @@ const MediaDetailModal = ({ item, universe, onClose }) => {
                 return {
                     wrapper: `${baseContent} bg-[#f4f4f0] text-black border-y-4 border-black font-serif rounded-none`,
                     closeBtn: `${baseClose} bg-black text-white hover:bg-gray-800 rounded-none`,
-                    imageCont: "border-r border-black grayscale contrast-125",
+                    imageCont: "border-r border-black",
                     tag: "bg-white text-black border border-black rounded-none uppercase tracking-widest",
                     review: "bg-white border-y border-black/20 italic",
                     progress: "bg-black"
@@ -195,7 +195,7 @@ const MediaDetailModal = ({ item, universe, onClose }) => {
                             <div className="absolute -top-3 -left-2 text-4xl opacity-20">❝</div>
                             <div className="flex items-start gap-4">
                                 <AlignLeft className="shrink-0 opacity-50 mt-1" size={20} />
-                                <div className="leading-relaxed whitespace-pre-wrap font-medium opacity-90">
+                                <div className={`leading-relaxed whitespace-pre-wrap font-medium opacity-90 ${getFontClass(universe, 'body')}`}>
                                     {item.review || item.summary}
                                 </div>
                             </div>
