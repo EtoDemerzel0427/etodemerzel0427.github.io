@@ -195,7 +195,7 @@ const MediaDetailModal = ({ item, universe, onClose }) => {
                             <div className="absolute -top-3 -left-2 text-4xl opacity-20">❝</div>
                             <div className="flex items-start gap-4">
                                 <AlignLeft className="shrink-0 opacity-50 mt-1" size={20} />
-                                <div className={`leading-relaxed whitespace-pre-wrap font-medium opacity-90 ${getFontClass(universe, 'body')}`}>
+                                <div className={`leading-relaxed whitespace-pre-wrap font-medium opacity-90 ${getFontClass(universe, 'body')} ${universe === 'retro' ? '!text-[10px] md:!text-xs' : ''}`}>
                                     {item.review || item.summary}
                                 </div>
                             </div>

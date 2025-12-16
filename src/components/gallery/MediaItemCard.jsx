@@ -199,7 +199,7 @@ const MediaItemCard = ({ item, universe, onClick }) => {
                 {item.summary && (
                     <div className={`mt-auto text-xs p-3 relative line-clamp-3
                         ${universe === 'punk' ? 'bg-white border-2 border-black text-black italic' : 'bg-black/5 rounded-lg text-gray-600'}
-                        ${universe === 'retro' ? '!bg-black/30 border border-white/10 !text-gray-300' : ''}
+                        ${universe === 'retro' ? '!bg-black/30 border border-white/10 !text-gray-300 !text-[9px] !leading-[1.4]' : ''}
                         ${universe === 'noir' ? '!bg-white/5 !text-gray-400' : ''}
                         ${universe === 'terminal' ? '!bg-[#003300] !text-[#00ff41]' : ''}
                         ${universe === 'newspaper' ? '!bg-gray-100 !text-black rounded-none border-l-2 border-black italic' : ''}

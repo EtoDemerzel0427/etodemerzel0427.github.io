@@ -65,19 +65,21 @@ const TechCard = ({ universe, data, loading, className }) => {
             </div>
             <div className="group-hover:translate-x-1 transition-transform duration-300 relative z-10 cursor-pointer"
                 onClick={handleClick}>
-                <h3 className={`text-2xl md:text-3xl font-bold mb-3 leading-tight ${getFontClass(universe, 'title')}
+                <h3 className={`text-xl md:text-2xl font-bold mb-3 leading-tight ${getFontClass(universe, 'title')}
            ${universe === 'punk' ? 'decoration-2 underline-offset-4 group-hover:underline' : ''}
            ${universe === 'newspaper' ? 'italic' : ''}
            ${universe === 'comic' ? 'uppercase italic' : ''}
            ${universe === 'neon' ? 'text-gray-900 group-hover:text-[#3A86FF] transition-colors' : ''}
            ${universe === 'retro' && hasChinese(data?.title || '') ? '!font-[Cubic]' : ''}
+           ${universe === 'retro' ? '!mb-12' : ''}
         `}>
                     {universe === 'newspaper' && <span className="bg-black text-white text-xs px-1 mr-2 not-italic align-middle">EXCLUSIVE</span>}
                     {data ? data.title : 'Loading...'}
                 </h3>
                 <div className={`hidden md:block ${universe === 'cyberpunk' ? '!hidden' : ''}`}>
-                    <p className={`text-base font-medium line-clamp-2 leading-relaxed opacity-60 ${getFontClass(universe, 'body')}
+                    <p className={`text-sm font-medium line-clamp-3 leading-relaxed opacity-60 ${getFontClass(universe, 'body')}
                     ${universe === 'retro' && hasChinese(data?.summary || '') ? '!font-[Cubic]' : ''}
+                    ${universe === 'retro' ? '!text-[10px]' : ''}
                 `}>
                         {data ? data.summary : 'Fetching latest article...'}
                     </p>

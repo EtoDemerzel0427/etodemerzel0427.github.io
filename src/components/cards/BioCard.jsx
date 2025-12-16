@@ -98,6 +98,7 @@ const BioCard = ({ universe, data, className }) => {
         ${universe === 'cyberpunk' ? 'pb-4 md:pb-8' : ''}
         ${universe === 'terminal' ? 'pb-4 md:pb-12' : ''}
         ${universe === 'bauhaus' ? 'pt-12 md:pt-20' : ''}
+        ${universe === 'retro' ? '!justify-start gap-20' : ''}
     `}>
                 <div className={universe === 'bauhaus' ? 'max-w-[90%] md:max-w-[80%]' : ''}>
                     <Cpu size={48} className={`mb-4 md:mb-6 transition-colors 
@@ -138,8 +139,9 @@ const BioCard = ({ universe, data, className }) => {
                 </div>
 
                 <div className={`space-y-4 md:space-y-6 ${universe === 'bauhaus' ? 'pl-4 border-l-4 border-white' : ''} pt-2`}>
-                    <p className={`text-xs sm:text-sm md:text-lg max-w-md leading-relaxed line-clamp-2 ${getFontClass(universe, 'body')}
+                    <p className={`text-xs sm:text-sm md:text-base max-w-md leading-relaxed line-clamp-3 ${getFontClass(universe, 'body')}
             ${universe === 'neon' ? 'text-gray-500' : 'opacity-90'}
+            ${universe === 'retro' ? '!text-[10px] sm:!text-[11px] md:!text-xs' : ''}
           `}>
                         Building the backbone of high-frequency trading. Obsessed with memory models, lock-free structures, and zero-cost abstractions.
                     </p>
