@@ -24,6 +24,13 @@ const BentoGrid = ({ latestPost, postCount }) => {
         return playingGames.length > 0 ? playingGames[playingGames.length - 1] : USER_CONTENT.game;
     }, []);
 
+    // Derived State: Latest Reading Book
+    // Find the last book in the library with status 'reading'
+    const latestBook = React.useMemo(() => {
+        const readingBooks = libraryData.filter(item => item.type === 'book' && item.status === 'reading');
+        return readingBooks.length > 0 ? readingBooks[readingBooks.length - 1] : USER_CONTENT.reading;
+    }, []);
+
     return (
         <div className="max-w-7xl mx-auto relative z-10">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 auto-rows-[200px] md:auto-rows-[240px]">
@@ -36,7 +43,16 @@ const BentoGrid = ({ latestPost, postCount }) => {
                     if (cardConfig.type === 'music') data = USER_CONTENT.nowPlaying;
                     else if (cardConfig.type === 'archive') data = { count: postCount, siteUrl: '/blog' }; // Use prop
                     else if (cardConfig.type === 'tech') data = latestPost || USER_CONTENT.featuredArticle; // Use prop
-                    else if (cardConfig.type === 'reading') data = USER_CONTENT.reading;
+                    else if (cardConfig.type === 'reading') {
+                        const source = latestBook;
+                        data = {
+                            title: source.title,
+                            author: source.creator || source.author, // Library uses 'creator', config uses 'author'
+                            cover: source.cover,
+                            progress: source.progress,
+                            status: source.status === 'reading' ? 'Reading' : source.status // Ensure status text consistency
+                        };
+                    }
                     else if (cardConfig.type === 'score') data = scores;
                     else if (cardConfig.type === 'game') {
                         // Adapt library data format to GameCard format

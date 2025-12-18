@@ -35,6 +35,7 @@ export const USER_CONTENT = {
         github: "EtoDemerzel0427",
         email: "huangweiran1998@outlook.com"
     },
+    // Fallback content (used when no game is 'playing' in library.js)
     game: {
         title: "EA SPORTS FC 25",
         platform: "PS5",
@@ -42,6 +43,7 @@ export const USER_CONTENT = {
         cover: "https://external-preview.redd.it/no-new-mls-stadiums-in-eafc-25-fifa-for-the-2nd-year-in-a-v0-siI7JlZbMpFK-YkWObnGvmV1KAi7Hzffl7wLqelaT94.jpg?auto=webp&s=909e8c1eff86cf42418e1ddb0f69d4c2986df4a8", // User Provided Reddit Image
         link: "https://www.ea.com/games/ea-sports-fc/fc-25",
     },
+    // Fallback content (used when no book is 'reading' in library.js)
     reading: {
         title: "Options, Futures, and Other Derivatives",
         author: "John C. Hull",
@@ -50,13 +52,7 @@ export const USER_CONTENT = {
         progress: 10,
         status: "Reading" // or "Finished", "To Read"
     },
-    blogRepo: {
-        username: "EtoDemerzel0427",
-        repo: "notes",
-        rawBaseUrl: "https://raw.githubusercontent.com/EtoDemerzel0427/notes/main/",
-        siteBaseUrl: "https://huangweiran.club/notes/", // Base URL for constructing deep links
-        featuredPostPath: "content/Travel/Hawaii/欧胡百科.md"
-    },
+
     // Giscus removed.
     disqus: {
         shortname: "weiran-verse", // Placeholder: User needs to register on Disqus and replace this!

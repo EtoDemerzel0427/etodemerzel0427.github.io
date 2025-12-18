@@ -3,16 +3,16 @@ export const libraryData = [
     {
         id: 'b1',
         type: 'book',
-        title: 'Thinking, Fast and Slow',
-        creator: 'Daniel Kahneman',
-        cover: 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1317793965i/11468377.jpg',
+        title: 'Options, Futures, and Other Derivatives (11th Edition)',
+        creator: 'John C. Hull',
+        cover: 'https://pubengine.s3.eu-central-1.amazonaws.com/cover/99.150005/9781292410623.jpg',
         status: 'reading',
-        progress: 45,
+        progress: 10,
         rating: 4.5,
-        summary: 'Incredibly dense but insightful. Changing how I view my own decision making process.',
-        review: 'This book fundamentally changed how I perceive human thought. Kahneman breaks down the two systems of thinking: System 1 (fast, intuitive, emotional) and System 2 (slow, deliberative, and logical). The examples of cognitive biases are striking and humbling. While it can be dry at times, the insights into prospect theory and happiness are worth the effort. A must-read for anyone interested in psychology or behavioral economics.',
-        year: '2011',
-        genre: 'Psychology'
+        summary: 'A must-read for anyone interested in finance or derivatives.',
+        review: 'I am still reading this book. As a C++ engineer working in the finance industry, I find this book very helpful.',
+        year: '2022',
+        genre: 'Finance'
     },
     {
         id: 'b2',
@@ -50,7 +50,7 @@ export const libraryData = [
         cover: 'https://m.media-amazon.com/images/M/MV5BMDBmYTZjNjUtN2M1MS00MTQ2LTk2ODgtNzc2M2QyZGE5NTVjXkEyXkFqcGdeQXVyNzAwMjU2MTY@._V1_.jpg',
         status: 'finished',
         progress: 100,
-        rating: 5,
+        rating: 4.5,
         summary: 'Visually stunning and terrifying. Cillian Murphy is incredible.',
         year: '2023',
         genre: 'Biography/Drama'
@@ -58,15 +58,56 @@ export const libraryData = [
     {
         id: 'm2',
         type: 'movie',
-        title: 'Everything Everywhere All At Once',
-        creator: 'Daniels',
-        cover: 'https://upload.wikimedia.org/wikipedia/en/1/1e/Everything_Everywhere_All_at_Once.jpg',
+        title: '君の名は。',
+        creator: '新海誠',
+        cover: 'https://cdn.hk01.com/di/media/images/282290/org/37b0ec53e2a4d70bcadde0d08d9a126a.jpg/1UOiKDSdEiIHicOM126Uue_OFJnObeDv7hvG3e4bxt0?v=w1920',
         status: 'finished',
         progress: 100,
-        rating: 4.8,
-        summary: 'A philosophically deep action movie about kindness.',
-        year: '2022',
-        genre: 'Sci-Fi/Adventure'
+        rating: 5,
+        summary: 'Heartbreakingly beautiful, the only film on my permanent annual rewatch list.',
+        year: '2016',
+        genre: 'Animation/Adventure'
+    },
+    {
+        id: 'm3',
+        type: 'movie',
+        title: 'Spider-Man: Into the Spider-Verse',
+        creator: 'Persichetti, Ramsey, Rothman',
+        cover: 'https://external-preview.redd.it/xFw2mrIixZbXjA4AyXBq7Y4LYgrtP1InfCUSEv6fezg.jpg?auto=webp&s=252535ce77af866ee6f6fbcaa1c4b25e9e6914ec',
+        status: 'finished',
+        progress: 100,
+        rating: 5,
+        summary: 'Visual revolution meets soulful storytelling and a killer soundtrack. Pure Spider-Man legacy.',
+        review: 'This film is a masterclass in style and substance. The way it translates traditional comic book aesthetics—Ben-Day dots, halftones, and hand-drawn flourishes—into a 3D space is breathtaking. Combined with a pulse-pounding soundtrack and a deeply moving coming-of-age plot, it\'s an absolute masterpiece.',
+        year: '2018',
+        genre: 'Animation/Action/Adventure'
+    },
+    {
+        id: 'm4',
+        type: 'movie',
+        title: 'Spider-Man: Across the Spider-Verse',
+        creator: 'Dos Santos, Powers, Thompson',
+        cover: 'https://media.cnn.com/api/v1/images/stellar/prod/221213152642-01-spiderman-across-the-spider-verse-2023.jpg?c=original',
+        status: 'finished',
+        progress: 100,
+        rating: 5,
+        summary: 'A bold, sensory explosion that pushes the boundaries of artistic expression.',
+        review: 'If the first film was a breakthrough, this is a full-blown revolution. The art style is significantly richer and bolder, seamlessly jumping between distinct universes like Gwen\'s ethereal watercolor world and Mumbattan\'s vibrant chaos. The story is thick with dramatic tension, weaving complex themes of fate and choice into an exhilarating, high-stakes journey.',
+        year: '2023',
+        genre: 'Animation/Action/Adventure'
+    },
+    {
+        id: 'm5',
+        type: 'movie',
+        title: 'Blade Runner 2049',
+        creator: 'Denis Villeneuve',
+        cover: 'https://cdn.mos.cms.futurecdn.net/4EvNCDXfzihK3B4RvCg7gd.jpg',
+        status: 'finished',
+        progress: 100,
+        rating: 5,
+        summary: 'A cold reflection on the fragility of free will and the fakeness of the reality.',
+        year: '2017',
+        genre: 'Neo-noir / Sci-Fi'
     },
 
     // MUSIC
@@ -78,7 +119,7 @@ export const libraryData = [
         cover: 'https://tse3.mm.bing.net/th/id/OIP.b4BBk_xVQTseVlOe9PFG2AHaHa?cb=ucfimg2&pid=Api&ucfimg=1',
         status: 'listening',
         progress: 100,
-        rating: 5,
+        rating: 4.5,
         summary: 'Emotionally restrained yet abundant.',
         year: '2025',
         genre: 'R&B/Soul'
@@ -95,6 +136,46 @@ export const libraryData = [
         summary: 'Timeless masterpiece.',
         year: '1973',
         genre: 'Rock'
+    },
+    {
+        id: 'mu3',
+        type: 'music',
+        title: 'Blonde',
+        creator: 'Frank Ocean',
+        cover: 'https://i1.sndcdn.com/artworks-6nxYqVnR1zgGoZa1-LzVTvw-t1080x1080.jpg',
+        status: 'finished',
+        progress: 100,
+        rating: 5,
+        summary: 'A genre-defying masterpiece of introspection and sonic texture.',
+        review: 'Blonde is more than just an album; it is a visceral experience of memory, longing, and identity. Frank Ocean\'s unconventional song structures and raw, vulnerable vocals create an atmosphere that feels both intimate and expansive. From the pitch-shifted textures of \'Nikes\' to the heartbreaking minimalism of \'Self Control\', every track feels meticulously crafted yet effortlessly soulful. It is an album that demands your full attention and rewards every repeat listen with new layers of meaning. A definitive 5/5.',
+        year: '2016',
+        genre: 'Avant-pop / R&B'
+    },
+    {
+        id: 'mu4',
+        type: 'music',
+        title: '橙月 (Orange Moon)',
+        creator: '方大同 (Khalil Fong)',
+        cover: 'https://p3-pc-sign.douyinpic.com/tos-cn-i-0813c000-ce/ocZHEaEzEwAItDe5AikAfAPAEF5B4iy4iebXZA~noop.jpeg?biz_tag=pcweb_cover&card_type=303&column_n=0&from=327834062&lk3s=138a59ce&s=PackSourceEnum_SEARCH&se=false&x-expires=1767222000&x-signature=RqhkhJyyh9GERZePRdjA3hAYdco%3D',
+        status: 'finished',
+        progress: 100,
+        rating: 5,
+        summary: '浪漫，灵动，干净，纯粹。任何时候听都让人觉得仿佛走在上海金黄的街头，脚步轻快。',
+        year: '2008',
+        genre: 'R&B/Soul'
+    },
+    {
+        id: 'mu5',
+        type: 'music',
+        title: '梦想家 (The Dreamer)',
+        creator: '方大同 (Khalil Fong)',
+        cover: 'https://asianpopweekly.com/wp-content/uploads/2025/07/image-592x540.png',
+        status: 'finished',
+        progress: 100,
+        rating: 4.8,
+        summary: '很遗憾在他走后我才意识到这张专辑里的瑕疵美得惊人。',
+        year: '2024',
+        genre: 'Soul/Funk/Pop'
     },
 
     // GAMES
