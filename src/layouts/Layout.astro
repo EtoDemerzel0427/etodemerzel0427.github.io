@@ -24,7 +24,7 @@ const { title = "Weiran's Universe", showHeader = true } = Astro.props;
 		<title>{title}</title>
 
         <!-- Google Analytics (Partytown) -->
-        {USER_CONTENT.googleAnalytics?.id && (
+        {import.meta.env.PROD && USER_CONTENT.googleAnalytics?.id && (
             <>
                 <script type="text/partytown" async src={`https://www.googletagmanager.com/gtag/js?id=${USER_CONTENT.googleAnalytics.id}`}></script>
                 <script type="text/partytown" define:vars={{ gaId: USER_CONTENT.googleAnalytics.id }}>
