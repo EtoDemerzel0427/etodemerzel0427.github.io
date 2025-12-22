@@ -1,16 +1,16 @@
 {
   "competition": "Primera Division",
-  "date": "2025-12-13",
+  "date": "2025-12-21",
   "status": "FINISHED",
   "homeTeam": {
+    "name": "Villarreal",
+    "score": 0,
+    "crest": "https://crests.football-data.org/94.png"
+  },
+  "awayTeam": {
     "name": "Barça",
     "score": 2,
     "crest": "https://crests.football-data.org/81.png"
   },
-  "awayTeam": {
-    "name": "Osasuna",
-    "score": 0,
-    "crest": "https://crests.football-data.org/79.png"
-  },
-  "winner": "HOME_TEAM"
+  "winner": "AWAY_TEAM"
 }
