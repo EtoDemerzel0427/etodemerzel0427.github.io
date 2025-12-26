@@ -79,40 +79,55 @@ const MusicPlayer = () => {
         }
     }, [$isPlaying]);
 
-    // 4. Drag Logic
-    const handleMouseDown = (e) => {
+    // 4. Drag Logic (Mouse + Touch)
+    const handleStart = (clientX, clientY) => {
         setIsDragging(true);
         dragStartRef.current = {
-            x: e.clientX - position.x,
-            y: e.clientY - position.y
+            x: clientX - position.x,
+            y: clientY - position.y
         };
     };
 
-    const handleMouseMove = useCallback((e) => {
+    const handleMouseDown = (e) => handleStart(e.clientX, e.clientY);
+    const handleTouchStart = (e) => handleStart(e.touches[0].clientX, e.touches[0].clientY);
+
+    const handleMove = useCallback((clientX, clientY) => {
         if (isDragging) {
-            const newX = e.clientX - dragStartRef.current.x;
-            const newY = e.clientY - dragStartRef.current.y;
+            const newX = clientX - dragStartRef.current.x;
+            const newY = clientY - dragStartRef.current.y;
             setPosition({ x: newX, y: newY });
         }
     }, [isDragging, position]);
 
-    const handleMouseUp = useCallback(() => {
-        setIsDragging(false);
-    }, []);
+    const handleMouseMove = useCallback((e) => handleMove(e.clientX, e.clientY), [handleMove]);
+    const handleTouchMove = useCallback((e) => handleMove(e.touches[0].clientX, e.touches[0].clientY), [handleMove]);
+
+    const handleEnd = useCallback(() => setIsDragging(false), []);
+    const handleMouseUp = handleEnd;
+    const handleTouchEnd = handleEnd;
 
     useEffect(() => {
         if (isDragging) {
             window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('touchmove', handleTouchMove, { passive: false });
+
             window.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('touchend', handleTouchEnd);
         } else {
             window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('touchmove', handleTouchMove);
+
             window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchend', handleTouchEnd);
         }
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('touchmove', handleTouchMove);
+
             window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('touchend', handleTouchEnd);
         };
-    }, [isDragging, handleMouseMove, handleMouseUp]);
+    }, [isDragging, handleMouseMove, handleTouchMove, handleMouseUp, handleTouchEnd]);
 
 
     return (
@@ -146,6 +161,7 @@ const MusicPlayer = () => {
                     {/* Drag Handle */}
                     <div
                         onMouseDown={handleMouseDown}
+                        onTouchStart={handleTouchStart}
                         className={`h-6 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-50 hover:opacity-100 transition-opacity
                            ${$universe === 'cyberpunk' ? 'bg-[#00f0ff]/20' : ''} 
                         `}
