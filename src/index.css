@@ -39,6 +39,29 @@
     display: inline-block;
     white-space: nowrap;
     padding-left: 100%;
-    /* Start from the right edge of parent */
+
     animation: marquee 10s linear infinite;
+}
+
+/* KaTeX Math Equations Responsiveness */
+.katex-display,
+.katex-block {
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+    padding: 0.5rem 0;
+    /* Hide scrollbar for cleaner look if possible, but keep functionality */
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure images and charts handle overflow gracefully */
+.prose img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Prevent charts from breaking across columns */
+.break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
 }

@@ -31,7 +31,7 @@ date: "${date}"
 summary: "TODO: Write a short summary here..."
 tags: ["General"]
 lang: "en"
-readTime: "5 min read"
+
 ---
 
 Write your content here...

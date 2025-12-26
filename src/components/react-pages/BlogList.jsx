@@ -128,7 +128,7 @@ const BlogList = ({ posts, activeTag }) => {
                                             {post.title}
                                         </h3>
                                         <span className={`text-sm opacity-50 whitespace-nowrap mt-1 ${$universe === 'retro' ? 'font-pixel text-[10px]' : 'font-mono'}`}>
-                                            {post.date}
+                                            {post.date} · {post.readTime || '1 min read'}
                                         </span>
                                     </div>
                                     <p className={`opacity-70 line-clamp-3 ${getFontClass($universe, 'body')}

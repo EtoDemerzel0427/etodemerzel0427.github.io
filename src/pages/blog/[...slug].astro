@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import BlogPost from '../../components/react-pages/BlogPost';
+import getReadingTime from 'reading-time';
 import { getCollection, render } from 'astro:content';
 
 export async function getStaticPaths() {
@@ -22,6 +23,8 @@ const postWithContent = {
 };
 // Re-assign raw markdown to content for the React component (which uses ReactMarkdown)
 postWithContent.content = post.body;
+// Auto-calculate read time override
+postWithContent.readTime = getReadingTime(post.body).text;
 ---
 
 <Layout title={post.data.title} showHeader={false}>

@@ -76,7 +76,7 @@ const TechCard = ({ universe, data, loading, className }) => {
                     {universe === 'newspaper' && <span className="bg-black text-white text-xs px-1 mr-2 not-italic align-middle">EXCLUSIVE</span>}
                     {data ? data.title : 'Loading...'}
                 </h3>
-                <div className={`hidden md:block ${universe === 'cyberpunk' ? '!hidden' : ''}`}>
+                <div className={`hidden md:block`}>
                     <p className={`text-sm font-medium line-clamp-3 leading-relaxed opacity-60 ${getFontClass(universe, 'body')}
                     ${universe === 'retro' && hasChinese(data?.summary || '') ? '!font-[Cubic]' : ''}
                     ${universe === 'retro' ? '!text-[10px]' : ''}

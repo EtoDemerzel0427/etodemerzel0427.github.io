@@ -1,12 +1,14 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import BlogList from '../../components/react-pages/BlogList';
+import getReadingTime from 'reading-time';
 import { getCollection } from 'astro:content';
 
 const allPosts = await getCollection('posts');
 const posts = allPosts.map(p => ({
     slug: p.slug,
-    ...p.data
+    ...p.data,
+    readTime: getReadingTime(p.body).text
 })).sort((a, b) => new Date(b.date) - new Date(a.date));
 ---
 
