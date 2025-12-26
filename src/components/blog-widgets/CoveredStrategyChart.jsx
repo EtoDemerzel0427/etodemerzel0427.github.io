@@ -239,9 +239,9 @@ const CoveredStrategyChart = ({ strategy = 'covered-call' }) => {
     };
 
     return (
-        <div className="my-10 font-sans not-prose bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-6 break-inside-avoid">
-            <header className="mb-8 border-b border-gray-200 pb-4 text-center md:text-left">
-                <h2 className="text-2xl font-bold text-gray-900">{config.title}</h2>
+        <div className="my-10 font-sans not-prose bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-4 md:p-6 break-inside-avoid">
+            <header className="mb-6 md:mb-8 border-b border-gray-200 pb-4 text-center md:text-left">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900 overflow-x-auto whitespace-nowrap scrollbar-hide">{config.title}</h2>
                 <p className="text-gray-600 mt-2 text-sm">{config.desc}</p>
             </header>
 
@@ -259,36 +259,38 @@ const CoveredStrategyChart = ({ strategy = 'covered-call' }) => {
                 </div>
 
                 {/* Controls Area */}
-                <div className="flex flex-wrap gap-4 md:gap-6 items-start">
+                <div className="w-full overflow-x-auto pb-2 pt-4">
+                    <div className="flex flex-wrap gap-4 md:gap-6 items-stretch">
 
-                    <ControlContainer title="Position Setup">
-                        <RangeControl label="Stock Entry Price" value={entry} setValue={setEntry} min={50} max={150} />
-                        <RangeControl label="Credit Received" value={credit} setValue={setCredit} min={0.5} max={20} step={0.5} />
-                    </ControlContainer>
-
-                    {isCombo ? (
-                        <ControlContainer title="Strangle Strikes" color="red">
-                            <RangeControl label="Sell Put (K_L)" value={kl} setValue={setKl} min={50} max={kh - 5} />
-                            <RangeControl label="Sell Call (K_H)" value={kh} setValue={setKh} min={kl + 5} max={200} />
+                        <ControlContainer title="Position Setup">
+                            <RangeControl label="Stock Entry Price" value={entry} setValue={setEntry} min={50} max={150} />
+                            <RangeControl label="Credit Received" value={credit} setValue={setCredit} min={0.5} max={20} step={0.5} />
                         </ControlContainer>
-                    ) : (
-                        <ControlContainer title="Option Leg" color="red">
-                            <RangeControl label="Strike Price (K)" value={k} setValue={setK} min={50} max={200} />
-                        </ControlContainer>
-                    )}
 
-                    {/* Stats Panel */}
-                    <div className="flex-1 min-w-[260px] bg-white rounded-xl shadow border border-gray-200 p-5 self-stretch">
-                        <h3 className="font-bold text-gray-700 border-b pb-2 mb-3 text-sm uppercase tracking-wider">关键指标</h3>
-                        <div className="space-y-3 text-sm">
-                            <StatRow label="盈亏平衡点" value={stats.breakeven} color="text-blue-600" />
-                            <StatRow label="最大收益" value={stats.maxProfit} color="text-green-600" />
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-500">最大亏损</span>
-                                <span className="font-bold text-red-600 text-right">{stats.maxLoss}</span>
-                            </div>
-                            <div className="text-xs text-gray-400 mt-2 italic border-t pt-2">
-                                Note: {stats.note}
+                        {isCombo ? (
+                            <ControlContainer title="Strangle Strikes" color="red">
+                                <RangeControl label="Sell Put (K_L)" value={kl} setValue={setKl} min={50} max={kh - 5} />
+                                <RangeControl label="Sell Call (K_H)" value={kh} setValue={setKh} min={kl + 5} max={200} />
+                            </ControlContainer>
+                        ) : (
+                            <ControlContainer title="Option Leg" color="red">
+                                <RangeControl label="Strike Price (K)" value={k} setValue={setK} min={50} max={200} />
+                            </ControlContainer>
+                        )}
+
+                        {/* Stats Panel */}
+                        <div className="w-full md:flex-1 bg-white rounded-xl shadow border border-gray-200 p-5 self-stretch">
+                            <h3 className="font-bold text-gray-700 border-b pb-2 mb-3 text-sm uppercase tracking-wider">关键指标</h3>
+                            <div className="space-y-3 text-sm">
+                                <StatRow label="盈亏平衡点" value={stats.breakeven} color="text-blue-600" />
+                                <StatRow label="最大收益" value={stats.maxProfit} color="text-green-600" />
+                                <div className="flex justify-between items-center whitespace-nowrap gap-2">
+                                    <span className="text-gray-500">最大亏损</span>
+                                    <span className="font-bold text-red-600 text-right">{stats.maxLoss}</span>
+                                </div>
+                                <div className="text-xs text-gray-400 mt-2 italic border-t pt-2">
+                                    Note: {stats.note}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -302,7 +304,7 @@ const CoveredStrategyChart = ({ strategy = 'covered-call' }) => {
 const ControlContainer = ({ title, children, color = "blue" }) => {
     const theme = color === 'blue' ? "bg-blue-50 border-blue-200 text-blue-800" : "bg-red-50 border-red-200 text-red-800";
     return (
-        <div className={`flex-1 min-w-[280px] p-4 rounded-xl border relative ${theme}`}>
+        <div className={`w-full md:flex-1 p-4 rounded-xl border relative ${theme}`}>
             <h4 className="font-bold mb-3 text-sm uppercase opacity-80">{title}</h4>
             <div className="space-y-4">{children}</div>
         </div>

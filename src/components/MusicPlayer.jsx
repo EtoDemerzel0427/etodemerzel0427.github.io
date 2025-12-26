@@ -100,7 +100,10 @@ const MusicPlayer = () => {
     }, [isDragging, position]);
 
     const handleMouseMove = useCallback((e) => handleMove(e.clientX, e.clientY), [handleMove]);
-    const handleTouchMove = useCallback((e) => handleMove(e.touches[0].clientX, e.touches[0].clientY), [handleMove]);
+    const handleTouchMove = useCallback((e) => {
+        if (e.cancelable) e.preventDefault();
+        handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, [handleMove]);
 
     const handleEnd = useCallback(() => setIsDragging(false), []);
     const handleMouseUp = handleEnd;

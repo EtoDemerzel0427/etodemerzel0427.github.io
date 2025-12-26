@@ -145,12 +145,12 @@ const OptionStrategyChart = () => {
     };
 
     return (
-        <div className="my-8 font-sans not-prose">
+        <div className="my-8 font-sans not-prose w-full overflow-hidden">
             <div className="max-w-7xl mx-auto bg-gray-100 text-gray-800 p-4 md:p-6 rounded-xl border border-gray-200">
                 {/* Header */}
                 <header className="mb-6 text-center">
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2 mt-0">期权四大基本策略全景图</h2>
-                    <p className="text-gray-600">调整参数，观察买方(Long)与卖方(Short)的镜像关系</p>
+                    <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 mt-0 overflow-x-auto whitespace-nowrap scrollbar-hide">期权四大基本策略全景图</h2>
+                    <p className="text-gray-600 break-words">调整参数，观察买方(Long)与卖方(Short)的镜像关系</p>
                 </header>
 
                 {/* Controls */}
@@ -184,7 +184,7 @@ const OptionStrategyChart = () => {
                 </div>
 
                 {/* Charts Grid (Responsive Auto-Fit) */}
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
 
                     {/* 1. Long Call */}
                     <ChartCard
@@ -255,7 +255,7 @@ const OptionStrategyChart = () => {
                     />
                 </div>
 
-                <div className="mt-8 text-center text-sm text-gray-500">
+                <div className="mt-8 text-center text-sm text-gray-500 break-words">
                     <p>绿色区域 = 盈利 (Profit) | 红色区域 = 亏损 (Loss)</p>
                     <p className="mt-1">注意观察：每一行的左右两张图是互为镜像的（零和博弈）。</p>
                 </div>
@@ -267,22 +267,22 @@ const OptionStrategyChart = () => {
 const ChartCard = ({ title, desc, role, roleColor, borderColor, headerBg, data, options, stats }) => (
     <div className={`bg-white rounded-xl shadow-lg border-t-4 ${borderColor} overflow-hidden flex flex-col`}>
         <div className={`p-3 ${headerBg} border-b flex justify-between items-start gap-2`}>
-            <div className="min-w-0">
-                <h3 className="font-bold text-lg text-gray-800 m-0 leading-tight truncate" title={title}>{title}</h3>
+            <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-lg text-gray-800 m-0 leading-tight overflow-x-auto whitespace-nowrap scrollbar-hide" title={title}>{title}</h3>
                 <p className="text-xs text-gray-500 m-0 mt-1 truncate" title={desc}>{desc}</p>
             </div>
             <span className={`text-xs font-bold ${roleColor} px-2 py-1 rounded shrink-0 whitespace-nowrap`}>{role}</span>
         </div>
-        <div className="overflow-x-auto flex-grow">
-            <div className="p-2 relative h-64 min-w-[500px]">
+        <div className="overflow-x-auto flex-grow w-full">
+            <div className="p-2 relative h-64 min-w-[300px] md:min-w-full">
                 <Line data={data} options={options} />
             </div>
         </div>
         <div className="p-3 bg-gray-50 text-xs grid grid-cols-3 gap-1 text-center border-t">
             {stats.map((s, i) => (
-                <div key={i}>
-                    <span className="text-gray-400 block">{s.label}</span>
-                    <span className={`font-bold ${s.valColor} text-sm`}>{s.value}</span>
+                <div key={i} className="overflow-hidden">
+                    <span className="text-gray-400 block truncate" title={s.label}>{s.label}</span>
+                    <span className={`font-bold ${s.valColor} text-sm block truncate`} title={s.value}>{s.value}</span>
                 </div>
             ))}
         </div>

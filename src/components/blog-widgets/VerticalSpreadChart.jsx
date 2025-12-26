@@ -62,7 +62,7 @@ const STRATEGY_CONFIG = {
     }
 };
 
-const VerticalSpreadChart = ({ strategy = 'bull-call' }) => {
+const VerticalSpreadChart = ({ strategy = 'bull-call-spread' }) => {
     const config = STRATEGY_CONFIG[strategy];
     if (!config) return <div>Invalid Strategy Type</div>;
 
@@ -160,25 +160,25 @@ const VerticalSpreadChart = ({ strategy = 'bull-call' }) => {
         const width = kh - kl;
 
         switch (strategy) {
-            case 'bull-call': // Long KL(PL) + Short KH(PH). Debit = PL - PH.
+            case 'bull-call-spread': // Long KL(PL) + Short KH(PH). Debit = PL - PH.
                 sNet = pl - ph; // Debit
                 sMaxLoss = sNet;
                 sMaxProfit = width - sNet;
                 sBreakeven = kl + sNet;
                 break;
-            case 'bull-put': // Long KL(PL) + Short KH(PH). Credit = PH - PL.
+            case 'bull-put-spread': // Long KL(PL) + Short KH(PH). Credit = PH - PL.
                 sNet = ph - pl; // Credit
                 sMaxProfit = sNet;
                 sMaxLoss = width - sNet;
                 sBreakeven = kh - sNet;
                 break;
-            case 'bear-put': // Short KL(PL) + Long KH(PH). Debit = PH - PL.
+            case 'bear-put-spread': // Short KL(PL) + Long KH(PH). Debit = PH - PL.
                 sNet = ph - pl; // Debit
                 sMaxLoss = sNet;
                 sMaxProfit = width - sNet;
                 sBreakeven = kh - sNet;
                 break;
-            case 'bear-call': // Short KL(PL) + Long KH(PH). Credit = PL - PH.
+            case 'bear-call-spread': // Short KL(PL) + Long KH(PH). Credit = PL - PH.
                 sNet = pl - ph; // Credit
                 sMaxProfit = sNet;
                 sMaxLoss = width - sNet;
@@ -191,7 +191,7 @@ const VerticalSpreadChart = ({ strategy = 'bull-call' }) => {
             maxLoss: sMaxLoss.toFixed(2),
             maxProfit: sMaxProfit.toFixed(2),
             breakeven: sBreakeven.toFixed(2),
-            isDebit: (strategy === 'bull-call' || strategy === 'bear-put')
+            isDebit: (strategy === 'bull-call-spread' || strategy === 'bear-put-spread')
         };
 
         return { labels, dataLeg1, dataLeg2, dataCombo, stats };
@@ -271,9 +271,9 @@ const VerticalSpreadChart = ({ strategy = 'bull-call' }) => {
     };
 
     return (
-        <div className="my-10 font-sans not-prose bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-6 break-inside-avoid">
-            <header className="mb-8 border-b border-gray-200 pb-4 text-center md:text-left">
-                <h2 className="text-2xl font-bold text-gray-900">{config.title}</h2>
+        <div className="my-10 font-sans not-prose bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-4 md:p-6 break-inside-avoid">
+            <header className="mb-6 md:mb-8 border-b border-gray-200 pb-4 text-center md:text-left">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900 overflow-x-auto whitespace-nowrap scrollbar-hide">{config.title}</h2>
                 <p className="text-gray-600 mt-2 text-sm">{config.desc}</p>
             </header>
 
@@ -291,45 +291,47 @@ const VerticalSpreadChart = ({ strategy = 'bull-call' }) => {
                 </div>
 
                 {/* Controls & Stats Area */}
-                <div className="flex flex-wrap gap-4 md:gap-6 items-stretch">
+                <div className="w-full overflow-x-auto pb-2 pt-10">
+                    <div className="flex flex-wrap gap-4 md:gap-6 items-stretch">
 
-                    {/* Leg 1 Control (K_L) */}
-                    <ControlBox
-                        className="flex-1 min-w-[260px]"
-                        title={config.leg1.role}
-                        color={config.leg1.color}
-                        strike={kl} setStrike={setKl} strikeLabel="行权价 (K_L)"
-                        premium={pl} setPremium={setPl} premiumLabel={config.leg1.type.includes('long') ? "权利金支出" : "权利金收入"}
-                    />
+                        {/* Leg 1 Control (K_L) */}
+                        <ControlBox
+                            className="flex-1 min-w-[200px]"
+                            title={config.leg1.role}
+                            color={config.leg1.color}
+                            strike={kl} setStrike={setKl} strikeLabel="行权价 (K_L)"
+                            premium={pl} setPremium={setPl} premiumLabel={config.leg1.type.includes('long') ? "权利金支出" : "权利金收入"}
+                        />
 
-                    {/* Leg 2 Control (K_H) */}
-                    <ControlBox
-                        className="flex-1 min-w-[260px]"
-                        title={config.leg2.role}
-                        color={config.leg2.color}
-                        strike={kh} setStrike={setKh} strikeLabel="行权价 (K_H)"
-                        premium={ph} setPremium={setPh} premiumLabel={config.leg2.type.includes('long') ? "权利金支出" : "权利金收入"}
-                    />
+                        {/* Leg 2 Control (K_H) */}
+                        <ControlBox
+                            className="flex-1 min-w-[200px]"
+                            title={config.leg2.role}
+                            color={config.leg2.color}
+                            strike={kh} setStrike={setKh} strikeLabel="行权价 (K_H)"
+                            premium={ph} setPremium={setPh} premiumLabel={config.leg2.type.includes('long') ? "权利金支出" : "权利金收入"}
+                        />
 
-                    {/* Stats Panel */}
-                    <div className="flex-1 min-w-[260px] bg-white rounded-xl shadow border border-gray-200 p-5">
-                        <h3 className="font-bold text-gray-700 border-b pb-2 mb-3 text-sm uppercase tracking-wider">策略关键指标</h3>
-                        <div className="space-y-3 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">{stats.isDebit ? '净成本 (Net Debit)' : '净收入 (Net Credit)'}</span>
-                                <span className="font-bold text-gray-800">${stats.net}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">最大亏损 (Max Loss)</span>
-                                <span className="font-bold text-red-600">${stats.maxLoss}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">最大收益 (Max Profit)</span>
-                                <span className="font-bold text-green-600">${stats.maxProfit}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">盈亏平衡点 (Breakeven)</span>
-                                <span className="font-bold text-blue-600">${stats.breakeven}</span>
+                        {/* Stats Panel */}
+                        <div className="flex-1 min-w-[200px] bg-white rounded-xl shadow border border-gray-200 p-5">
+                            <h3 className="font-bold text-gray-700 border-b pb-2 mb-3 text-sm uppercase tracking-wider">策略关键指标</h3>
+                            <div className="space-y-3 text-sm">
+                                <div className="flex justify-between overflow-x-auto whitespace-nowrap scrollbar-hide gap-2">
+                                    <span className="text-gray-500">{stats.isDebit ? '净成本 (Net Debit)' : '净收入 (Net Credit)'}</span>
+                                    <span className="font-bold text-gray-800">${stats.net}</span>
+                                </div>
+                                <div className="flex justify-between overflow-x-auto whitespace-nowrap scrollbar-hide gap-2">
+                                    <span className="text-gray-500">最大亏损 (Max Loss)</span>
+                                    <span className="font-bold text-red-600">${stats.maxLoss}</span>
+                                </div>
+                                <div className="flex justify-between overflow-x-auto whitespace-nowrap scrollbar-hide gap-2">
+                                    <span className="text-gray-500">最大收益 (Max Profit)</span>
+                                    <span className="font-bold text-green-600">${stats.maxProfit}</span>
+                                </div>
+                                <div className="flex justify-between overflow-x-auto whitespace-nowrap scrollbar-hide gap-2">
+                                    <span className="text-gray-500">盈亏平衡点 (Breakeven)</span>
+                                    <span className="font-bold text-blue-600">${stats.breakeven}</span>
+                                </div>
                             </div>
                         </div>
                     </div>

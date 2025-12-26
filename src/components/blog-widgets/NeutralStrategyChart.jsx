@@ -245,9 +245,9 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
     };
 
     return (
-        <div className="my-10 font-sans not-prose bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-6 break-inside-avoid">
-            <header className="mb-8 border-b border-gray-200 pb-4 text-center md:text-left">
-                <h2 className="text-2xl font-bold text-gray-900">{config.title}</h2>
+        <div className="my-10 font-sans not-prose bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-4 md:p-6 break-inside-avoid">
+            <header className="mb-6 md:mb-8 border-b border-gray-200 pb-4 text-center md:text-left">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900 overflow-x-auto whitespace-nowrap scrollbar-hide">{config.title}</h2>
                 <p className="text-gray-600 mt-2 text-sm">{config.desc}</p>
             </header>
 
@@ -264,43 +264,45 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
                     </div>
                 </div>
 
-                {/* Controls Area (Responsive Grid/Flex) */}
-                <div className="flex flex-wrap gap-4 md:gap-6 items-start">
+                {/* Controls Area (Responsive Grid/Flex -> Horizontal Scroll on Mobile) */}
+                <div className="w-full overflow-x-auto pb-2 pt-4">
+                    <div className="flex flex-wrap gap-4 md:gap-6 items-stretch">
 
-                    {isCondor ? (
-                        <>
-                            <ControlContainer title="Put Wing (Bull Put)">
-                                <RangeControl label="Buy Put (K0)" value={k1} setValue={setK1} min={50} max={k2 - 1} />
-                                <RangeControl label="Sell Put (K1)" value={k2} setValue={setK2} min={k1 + 1} max={k3 - 1} />
-                                <RangeControl label="Credit Recv" value={creditPut} setValue={setCreditPut} min={0} max={10} step={0.1} />
-                            </ControlContainer>
-                            <ControlContainer title="Call Wing (Bear Call)" color="red">
-                                <RangeControl label="Sell Call (K2)" value={k3} setValue={setK3} min={k2 + 1} max={k4 - 1} />
-                                <RangeControl label="Buy Call (K3)" value={k4} setValue={setK4} min={k3 + 1} max={150} />
-                                <RangeControl label="Credit Recv" value={creditCall} setValue={setCreditCall} min={0} max={10} step={0.1} />
-                            </ControlContainer>
-                        </>
-                    ) : (
-                        <>
-                            {/* Butterfly Controls */}
-                            <ControlContainer title="Butterfly Structure">
-                                <RangeControl label="Body Strike (KM)" value={km} setValue={setKm} min={80} max={120} />
-                                <RangeControl label="Wing Width" value={width} setValue={setWidth} min={2} max={20} />
-                            </ControlContainer>
-                            <ControlContainer title="Cost">
-                                <RangeControl label="Net Debit" value={debit} setValue={setDebit} min={0.1} max={10} step={0.1} />
-                            </ControlContainer>
-                        </>
-                    )}
+                        {isCondor ? (
+                            <>
+                                <ControlContainer title="Put Wing (Bull Put)">
+                                    <RangeControl label="Buy Put (K0)" value={k1} setValue={setK1} min={50} max={k2 - 1} />
+                                    <RangeControl label="Sell Put (K1)" value={k2} setValue={setK2} min={k1 + 1} max={k3 - 1} />
+                                    <RangeControl label="Credit Recv" value={creditPut} setValue={setCreditPut} min={0} max={10} step={0.1} />
+                                </ControlContainer>
+                                <ControlContainer title="Call Wing (Bear Call)" color="red">
+                                    <RangeControl label="Sell Call (K2)" value={k3} setValue={setK3} min={k2 + 1} max={k4 - 1} />
+                                    <RangeControl label="Buy Call (K3)" value={k4} setValue={setK4} min={k3 + 1} max={150} />
+                                    <RangeControl label="Credit Recv" value={creditCall} setValue={setCreditCall} min={0} max={10} step={0.1} />
+                                </ControlContainer>
+                            </>
+                        ) : (
+                            <>
+                                {/* Butterfly Controls */}
+                                <ControlContainer title="Butterfly Structure">
+                                    <RangeControl label="Body Strike (KM)" value={km} setValue={setKm} min={80} max={120} />
+                                    <RangeControl label="Wing Width" value={width} setValue={setWidth} min={2} max={20} />
+                                </ControlContainer>
+                                <ControlContainer title="Cost">
+                                    <RangeControl label="Net Debit" value={debit} setValue={setDebit} min={0.1} max={10} step={0.1} />
+                                </ControlContainer>
+                            </>
+                        )}
 
-                    {/* Stats Panel */}
-                    <div className="flex-1 min-w-[260px] bg-white rounded-xl shadow border border-gray-200 p-5 self-stretch">
-                        <h3 className="font-bold text-gray-700 border-b pb-2 mb-3 text-sm uppercase tracking-wider">关键指标</h3>
-                        <div className="space-y-3 text-sm">
-                            <StatRow label="策略构建" value={stats.entry} />
-                            <StatRow label="最大收益" value={stats.maxProfit} color="text-green-600" />
-                            <StatRow label="最大亏损" value={stats.maxLoss} color="text-red-600" />
-                            <StatRow label="盈亏平衡点" value={stats.breakeven} color="text-blue-600" />
+                        {/* Stats Panel */}
+                        <div className="w-full md:flex-1 bg-white rounded-xl shadow border border-gray-200 p-5 self-stretch">
+                            <h3 className="font-bold text-gray-700 border-b pb-2 mb-3 text-sm uppercase tracking-wider">关键指标</h3>
+                            <div className="space-y-3 text-sm">
+                                <StatRow label="策略构建" value={stats.entry} />
+                                <StatRow label="最大收益" value={stats.maxProfit} color="text-green-600" />
+                                <StatRow label="最大亏损" value={stats.maxLoss} color="text-red-600" />
+                                <StatRow label="盈亏平衡点" value={stats.breakeven} color="text-blue-600" />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -313,7 +315,7 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
 const ControlContainer = ({ title, children, color = "blue" }) => {
     const theme = color === 'blue' ? "bg-blue-50 border-blue-200 text-blue-800" : "bg-red-50 border-red-200 text-red-800";
     return (
-        <div className={`flex-1 min-w-[280px] p-4 rounded-xl border relative ${theme}`}>
+        <div className={`w-full md:flex-1 p-4 rounded-xl border relative ${theme}`}>
             <h4 className="font-bold mb-3 text-sm uppercase opacity-80">{title}</h4>
             <div className="space-y-4">{children}</div>
         </div>

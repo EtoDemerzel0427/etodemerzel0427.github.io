@@ -209,9 +209,9 @@ const VolatilityStrategyChart = ({ strategy = 'long-straddle' }) => {
     };
 
     return (
-        <div className="my-10 font-sans not-prose bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-6 break-inside-avoid">
-            <header className="mb-8 border-b border-gray-200 pb-4 text-center md:text-left">
-                <h2 className="text-2xl font-bold text-gray-900">{config.title}</h2>
+        <div className="my-10 font-sans not-prose bg-gray-50 rounded-2xl border border-gray-200 shadow-sm p-4 md:p-6 break-inside-avoid">
+            <header className="mb-6 md:mb-8 border-b border-gray-200 pb-4 text-center md:text-left">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900 overflow-x-auto whitespace-nowrap scrollbar-hide">{config.title}</h2>
                 <p className="text-gray-600 mt-2 text-sm">{config.desc}</p>
             </header>
 
@@ -233,7 +233,7 @@ const VolatilityStrategyChart = ({ strategy = 'long-straddle' }) => {
 
                     {/* Leg 1 Control (Put or Straddle Strike) */}
                     <ControlBox
-                        className="flex-1 min-w-[260px]"
+                        className="w-full md:flex-1 md:min-w-[260px]"
                         title={isStraddle ? "Straddle Legs" : "Leg 1: Long Put"}
                         color="red"
                         strike={isStraddle ? k : kl}
@@ -244,7 +244,7 @@ const VolatilityStrategyChart = ({ strategy = 'long-straddle' }) => {
 
                     {/* Leg 2 Control (Call or just Call Premium for straddle) */}
                     <ControlBox
-                        className="flex-1 min-w-[260px]"
+                        className="w-full md:flex-1 md:min-w-[260px]"
                         title={isStraddle ? "Call Side Cost" : "Leg 2: Long Call"}
                         color="blue"
                         // For Straddle, we don't show specific KH slider, just PC.
@@ -266,22 +266,22 @@ const VolatilityStrategyChart = ({ strategy = 'long-straddle' }) => {
                     />
 
                     {/* Stats Panel */}
-                    <div className="flex-1 min-w-[260px] bg-white rounded-xl shadow border border-gray-200 p-5">
+                    <div className="w-full md:flex-1 md:min-w-[260px] bg-white rounded-xl shadow border border-gray-200 p-5">
                         <h3 className="font-bold text-gray-700 border-b pb-2 mb-3 text-sm uppercase tracking-wider">策略关键指标</h3>
                         <div className="space-y-3 text-sm">
-                            <div className="flex justify-between">
+                            <div className="flex justify-between overflow-x-auto whitespace-nowrap scrollbar-hide gap-2">
                                 <span className="text-gray-500">总成本 (Total Debit)</span>
                                 <span className="font-bold text-gray-800">${stats.netDebit}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between overflow-x-auto whitespace-nowrap scrollbar-hide gap-2">
                                 <span className="text-gray-500">最大亏损 (Max Loss)</span>
                                 <span className="font-bold text-red-600">${stats.maxLoss}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between overflow-x-auto whitespace-nowrap scrollbar-hide gap-2">
                                 <span className="text-gray-500">下行盈亏平衡 (Low BE)</span>
                                 <span className="font-bold text-blue-600">${stats.breakevenLow}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between overflow-x-auto whitespace-nowrap scrollbar-hide gap-2">
                                 <span className="text-gray-500">上行盈亏平衡 (High BE)</span>
                                 <span className="font-bold text-blue-600">${stats.breakevenHigh}</span>
                             </div>
