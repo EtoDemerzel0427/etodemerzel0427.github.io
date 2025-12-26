@@ -46,16 +46,6 @@ const BlogList = ({ posts, activeTag }) => {
     // Helper to detect Chinese characters
     const hasChinese = (text) => /[\u4e00-\u9fa5]/.test(text);
 
-    // Navigation logic for card click
-    const handleCardClick = (e, slug) => {
-        // Prevent navigation if clicking on a tag (which is an anchor)
-        if (e.target.closest('a')) return;
-        window.location.href = `/blog/${slug}`;
-    };
-
-
-
-
 
     // Helper for highlight color
     const getHighlightColor = (u) => {
@@ -115,8 +105,8 @@ const BlogList = ({ posts, activeTag }) => {
                         <p className="opacity-50 italic">No articles found in this language.</p>
                     ) : (
                         filteredPosts.map(post => (
-                            <div
-                                onClick={(e) => handleCardClick(e, post.slug)}
+                            <a
+                                href={`/blog/${post.slug}`}
                                 key={post.slug}
                                 className={`block group cursor-pointer relative ${getCardStyle($universe, 'default', '!min-h-0 !p-6 md:!p-8 h-auto')}`}
                             >
@@ -141,20 +131,21 @@ const BlogList = ({ posts, activeTag }) => {
                                     {post.tags && post.tags.length > 0 && (
                                         <div className="flex gap-2 mt-2">
                                             {post.tags.map(tag => (
-                                                <a
-                                                    key={tag}
-                                                    href={`/blog/tag/${tag}`}
-                                                    className={`text-xs font-bold px-2 py-1 border rounded z-10 transition-colors
-                                                        ${$universe === 'retro' ? 'border-white text-white hover:bg-white hover:text-black' : 'border-current opacity-60 hover:opacity-100 hover:bg-black/5'}
-                                                    `}
-                                                >
-                                                    #{tag}
-                                                </a>
+                                                <object key={tag}>
+                                                    <a
+                                                        href={`/blog/tag/${tag}`}
+                                                        className={`text-xs font-bold px-2 py-1 border rounded z-10 transition-colors inline-block
+                                                            ${$universe === 'retro' ? 'border-white text-white hover:bg-white hover:text-black' : 'border-current opacity-60 hover:opacity-100 hover:bg-black/5'}
+                                                        `}
+                                                    >
+                                                        #{tag}
+                                                    </a>
+                                                </object>
                                             ))}
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                            </a>
                         ))
                     )}
                 </div>

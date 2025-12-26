@@ -3,14 +3,12 @@ import { getCardStyle, getFontClass } from '../../utils/theme';
 
 const ArchiveCard = ({ universe, data, className }) => {
     // data = { count: 35, siteUrl: '...' }
-    const handleClick = () => {
-        if (data.siteUrl) {
-            window.location.href = data.siteUrl;
-        }
-    };
 
     return (
-        <div className={`${getCardStyle(universe, 'white', className)} cursor-pointer`} onClick={handleClick}>
+        <a
+            href={data.siteUrl || '#'}
+            className={`${getCardStyle(universe, 'white', className)} cursor-pointer block`}
+        >
 
             {universe === 'lofi' && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-6 bg-[#ffccbc]/80 transform rotate-2 shadow-sm z-20"></div>
@@ -47,7 +45,7 @@ const ArchiveCard = ({ universe, data, className }) => {
                 </div>
                 <div className="text-sm font-bold uppercase tracking-widest opacity-40">Posts</div>
             </div>
-        </div>
+        </a>
     );
 };
 

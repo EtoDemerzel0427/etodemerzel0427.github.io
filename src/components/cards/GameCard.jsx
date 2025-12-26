@@ -5,7 +5,9 @@ import { getCardStyle } from '../../utils/theme';
 const GameCard = ({ universe, data, className }) => {
     // data = game object (title, platform, status, cover, link)
     return (
-        <div className={`${getCardStyle(universe, universe === 'cyberpunk' ? 'primary' : 'primary', `md:col-span-2 ${className}`)} relative overflow-hidden group cursor-pointer transform-gpu
+        <a
+            href="/gallery?tab=game"
+            className={`${getCardStyle(universe, universe === 'cyberpunk' ? 'primary' : 'primary', `md:col-span-2 ${className}`)} relative overflow-hidden group cursor-pointer transform-gpu block
        ${universe === 'noir' ? 'grayscale' : ''}
        ${universe === 'neon' ? '!bg-[#10141e] border border-blue-500/30' : ''}
        ${universe === 'cyberpunk' ? 'shadow-[0_0_20px_rgba(252,238,10,0.15)]' : ''}
@@ -16,7 +18,7 @@ const GameCard = ({ universe, data, className }) => {
                 WebkitMaskImage: '-webkit-radial-gradient(white, black)', // Force Safari/Chrome to respect border-radius clipping
                 isolation: 'isolate', // Create new stacking context
             } : {}}
-            onClick={() => window.location.href = '/gallery?tab=game'}>
+        >
 
             {/* Immersive Background Image */}
             <div className={`absolute inset-0 z-0 transition-opacity duration-300
@@ -62,7 +64,7 @@ const GameCard = ({ universe, data, className }) => {
                     </h3>
                 </div>
             </div>
-        </div>
+        </a>
     );
 };
 

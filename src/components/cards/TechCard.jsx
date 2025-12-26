@@ -4,23 +4,20 @@ import { getCardStyle, getFontClass } from '../../utils/theme';
 
 const TechCard = ({ universe, data, loading, className }) => {
     // data = featuredPost object
-    const handleClick = () => {
-        if (data) {
-            if (data.slug) {
-                // Local post -> internal navigation
-                window.location.href = `/blog/${data.slug}`;
-            } else if (data.url) {
-                // Fallback for external links (if any)
-                window.open(data.url, '_blank');
-            }
-        }
-    };
-
     // Helper to detect Chinese characters
     const hasChinese = (text) => /[\u4e00-\u9fa5]/.test(text);
 
+    // Determine link
+    const href = data?.slug ? `/blog/${data.slug}` : (data?.url || '#');
+    const isExternal = !!data?.url;
+
     return (
-        <div className={`${getCardStyle(universe, universe === 'punk' ? 'white' : 'white', `md:col-span-2 !block !h-auto !pb-14 overflow-hidden ${className}`)}`}>
+        <a
+            href={href}
+            target={isExternal ? '_blank' : '_self'}
+            rel={isExternal ? 'noopener noreferrer' : ''}
+            className={`${getCardStyle(universe, universe === 'punk' ? 'white' : 'white', `md:col-span-2 !block !h-auto !pb-14 overflow-hidden ${className}`)} cursor-pointer block`}
+        >
 
             {universe === 'neon' && (
                 <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-blue-100 rounded-full blur-2xl opacity-60"></div>
@@ -63,8 +60,7 @@ const TechCard = ({ universe, data, loading, className }) => {
                     {data ? data.date : '...'}
                 </span>
             </div>
-            <div className="group-hover:translate-x-1 transition-transform duration-300 relative z-10 cursor-pointer"
-                onClick={handleClick}>
+            <div className="group-hover:translate-x-1 transition-transform duration-300 relative z-10">
                 <h3 className={`text-xl md:text-2xl font-bold mb-3 leading-tight ${getFontClass(universe, 'title')}
            ${universe === 'punk' ? 'decoration-2 underline-offset-4 group-hover:underline' : ''}
            ${universe === 'newspaper' ? 'italic' : ''}
@@ -85,7 +81,7 @@ const TechCard = ({ universe, data, loading, className }) => {
                     </p>
                 </div>
             </div>
-        </div>
+        </a>
     );
 };
 

@@ -80,7 +80,7 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
 
 
     // --- Calculation Logic ---
-    const { labels, dataCombo, stats, chartMin, chartMax } = useMemo(() => {
+    const { labels, dataCombo, dataLegLeft, dataLegRight, stats, chartMin, chartMax } = useMemo(() => {
         const center = isCondor ? (k2 + k3) / 2 : km;
         const rangeWidth = isCondor ? (k4 - k1) : (width * 3);
         const rangeMin = center - rangeWidth * 0.8;
@@ -89,6 +89,8 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
 
         const labels = [];
         const dataCombo = [];
+        const dataLegLeft = [];
+        const dataLegRight = [];
 
         // Derived Butterfly Strikes
         const kl = km - width;
@@ -99,45 +101,49 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
             labels.push(s.toFixed(1));
 
             let val = 0;
+            let legL = 0;
+            let legR = 0;
 
             if (isCondor) {
                 // Iron Condor Payoff
-                // Put Spread Leg (Bull Put): Short K2, Long K1. Net Credit = creditPut.
+                // Leg Left: Bull Put Spread (Short K2, Long K1)
                 // Value = Credit - Max(K2 - S, 0) + Max(K1 - S, 0)
-                const payoffPutSide = creditPut - Math.max(k2 - s, 0) + Math.max(k1 - s, 0);
+                legL = creditPut - Math.max(k2 - s, 0) + Math.max(k1 - s, 0);
 
-                // Call Spread Leg (Bear Call): Short K3, Long K4. Net Credit = creditCall.
+                // Leg Right: Bear Call Spread (Short K3, Long K4)
                 // Value = Credit - Max(S - K3, 0) + Max(S - K4, 0)
-                const payoffCallSide = creditCall - Math.max(s - k3, 0) + Math.max(s - k4, 0);
+                legR = creditCall - Math.max(s - k3, 0) + Math.max(s - k4, 0);
 
-                // Total is sum of credits minus losses? 
-                // Wait, if we separate them:
-                // Total Credit = P_K2 - P_K1 + P_K3 - P_K4 = creditPut + creditCall.
-                // Payoff at expiry:
-                // Leg 1 (Long Put K1): Max(K1-S, 0)
-                // Leg 2 (Short Put K2): -Max(K2-S, 0)
-                // Leg 3 (Short Call K3): -Max(S-K3, 0)
-                // Leg 4 (Long Call K4): Max(S-K4, 0)
-                // Total + Initial Credit? 
-                // YES in terms of "Profit":
-                // Profit = Initial Credit + (Payoff_Expiry_Legs)
-                val = (creditPut + creditCall) +
-                    Math.max(k1 - s, 0) - Math.max(k2 - s, 0) -
-                    Math.max(s - k3, 0) + Math.max(s - k4, 0);
+                // Total
+                val = legL + legR;
 
             } else if (type === 'butterfly-call') {
-                // Long Call Butterfly: Buy KL, Sell 2 KM, Buy KH. Debit.
-                // Profit = (Payoff_Expiry) - Debit
-                // Payoff = Max(S-KL, 0) - 2*Max(S-KM, 0) + Max(S-KH, 0)
-                val = Math.max(s - kl, 0) - 2 * Math.max(s - km, 0) + Math.max(s - kh, 0) - debit;
+                // Long Call Butterfly
+                // Leg 1 (Bull Call Spread): Buy KL, Sell KM. Debit = debit/2 (approx)
+                // Payoff = Max(S - KL, 0) - Max(S - KM, 0) - debit/2
+                legL = Math.max(s - kl, 0) - Math.max(s - km, 0) - debit / 2;
+
+                // Leg 2 (Bear Call Spread): Sell KM, Buy KH. Debit = debit/2
+                // Payoff = -Max(S - KM, 0) + Max(S - KH, 0) - debit / 2;
+                legR = -Math.max(s - km, 0) + Math.max(s - kh, 0) - debit / 2;
+
+                val = legL + legR;
 
             } else if (type === 'butterfly-put') {
-                // Long Put Butterfly: Buy KL, Sell 2 KM, Buy KH. Debit.
-                // Payoff = Max(KL-S, 0) - 2*Max(KM-S, 0) + Max(KH-S, 0)
-                val = Math.max(kl - s, 0) - 2 * Math.max(km - s, 0) + Math.max(kh - s, 0) - debit;
+                // Long Put Butterfly: Buy KL, Sell 2 KM, Buy KH
+
+                // Leg L (Bull Put Spread): Short KM, Long KL.
+                legL = Math.max(kl - s, 0) - Math.max(km - s, 0) - debit / 2;
+
+                // Leg R (Bear Put Spread): Long KH, Short KM.
+                legR = Math.max(kh - s, 0) - Math.max(km - s, 0) - debit / 2;
+
+                val = legL + legR;
             }
 
             dataCombo.push(val);
+            dataLegLeft.push(legL);
+            dataLegRight.push(legR);
         }
 
         // Stats
@@ -173,7 +179,7 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
             };
         }
 
-        return { labels, dataCombo, stats, chartMin: rangeMin, chartMax: rangeMax, kl, kh };
+        return { labels, dataCombo, dataLegLeft, dataLegRight, stats, chartMin: rangeMin, chartMax: rangeMax, kl, kh };
     }, [isCondor, type, k1, k2, k3, k4, creditPut, creditCall, km, width, debit]);
 
 
@@ -188,7 +194,7 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
         },
         plugins: {
             legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
-            tooltip: { callbacks: { label: (ctx) => `P&L: $${ctx.parsed.y.toFixed(2)}` } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label || 'P&L'}: $${ctx.parsed.y.toFixed(2)}` } },
             annotation: {
                 annotations: {
                     // Lines for critical strikes
@@ -207,14 +213,33 @@ const NeutralStrategyChart = ({ strategy = 'iron-condor' }) => {
         labels,
         datasets: [
             {
-                label: 'Strategy P&L',
+                label: 'Combined P&L',
                 data: dataCombo,
                 borderColor: '#0ea5e9', // Sky Blue
                 borderWidth: 3,
                 tension: 0.1,
                 fill: { target: 'origin', above: 'rgba(22, 163, 74, 0.15)', below: 'rgba(220, 38, 38, 0.15)' },
                 pointRadius: 0,
-                pointHoverRadius: 6
+                pointHoverRadius: 6,
+                order: 1
+            },
+            {
+                label: isCondor ? 'Bull Put Spread' : 'Left Wing Spread',
+                data: dataLegLeft,
+                borderColor: '#9ca3af', // Gray
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                order: 2
+            },
+            {
+                label: isCondor ? 'Bear Call Spread' : 'Right Wing Spread',
+                data: dataLegRight,
+                borderColor: '#fca5a5', // Light Red
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                order: 3
             }
         ]
     };

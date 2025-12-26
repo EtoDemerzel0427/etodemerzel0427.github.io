@@ -4,10 +4,11 @@ import { getFontClass } from '../../utils/theme';
 
 const ReadingCard = ({ universe, data, className }) => {
     // Navigate to local gallery instead of external link
-    const handleClick = () => window.location.href = '/gallery';
 
     return (
-        <div className={`md:row-span-2 relative group overflow-hidden flex flex-col items-center justify-center cursor-pointer transition-all duration-500 ease-out ${className || ''}
+        <a
+            href="/gallery"
+            className={`md:row-span-2 relative group overflow-hidden flex flex-col items-center justify-center cursor-pointer transition-all duration-500 ease-out ${className || ''}
        ${universe === 'punk' ? 'bg-amber-100 border-2 border-black p-4 shadow-[4px_4px_0px_#000] hover:shadow-[6px_6px_0px_#000] hover:-rotate-1 transition-all' : ''}
        ${universe === 'retro' ? 'border-2 border-white/20 bg-[#2d2a2e] p-4 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,0.5)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,0.5)] hover:border-[#ff0055] hover:z-10' : ''}
        ${universe === 'noir' ? 'bg-[#111] border border-white/10 rounded-3xl p-6 hover:border-white/30 hover:bg-[#161616] hover:shadow-[0_0_50px_-12px_rgba(255,255,255,0.15)] grayscale' : ''}
@@ -23,7 +24,8 @@ const ReadingCard = ({ universe, data, className }) => {
        ${universe === 'neon' ? 'bg-white text-gray-900 rounded-[2.5rem] p-8 border border-white/50 hover:-translate-y-1 neon-glow-card shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)]' : ''}
        
        ${!['punk', 'retro', 'noir', 'aero', 'terminal', 'bauhaus', 'comic', 'lofi', 'botanical', 'cyberpunk', 'newspaper', 'neon'].includes(universe) ? 'bg-white p-6 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all duration-500' : ''}
-    `} onClick={handleClick}>
+    `}
+        >
 
             {/* Background Decorations */}
             {['punk', 'default', 'lofi', 'bauhaus', 'comic', 'botanical'].includes(universe) && (
@@ -140,7 +142,7 @@ const ReadingCard = ({ universe, data, className }) => {
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     );
 };
 
