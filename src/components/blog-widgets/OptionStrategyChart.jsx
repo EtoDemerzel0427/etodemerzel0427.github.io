@@ -273,8 +273,10 @@ const ChartCard = ({ title, desc, role, roleColor, borderColor, headerBg, data, 
             </div>
             <span className={`text-xs font-bold ${roleColor} px-2 py-1 rounded shrink-0 whitespace-nowrap`}>{role}</span>
         </div>
-        <div className="p-2 relative h-64 flex-grow">
-            <Line data={data} options={options} />
+        <div className="overflow-x-auto flex-grow">
+            <div className="p-2 relative h-64 min-w-[500px]">
+                <Line data={data} options={options} />
+            </div>
         </div>
         <div className="p-3 bg-gray-50 text-xs grid grid-cols-3 gap-1 text-center border-t">
             {stats.map((s, i) => (

@@ -281,8 +281,12 @@ const VerticalSpreadChart = ({ strategy = 'bull-call' }) => {
 
                 {/* Chart Area - Prominent and on top for mobile/narrow columns */}
                 <div className="w-full">
-                    <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-2 md:p-4 h-[300px] md:h-[400px] relative">
-                        <Line data={chartData} options={options} />
+                    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden relative">
+                        <div className="overflow-x-auto">
+                            <div className="h-[300px] md:h-[400px] p-2 md:p-4 min-w-[500px] relative">
+                                <Line data={chartData} options={options} />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
