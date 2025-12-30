@@ -12,6 +12,10 @@ const posts = allPosts.map(p => ({
 })).sort((a, b) => new Date(b.date) - new Date(a.date));
 ---
 
-<Layout title="Articles | Weiran's Universe">
+<Layout 
+    title="Articles | Weiran's Universe"
+    description="Unboxing Weiran's thoughts: Engineering patterns, option strategies, artistic experiments, and life adventures."
+    canonicalURL={new URL('/blog', Astro.site).toString()}
+>
     <BlogList client:only="react" posts={posts} />
 </Layout>

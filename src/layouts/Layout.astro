@@ -9,19 +9,46 @@ import MusicPlayer from '../components/MusicPlayer'; // We will create this wrap
 import { USER_CONTENT } from '../config';
 import '../index.css';
 
-const { title = "Weiran's Universe", showHeader = true } = Astro.props;
+const { 
+    title = "Weiran's Universe", 
+    showHeader = true,
+    description = "From low-latency C++ to high-volatility markets. Exploring the intersection of Tech, Trading, Digital Art, and Music.",
+    image,
+    articleDate,
+    canonicalURL 
+} = Astro.props;
+
+// Resolution logic for robust image URL handling
+const resolvedImage = image ? new URL(image, Astro.site).toString() : new URL(USER_CONTENT.social.defaultImage, Astro.site).toString();
+const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toString() : new URL(Astro.url.pathname, Astro.site).toString();
 ---
 
 <!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="description" content="A coding universe by Weiran" />
 		<meta name="viewport" content="width=device-width" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
-		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+
+        <!-- SEO Metadata -->
+        <meta name="description" content={description} />
+        <link rel="canonical" href={resolvedCanonical} />
+
+        <!-- OpenGraph Tags -->
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:url" content={resolvedCanonical} />
+        <meta property="og:image" content={resolvedImage} />
+        <meta property="og:type" content={articleDate ? "article" : "website"} />
+        {articleDate && <meta property="article:published_time" content={articleDate} />}
+
+        <!-- Twitter Card Tags -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={title} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={resolvedImage} />
 
         <!-- Google Analytics (Partytown) -->
         {import.meta.env.PROD && USER_CONTENT.googleAnalytics?.id && (
@@ -139,6 +166,11 @@ const { title = "Weiran's Universe", showHeader = true } = Astro.props;
 		<ViewTransitions />
 	</head>
 	<body class="min-h-screen relative z-0">
+        <!-- WeChat Sharing Optimization (Hidden Image Hack) -->
+        <div style="display:none; visibility:hidden; width:0; height:0;">
+            <img src={resolvedImage} alt="wechat-thumb" width="300" height="300" />
+        </div>
+
         <!-- Persistent Global UI (Backgrounds, Modals, Music) -->
         <!-- client:only="react" ensures they run on client side from the start -->
         <!-- Music Player: We need to implement it to verify "music continues playing" -->

@@ -27,6 +27,13 @@ postWithContent.content = post.body;
 postWithContent.readTime = getReadingTime(post.body).text;
 ---
 
-<Layout title={post.data.title} showHeader={false}>
+<Layout 
+    title={post.data.title} 
+    showHeader={false}
+    description={post.data.summary}
+    image={post.data.image || post.data.cover}
+    articleDate={post.data.date}
+    canonicalURL={new URL(`/blog/${post.slug}`, Astro.site).toString()}
+>
     <BlogPost client:only="react" post={postWithContent} />
 </Layout>
