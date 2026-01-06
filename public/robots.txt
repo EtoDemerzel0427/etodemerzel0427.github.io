@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://etodemerzel0427.github.io/sitemap-index.xml
