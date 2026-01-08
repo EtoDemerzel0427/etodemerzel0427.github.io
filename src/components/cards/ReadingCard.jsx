@@ -66,8 +66,9 @@ const ReadingCard = ({ universe, data, className }) => {
                 ${universe === 'cyberpunk' ? 'bg-[#fcee0a]/10' : ''}
             `}></div>
                         <img
-                            src={data.cover}
+                            src={data.cover?.src || data.cover}
                             alt={data.title}
+                            {...(data.cover?.attributes || {})}
                             className={`h-full w-auto max-h-full rounded shadow-xl rotate-0 transition-transform duration-500 object-contain
                     ${['retro', 'noir', 'terminal'].includes(universe) ? 'grayscale contrast-125' : ''}
                     ${universe === 'aero' ? 'opacity-90 mix-blend-multiply' : ''}

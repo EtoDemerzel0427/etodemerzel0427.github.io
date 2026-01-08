@@ -8,7 +8,7 @@ import { useGitHubStats } from '../hooks/useGitHubStats';
 import { CardRegistry } from '../components/CardRegistry';
 import { libraryData } from '../data/library';
 
-const BentoGrid = ({ latestPost, postCount }) => {
+const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData }) => {
     // Global State via Nano Stores
     const universe = useStore(universeStore);
     const isPlaying = useStore(isPlayingStore);
@@ -18,18 +18,20 @@ const BentoGrid = ({ latestPost, postCount }) => {
     const { userProfile, contributionStats, loading: githubLoading } = useGitHubStats(USER_CONTENT.social.github);
 
     // Derived State: Latest Playing Game
-    // Find the last game in the library with status 'playing'
+    // PREFER SERVER DATA (Optimized Cover) -> Fallback to Client Logic
     const latestGame = React.useMemo(() => {
+        if (latestGameData) return latestGameData; // Use optimized data
         const playingGames = libraryData.filter(item => item.type === 'game' && item.status === 'playing');
         return playingGames.length > 0 ? playingGames[playingGames.length - 1] : USER_CONTENT.game;
-    }, []);
+    }, [latestGameData]);
 
     // Derived State: Latest Reading Book
-    // Find the last book in the library with status 'reading'
+    // PREFER SERVER DATA (Optimized Cover) -> Fallback to Client Logic
     const latestBook = React.useMemo(() => {
+        if (latestBookData) return latestBookData; // Use optimized data
         const readingBooks = libraryData.filter(item => item.type === 'book' && item.status === 'reading');
         return readingBooks.length > 0 ? readingBooks[readingBooks.length - 1] : USER_CONTENT.reading;
-    }, []);
+    }, [latestBookData]);
 
     return (
         <div className="max-w-7xl mx-auto relative z-10">

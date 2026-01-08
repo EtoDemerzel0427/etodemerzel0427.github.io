@@ -156,7 +156,7 @@ export const libraryData = [
         type: 'music',
         title: '橙月 (Orange Moon)',
         creator: '方大同 (Khalil Fong)',
-        cover: 'https://p3-pc-sign.douyinpic.com/tos-cn-i-0813c000-ce/ocZHEaEzEwAItDe5AikAfAPAEF5B4iy4iebXZA~noop.jpeg?biz_tag=pcweb_cover&card_type=303&column_n=0&from=327834062&lk3s=138a59ce&s=PackSourceEnum_SEARCH&se=false&x-expires=1767222000&x-signature=RqhkhJyyh9GERZePRdjA3hAYdco%3D',
+        cover: 'https://file.garden/aUY2tKFk7RLHy0-V/ocZHEaEzEwAItDe5AikAfAPAEF5B4iy4iebXZA~tplv-dy-aweme-images%3Aq75.webp%3Fbiz_tag%3Daweme_images%26amp%3Bfrom%3D327834062%26amp%3Blk3s%3D138a59ce%26amp%3Bs%3DPackSourceEnum_SEARCH%26amp%3Bsc%3Dimage%26amp%3Bse%3Dfalse%26amp%3Bx-expires%3D1770375600%26amp%3Bx-signature%3D2pEfOmAlVd3wemROr7LATMl67C4%253D',
         status: 'finished',
         progress: 100,
         rating: 5,

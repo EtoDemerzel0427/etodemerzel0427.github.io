@@ -28,7 +28,7 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" href="/favicon.png" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
 
@@ -185,14 +185,18 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
             {/* HEADER - Wrapped for alignment */}
             {showHeader && (
                 <div class="w-full max-w-7xl mx-auto pt-12">
-                    <Header client:only="react" />
+                    <Header client:only="react">
+                        <div slot="fallback" class="h-20 w-full animate-pulse bg-white/5 rounded-xl mb-12"></div>
+                    </Header>
                 </div>
             )}
 
             <!-- Main Content Slot -->
             <main class="flex-1 w-full max-w-7xl mx-auto flex flex-col">
     		    <slot />
-                <Footer client:only="react" />
+                <Footer client:only="react">
+                    <div slot="fallback" class="h-16 w-full animate-pulse bg-white/5 rounded-xl mt-8"></div>
+                </Footer>
             </main>
         </div>
 	</body>

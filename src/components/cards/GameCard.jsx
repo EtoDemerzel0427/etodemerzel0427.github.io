@@ -25,8 +25,9 @@ const GameCard = ({ universe, data, className }) => {
                  ${universe === 'cyberpunk' ? 'group-hover:opacity-0' : ''}
             `}>
                 <img
-                    src={data.cover}
+                    src={data.cover?.src || data.cover}
                     alt={data.title}
+                    {...(data.cover?.attributes || {})}
                     className={`w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105
              ${universe === 'noir' ? 'grayscale contrast-125 brightness-75' : 'brightness-50 group-hover:brightness-40'}
            `}

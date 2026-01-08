@@ -9,8 +9,9 @@ import { createPortal } from 'react-dom';
 import MediaDetailModal from './MediaDetailModal';
 import BackNavigation from '../BackNavigation';
 
-const MediaGallery = () => {
+const MediaGallery = ({ initialLibraryData }) => {
     const universe = useStore(universeStore);
+    const dataSource = initialLibraryData || libraryData;
 
     // Initialize state from URL param or default to 'book'
     const [activeTab, setActiveTab] = useState(() => {
@@ -34,8 +35,8 @@ const MediaGallery = () => {
     }, [activeTab]);
 
     const filteredData = useMemo(() => {
-        return libraryData.filter(item => item.type === activeTab);
-    }, [activeTab]);
+        return dataSource.filter(item => item.type === activeTab);
+    }, [activeTab, dataSource]);
 
     const tabs = [
         { id: 'book', label: 'Books', icon: Book },

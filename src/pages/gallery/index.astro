@@ -1,13 +1,32 @@
 ---
-import Layout from '../../layouts/Layout.astro'; // Assuming standard layout, but we use GlobalUI in this project usually inside standard Astro pages if needed, or just a raw component structure if the Layout handles it.
-// Checking existing pages, it seems index.astro uses GlobalUI directly.
-// Let's stick to the pattern found in /src/pages/index.astro if possible, or just wrap GlobalUI.
-
+import Layout from '../../layouts/Layout.astro';
 import GlobalUI from '../../components/GlobalUI';
 import MediaGallery from '../../components/gallery/MediaGallery';
 import SEO from '../../components/SEO';
+import { getImage } from 'astro:assets';
+import { libraryData } from '../../data/library';
+
+// Enhance libraryData with optimized images
+const optimizedLibrary = await Promise.all(libraryData.map(async (item) => {
+    if (!item.cover) return item;
+    
+    try {
+        const optimized = await getImage({
+            src: item.cover,
+            format: 'webp',
+            width: 800,
+            height: 1200, // Explicit 2:3 aspect ratio to match UI & avoid inferSize
+            quality: 90,
+        });
+        return { ...item, cover: optimized.src };
+    } catch (e) {
+        // Silently fall back to original image if optimization fails (e.g. timeout, 403, unknown dimensions)
+        // console.warn(`[Image Optimization] Skipped: ${item.title}`); 
+        return item;
+    }
+}));
 ---
 
 <Layout title="Gallery | Weiran Verse" description="A collection of books, movies, and music.">
-    <MediaGallery client:only="react" />
+    <MediaGallery client:only="react" initialLibraryData={optimizedLibrary} />
 </Layout>

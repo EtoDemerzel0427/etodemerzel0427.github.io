@@ -46,13 +46,20 @@ const TechCard = ({ universe, data, loading, className }) => {
                         <Terminal size={16} />
                     </div>
                     {data && (
-                        <a
-                            href={data.tags && data.tags.length > 0 ? `/blog/tag/${data.tags[0]}` : '#'}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100 hover:underline z-20"
+                        <span
+                            role="link"
+                            tabIndex={0}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (data.tags && data.tags.length > 0) {
+                                    window.location.href = `/blog/tag/${data.tags[0]}`;
+                                }
+                            }}
+                            className="text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100 hover:underline z-20 cursor-pointer"
                         >
                             {data.category || (data.tags && data.tags[0]) || 'Blog'}
-                        </a>
+                        </span>
                     )}
                     {!data && <span className="text-xs font-bold uppercase tracking-wider opacity-60">...</span>}
                 </div>

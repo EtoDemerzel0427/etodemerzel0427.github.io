@@ -2,6 +2,9 @@
 import Layout from '../layouts/Layout.astro';
 import BentoGrid from '../components/BentoGrid';
 import { getCollection } from 'astro:content';
+import { getImage } from 'astro:assets';
+import { libraryData } from '../data/library';
+import { USER_CONTENT, LAYOUT_CONFIG } from '../config';
 
 const allPosts = await getCollection('posts');
 const posts = allPosts.map(p => ({
@@ -11,8 +14,70 @@ const posts = allPosts.map(p => ({
 
 const latestPost = posts.length > 0 ? posts[0] : null;
 const postCount = posts.length;
+
+// --- SERVER SIDE IMAGE OPTIMIZATION ---
+// 1. Resolve Latest Game
+const rawLatestGame = (() => {
+    const playingGames = libraryData.filter(item => item.type === 'game' && item.status === 'playing');
+    return playingGames.length > 0 ? playingGames[playingGames.length - 1] : USER_CONTENT.game;
+})();
+
+let optimizedGame = rawLatestGame;
+if (rawLatestGame && rawLatestGame.cover) {
+    try {
+        const optimizedCover = await getImage({
+            src: rawLatestGame.cover,
+            format: 'webp',
+            width: 1600, // Increased from 640 to 1600 for Retina/Large Cards
+            height: undefined, // Maintain aspect ratio
+            quality: 95, 
+            inferSize: true
+        });
+        optimizedGame = { ...rawLatestGame, cover: optimizedCover };
+    } catch (e) {
+        console.error("Failed to optimize game cover:", rawLatestGame.cover, e);
+    }
+}
+
+// 2. Resolve Latest Book
+const rawLatestBook = (() => {
+    const readingBooks = libraryData.filter(item => item.type === 'book' && item.status === 'reading');
+    return readingBooks.length > 0 ? readingBooks[readingBooks.length - 1] : USER_CONTENT.reading;
+})();
+
+let optimizedBook = rawLatestBook;
+if (rawLatestBook && rawLatestBook.cover) {
+    try {
+        const optimizedCover = await getImage({
+            src: rawLatestBook.cover,
+            format: 'webp',
+            width: 400, // Books are smaller
+            height: undefined,
+            inferSize: true
+        });
+        optimizedBook = { ...rawLatestBook, cover: optimizedCover };
+    } catch (e) {
+         console.error("Failed to optimize book cover:", rawLatestBook.cover, e);
+    }
+}
+// --- END OPTIMIZATION ---
+
 ---
 
 <Layout title="Weiran's Universe">
-    <BentoGrid client:only="react" latestPost={latestPost} postCount={postCount} />
+    <BentoGrid 
+        client:only="react" 
+        latestPost={latestPost} 
+        postCount={postCount}
+        latestGameData={optimizedGame}
+        latestBookData={optimizedBook}
+    >
+        <div slot="fallback" class="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 auto-rows-[200px] md:auto-rows-[240px]">
+            {LAYOUT_CONFIG.map(card => (
+                 <div
+                    class={`bg-gray-200/5 rounded-3xl animate-pulse col-span-${card.colSpan || 1} row-span-${card.rowSpan || 1} ${card.className || ''}`}
+                 ></div>
+            ))}
+        </div>
+    </BentoGrid>
 </Layout>
