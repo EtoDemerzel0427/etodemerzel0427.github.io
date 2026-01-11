@@ -517,6 +517,40 @@ const BlogPost = ({ post }) => {
                                     const fontClass = (universe === 'retro') ? '!font-[Cubic]' : '';
                                     return <blockquote className={`${typo.quote} ${fontClass}`} {...props}>{children}</blockquote>
                                 },
+                                img: ({ node, ...props }) => {
+                                    const isRetro = universe === 'retro';
+                                    let altText = props.alt || '';
+                                    let widthClass = 'w-full';
+
+                                    if (altText.includes('#small')) {
+                                        widthClass = 'w-full md:w-1/3';
+                                        altText = altText.replace('#small', '').trim();
+                                    } else if (altText.includes('#medium')) {
+                                        widthClass = 'w-full md:w-1/2';
+                                        altText = altText.replace('#medium', '').trim();
+                                    } else if (altText.includes('#large')) {
+                                        widthClass = 'w-full md:w-3/4';
+                                        altText = altText.replace('#large', '').trim();
+                                    } else if (altText.includes('#full')) {
+                                        widthClass = 'w-full';
+                                        altText = altText.replace('#full', '').trim();
+                                    }
+
+                                    return (
+                                        <figure className="my-8 flex flex-col items-center w-full">
+                                            <img
+                                                {...props}
+                                                alt={altText}
+                                                className={`${widthClass} h-auto shadow-md ${isRetro ? 'border-2 border-white/20' : 'rounded-lg'}`}
+                                            />
+                                            {altText && (
+                                                <figcaption className={`text-center text-sm mt-3 opacity-70 italic ${isRetro ? 'font-pixel' : ''}`}>
+                                                    {altText}
+                                                </figcaption>
+                                            )}
+                                        </figure>
+                                    );
+                                },
                                 code: ({ node, inline, className, children, ...props }) => {
                                     const match = /language-(\w+)/.exec(className || '');
 
