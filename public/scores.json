@@ -1,16 +1,16 @@
 {
-  "competition": "Primera Division",
-  "date": "2026-01-18",
+  "competition": "UEFA Champions League",
+  "date": "2026-01-21",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Real Sociedad",
+    "name": "Slavia Praha",
     "score": 2,
-    "crest": "https://crests.football-data.org/92.png"
+    "crest": "https://crests.football-data.org/930.png"
   },
   "awayTeam": {
     "name": "Barça",
-    "score": 1,
+    "score": 4,
     "crest": "https://crests.football-data.org/81.png"
   },
-  "winner": "HOME_TEAM"
+  "winner": "AWAY_TEAM"
 }
