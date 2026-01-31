@@ -1,16 +1,16 @@
 {
-  "competition": "UEFA Champions League",
-  "date": "2026-01-28",
+  "competition": "Primera Division",
+  "date": "2026-01-31",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Barça",
-    "score": 4,
-    "crest": "https://crests.football-data.org/81.png"
+    "name": "Elche",
+    "score": 1,
+    "crest": "https://crests.football-data.org/285.png"
   },
   "awayTeam": {
-    "name": "København",
-    "score": 1,
-    "crest": "https://crests.football-data.org/1876.png"
+    "name": "Barça",
+    "score": 3,
+    "crest": "https://crests.football-data.org/81.png"
   },
-  "winner": "HOME_TEAM"
+  "winner": "AWAY_TEAM"
 }
