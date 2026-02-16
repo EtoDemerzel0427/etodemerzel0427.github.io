@@ -1,16 +1,16 @@
 {
   "competition": "Primera Division",
-  "date": "2026-02-07",
+  "date": "2026-02-16",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Barça",
-    "score": 3,
-    "crest": "https://crests.football-data.org/81.png"
+    "name": "Girona",
+    "score": 2,
+    "crest": "https://crests.football-data.org/298.png"
   },
   "awayTeam": {
-    "name": "Mallorca",
-    "score": 0,
-    "crest": "https://crests.football-data.org/89.png"
+    "name": "Barça",
+    "score": 1,
+    "crest": "https://crests.football-data.org/81.png"
   },
   "winner": "HOME_TEAM"
 }
