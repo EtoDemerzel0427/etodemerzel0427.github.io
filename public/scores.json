@@ -1,16 +1,16 @@
 {
   "competition": "Primera Division",
-  "date": "2026-02-28",
+  "date": "2026-03-07",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Barça",
-    "score": 4,
-    "crest": "https://crests.football-data.org/81.png"
+    "name": "Athletic",
+    "score": 0,
+    "crest": "https://crests.football-data.org/77.png"
   },
   "awayTeam": {
-    "name": "Villarreal",
+    "name": "Barça",
     "score": 1,
-    "crest": "https://crests.football-data.org/94.png"
+    "crest": "https://crests.football-data.org/81.png"
   },
-  "winner": "HOME_TEAM"
+  "winner": "AWAY_TEAM"
 }
