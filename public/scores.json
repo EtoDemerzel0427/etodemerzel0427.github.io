@@ -1,16 +1,16 @@
 {
-  "competition": "Primera Division",
-  "date": "2026-03-15",
+  "competition": "UEFA Champions League",
+  "date": "2026-03-18",
   "status": "FINISHED",
   "homeTeam": {
     "name": "Barça",
-    "score": 5,
+    "score": 7,
     "crest": "https://crests.football-data.org/81.png"
   },
   "awayTeam": {
-    "name": "Sevilla FC",
+    "name": "Newcastle",
     "score": 2,
-    "crest": "https://crests.football-data.org/559.png"
+    "crest": "https://crests.football-data.org/67.png"
   },
   "winner": "HOME_TEAM"
 }
