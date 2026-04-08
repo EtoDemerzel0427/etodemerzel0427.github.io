@@ -1,16 +1,16 @@
 {
-  "competition": "Primera Division",
-  "date": "2026-04-04",
+  "competition": "UEFA Champions League",
+  "date": "2026-04-08",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Atleti",
-    "score": 1,
-    "crest": "https://crests.football-data.org/78.png"
+    "name": "Barça",
+    "score": 0,
+    "crest": "https://crests.football-data.org/81.png"
   },
   "awayTeam": {
-    "name": "Barça",
+    "name": "Atleti",
     "score": 2,
-    "crest": "https://crests.football-data.org/81.png"
+    "crest": "https://crests.football-data.org/78.png"
   },
   "winner": "AWAY_TEAM"
 }
