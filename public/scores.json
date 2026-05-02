@@ -1,11 +1,11 @@
 {
   "competition": "Primera Division",
-  "date": "2026-04-25",
+  "date": "2026-05-02",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Getafe",
-    "score": 0,
-    "crest": "https://crests.football-data.org/82.png"
+    "name": "Osasuna",
+    "score": 1,
+    "crest": "https://crests.football-data.org/79.png"
   },
   "awayTeam": {
     "name": "Barça",
