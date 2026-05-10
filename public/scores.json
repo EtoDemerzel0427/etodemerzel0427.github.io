@@ -1,16 +1,16 @@
 {
   "competition": "Primera Division",
-  "date": "2026-05-02",
+  "date": "2026-05-10",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Osasuna",
-    "score": 1,
-    "crest": "https://crests.football-data.org/79.png"
-  },
-  "awayTeam": {
     "name": "Barça",
     "score": 2,
     "crest": "https://crests.football-data.org/81.png"
   },
-  "winner": "AWAY_TEAM"
+  "awayTeam": {
+    "name": "Real Madrid",
+    "score": 0,
+    "crest": "https://crests.football-data.org/86.png"
+  },
+  "winner": "HOME_TEAM"
 }
