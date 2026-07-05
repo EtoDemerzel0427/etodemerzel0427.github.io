@@ -1,22 +1,31 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
-
 import partytown from '@astrojs/partytown';
-
 import sitemap from '@astrojs/sitemap';
 
-// https://astro.build/config
 export default defineConfig({
-    // deployed to https://<username>.github.io/
     site: 'https://huangweiran.club',
     base: '/',
-    integrations: [react({
-        include: ['**/react/*'], // Optional: explicit inclusion if needed, usually auto-detected
-    }), tailwind({
-        // Example: Disable default base styles if needed, but we likely want them
-        applyBaseStyles: false,
-    }), partytown(), sitemap()],
+    integrations: [
+        react({ include: ['**/react/*'] }),
+        tailwind({ applyBaseStyles: false }),
+        partytown(),
+        sitemap()
+    ],
+    markdown: {
+        shikiConfig: {
+            langs: [
+                {
+                    id: 'chart',
+                    scopeName: 'source.chart',
+                    grammar: {
+                        patterns: []
+                    }
+                }
+            ]
+        }
+    },
     image: {
         domains: [
             'pubengine.s3.eu-central-1.amazonaws.com',

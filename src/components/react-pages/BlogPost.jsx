@@ -541,6 +541,7 @@ const BlogPost = ({ post }) => {
                                             <img
                                                 {...props}
                                                 alt={altText}
+                                                crossOrigin="anonymous"
                                                 className={`${widthClass} h-auto shadow-md ${isRetro ? 'border-2 border-white/20' : 'rounded-lg'}`}
                                             />
                                             {altText && (
