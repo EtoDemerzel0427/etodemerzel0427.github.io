@@ -18,6 +18,7 @@
     "@giscus/react": "^3.1.0",
     "@nanostores/persistent": "^1.2.0",
     "@nanostores/react": "^1.0.0",
+    "abcjs": "^6.6.3",
     "astro": "^5.16.5",
     "chart.js": "^4.5.1",
     "chartjs-plugin-annotation": "^3.1.0",

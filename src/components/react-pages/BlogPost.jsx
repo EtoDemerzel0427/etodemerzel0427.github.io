@@ -19,6 +19,7 @@ import VerticalSpreadChart from '../blog-widgets/VerticalSpreadChart';
 import VolatilityStrategyChart from '../blog-widgets/VolatilityStrategyChart';
 import NeutralStrategyChart from '../blog-widgets/NeutralStrategyChart';
 import CoveredStrategyChart from '../blog-widgets/CoveredStrategyChart';
+import AbcMusic from '../blog-widgets/AbcMusic';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
@@ -569,6 +570,10 @@ const BlogPost = ({ post }) => {
                                         } else if (['covered-call', 'covered-put', 'covered-combo'].includes(chartType)) {
                                             return <CoveredStrategyChart strategy={chartType} />;
                                         }
+                                    }
+
+                                    if (!inline && match && match[1] === 'abc') {
+                                        return <AbcMusic abc={String(children)} />;
                                     }
 
                                     return !inline && match ? (

@@ -22,6 +22,13 @@ export default defineConfig({
                     grammar: {
                         patterns: []
                     }
+                },
+                {
+                    id: 'abc',
+                    scopeName: 'source.abc',
+                    grammar: {
+                        patterns: []
+                    }
                 }
             ]
         }

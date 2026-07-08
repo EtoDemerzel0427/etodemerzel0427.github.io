@@ -2,24 +2,35 @@
 description: How to add a new blog post
 ---
 
-1. Create a new markdown file in `src/content/posts/` with a descriptive filename (e.g., `2024-03-20-my-new-post.md`).
+1. Use the included CLI tool to automatically generate the post file and frontmatter. Run the following command in the workspace root:
 
-2. Add the following Frontmatter block at the very top of the file:
+   ```bash
+   npm run new-post "Your Post Title"
+   ```
 
-```yaml
----
-title: "Your Post Title"
-date: "2024-03-20"
-summary: "A short description of your post."
-tags: ["Tech", "Life"]
-lang: "en" # or "zh"
-readTime: "5 min read"
-slug: "my-custom-slug" # Optional: overrides filename
----
-```
+   This will automatically:
+   - Create a markdown file in `src/content/posts/` with the correct date prefix and slug (e.g., `2026-07-04-your-post-title.md`).
+   - Populate the template with basic frontmatter.
 
-3. Write your content below the `---` using standard Markdown.
+2. Open the newly created file and update the Frontmatter if needed:
 
-4. (Optional) To preview locally, run `npm run dev`.
+   ```yaml
+   ---
+   title: "Your Post Title"
+   date: "2026-07-04"
+   summary: "TODO: Write a short summary here..."
+   tags: ["General"]
+   lang: "en" # "en" or "zh"
+   ---
+   ```
 
-5. Commit and push your changes to GitHub to publish.
+3. Write your content below the `---` separator using standard Markdown.
+
+4. (Optional) Preview your changes locally:
+
+   ```bash
+   npm run dev
+   ```
+
+5. Stage, commit, and push your changes to GitHub to publish.
+
