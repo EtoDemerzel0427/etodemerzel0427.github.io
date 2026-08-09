@@ -1,4 +1,7 @@
-export const libraryData = [
+import libraryAdditions from './library-additions.json';
+import currentLibrary from './current-library.json';
+
+const baseLibraryData = [
     // BOOKS
     {
         id: 'b1',
@@ -209,3 +212,8 @@ export const libraryData = [
         platform: 'PS5'
     }
 ];
+
+export const libraryData = [...baseLibraryData, ...libraryAdditions].map((item) => ({
+    ...item,
+    ...(currentLibrary.overrides[item.id] || {}),
+}));

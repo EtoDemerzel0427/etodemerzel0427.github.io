@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '@nanostores/react';
-import { isPlaying, toggleMusic, setPlaying } from '../stores/musicStore';
+import { initializeMusic, isPlaying, toggleMusic, setPlaying } from '../stores/musicStore';
 import { universe as universeStore } from '../stores/universeStore';
 import { USER_CONTENT } from '../config';
 import { Pause, Play, GripHorizontal, X } from 'lucide-react';
@@ -18,15 +18,34 @@ const MusicPlayer = () => {
     const dragStartRef = useRef({ x: 0, y: 0 });
     const modalRef = useRef(null);
 
-    // 1. Initial Position (Bottom Right)
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            setPosition({
-                x: window.innerWidth - 320,
-                y: window.innerHeight - 100
-            });
-        }
+        initializeMusic();
     }, []);
+
+    const clampPosition = useCallback((x, y) => {
+        if (typeof window === 'undefined') return { x, y };
+
+        const width = modalRef.current?.offsetWidth || Math.min(280, window.innerWidth - 32);
+        const height = modalRef.current?.offsetHeight || 96;
+        return {
+            x: Math.min(Math.max(16, x), Math.max(16, window.innerWidth - width - 16)),
+            y: Math.min(Math.max(16, y), Math.max(16, window.innerHeight - height - 16)),
+        };
+    }, []);
+
+    // 1. Initial Position (Bottom Right) and viewport resizing
+    useEffect(() => {
+        const placeInViewport = () => {
+            setPosition(current => clampPosition(
+                current.x === 20 ? window.innerWidth - 296 : current.x,
+                current.y === 20 ? window.innerHeight - 112 : current.y
+            ));
+        };
+
+        placeInViewport();
+        window.addEventListener('resize', placeInViewport);
+        return () => window.removeEventListener('resize', placeInViewport);
+    }, [clampPosition]);
 
     // 2. Visibility Logic (Route + State)
     useEffect(() => {
@@ -93,11 +112,12 @@ const MusicPlayer = () => {
 
     const handleMove = useCallback((clientX, clientY) => {
         if (isDragging) {
-            const newX = clientX - dragStartRef.current.x;
-            const newY = clientY - dragStartRef.current.y;
-            setPosition({ x: newX, y: newY });
+            setPosition(clampPosition(
+                clientX - dragStartRef.current.x,
+                clientY - dragStartRef.current.y
+            ));
         }
-    }, [isDragging, position]);
+    }, [clampPosition, isDragging]);
 
     const handleMouseMove = useCallback((e) => handleMove(e.clientX, e.clientY), [handleMove]);
     const handleTouchMove = useCallback((e) => {
@@ -158,7 +178,7 @@ const MusicPlayer = () => {
                         left: `${position.x}px`,
                         top: `${position.y}px`,
                         cursor: isDragging ? 'grabbing' : 'auto',
-                        width: '280px'
+                        width: 'min(280px, calc(100vw - 32px))'
                     }}
                 >
                     {/* Drag Handle */}
@@ -174,8 +194,10 @@ const MusicPlayer = () => {
 
                     {/* Content */}
                     <div className="px-4 pb-4 pt-1 flex items-center gap-3">
-                        <div
+                        <button
+                            type="button"
                             onClick={toggleMusic}
+                            aria-label={$isPlaying ? 'Pause music' : 'Play music'}
                             className={`w-10 h-10 flex items-center justify-center rounded-full cursor-pointer hover:scale-105 transition-transform
                                 ${$universe === 'retro' ? 'bg-white text-[#ff0055]' :
                                     $universe === 'terminal' ? 'bg-[#00ff41] text-black' :
@@ -184,7 +206,7 @@ const MusicPlayer = () => {
                             `}
                         >
                             {$isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
-                        </div>
+                        </button>
 
                         <div className="flex-1 min-w-0">
                             <h4 className={`text-sm font-bold truncate leading-tight ${getFontClass($universe, 'title')}`}>
@@ -196,9 +218,9 @@ const MusicPlayer = () => {
                         </div>
 
                         {/* Close / Stop Button */}
-                        <div onClick={handleClose} className="cursor-pointer opacity-50 hover:opacity-100" title="Stop & Hide">
+                        <button type="button" onClick={handleClose} className="opacity-50 hover:opacity-100" title="Stop & Hide" aria-label="Stop music and hide player">
                             <X size={16} />
-                        </div>
+                        </button>
                     </div>
 
                     {/* Progress Bar (Visual Only for now) */}

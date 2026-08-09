@@ -68,6 +68,8 @@ const ReadingCard = ({ universe, data, className }) => {
                         <img
                             src={data.cover?.src || data.cover}
                             alt={data.title}
+                            loading="lazy"
+                            decoding="async"
                             {...(data.cover?.attributes || {})}
                             className={`h-full w-auto max-h-full rounded shadow-xl rotate-0 transition-transform duration-500 object-contain
                     ${['retro', 'noir', 'terminal'].includes(universe) ? 'grayscale contrast-125' : ''}

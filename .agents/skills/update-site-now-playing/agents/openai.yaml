@@ -1,0 +1,4 @@
+interface:
+  display_name: "更新正在玩的游戏"
+  short_description: "Update the current game while preserving Gallery history"
+  default_prompt: "Use $update-site-now-playing to update the current game on my personal website without removing earlier Gallery entries."

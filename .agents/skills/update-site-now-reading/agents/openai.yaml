@@ -1,0 +1,4 @@
+interface:
+  display_name: "更新正在阅读"
+  short_description: "Update the current book while preserving Gallery history"
+  default_prompt: "Use $update-site-now-reading to update the current book or reading progress without removing earlier Gallery entries."

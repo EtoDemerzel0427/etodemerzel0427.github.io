@@ -2,29 +2,29 @@
 import Layout from '../../layouts/Layout.astro';
 import BlogPost from '../../components/react-pages/BlogPost';
 import getReadingTime from 'reading-time';
-import { getCollection, render } from 'astro:content';
+import { getCollection } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
 
 export async function getStaticPaths() {
     const posts = await getCollection('posts');
-    return posts.map(post => ({
-        params: { slug: post.slug },
+    return posts.map((post: CollectionEntry<'posts'>) => ({
+        params: { slug: post.id },
         props: { post },
     }));
 }
 
-const { post } = Astro.props;
-const { Content } = await render(post);
+const { post } = Astro.props as { post: CollectionEntry<'posts'> };
 const postWithContent = {
     ...post.data,
-    slug: post.slug,
+    slug: post.id,
     content: '' // React component will receive rendered HTML via children or specialized prop if refactored, but here we keep existing structure logic or adapt.
     // ACTUAL FIX: The React component expects `content` as a string of markdown.
     // With getCollection, `post.body` contains the raw markdown!
 };
 // Re-assign raw markdown to content for the React component (which uses ReactMarkdown)
-postWithContent.content = post.body;
+postWithContent.content = post.body ?? '';
 // Auto-calculate read time override
-postWithContent.readTime = getReadingTime(post.body).text;
+postWithContent.readTime = getReadingTime(post.body ?? '').text;
 ---
 
 <Layout 
@@ -33,7 +33,7 @@ postWithContent.readTime = getReadingTime(post.body).text;
     description={post.data.summary}
     image={post.data.image || post.data.cover}
     articleDate={post.data.date}
-    canonicalURL={new URL(`/blog/${post.slug}`, Astro.site).toString()}
+    canonicalURL={new URL(`/blog/${post.id}`, Astro.site).toString()}
 >
     <BlogPost client:only="react" post={postWithContent} />
 </Layout>

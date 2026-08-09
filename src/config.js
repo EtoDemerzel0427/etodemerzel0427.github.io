@@ -1,25 +1,17 @@
+import status from './data/status.json';
+
 // --- 🔧 用户配置区域 (修改这里即可更新主页内容) ---
 export const USER_CONTENT = {
     name: "Weiran Huang",
     role: "C++ Software Engineer",
     bio: "Amateur Digital Artist, Pianist & Console Gamer.",
     location: "CHICAGO",
-    status: {
-        emoji: "🌴",
-        text: "Vacationing in Cali",
-        // Extended "Polaroid Moment" content
-        meta: {
-            photoUrl: "https://images.unsplash.com/photo-1538332576228-eb5b4c4de6f5?q=80&w=3570&auto=format&fit=crop", // Malibu Beach
-            note: "The sunsets here are unreal. Coding by the beach beats the office any day. 🌊",
-            date: "2025.12.12",
-            location: "Malibu, CA"
-        }
-    },
+    status,
     defaultTheme: 'bauhaus', // Default universe on load
     nowPlaying: {
         song: "Pink + White",
         artist: "Frank Ocean",
-        audioUrl: "/music/Frank Ocean - Pink + White.mp3" // Local MP3 or URL
+        audioUrl: "/music/Frank Ocean - Pink + White.mp3"
     },
     featuredArticle: {
         // Fallback content if GitHub API fails to fetch the featured post
@@ -44,14 +36,13 @@ export const USER_CONTENT = {
         cover: "https://external-preview.redd.it/no-new-mls-stadiums-in-eafc-25-fifa-for-the-2nd-year-in-a-v0-siI7JlZbMpFK-YkWObnGvmV1KAi7Hzffl7wLqelaT94.jpg?auto=webp&s=909e8c1eff86cf42418e1ddb0f69d4c2986df4a8", // User Provided Reddit Image
         link: "https://www.ea.com/games/ea-sports-fc/fc-25",
     },
-    // Fallback content (used when no book is 'reading' in library.js)
     reading: {
         title: "Options, Futures, and Other Derivatives",
         author: "John C. Hull",
-        cover: "https://pubengine.s3.eu-central-1.amazonaws.com/cover/99.150005/9781292410623.jpg", // 11th Edition (Reliable Source)
+        cover: "https://pubengine.s3.eu-central-1.amazonaws.com/cover/99.150005/9781292410623.jpg",
         link: "https://www.goodreads.com/book/show/100827.Options_Futures_and_Other_Derivatives",
         progress: 10,
-        status: "Reading" // or "Finished", "To Read"
+        status: "Reading"
     },
 
     // Giscus removed.

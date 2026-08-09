@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
-import rehypeHighlight from 'rehype-highlight';
+import rehypeSelectiveHighlight from '../../utils/rehypeSelectiveHighlight';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
@@ -14,16 +13,21 @@ import { universe as universeStore } from '../../stores/universeStore';
 import { getFontClass } from '../../utils/theme';
 import DisqusComments from '../DisqusComments';
 import BackNavigation from '../BackNavigation';
-import OptionStrategyChart from '../blog-widgets/OptionStrategyChart';
-import VerticalSpreadChart from '../blog-widgets/VerticalSpreadChart';
-import VolatilityStrategyChart from '../blog-widgets/VolatilityStrategyChart';
-import NeutralStrategyChart from '../blog-widgets/NeutralStrategyChart';
-import CoveredStrategyChart from '../blog-widgets/CoveredStrategyChart';
-import AbcMusic from '../blog-widgets/AbcMusic';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
+const OptionStrategyChart = lazy(() => import('../blog-widgets/OptionStrategyChart'));
+const VerticalSpreadChart = lazy(() => import('../blog-widgets/VerticalSpreadChart'));
+const VolatilityStrategyChart = lazy(() => import('../blog-widgets/VolatilityStrategyChart'));
+const NeutralStrategyChart = lazy(() => import('../blog-widgets/NeutralStrategyChart'));
+const CoveredStrategyChart = lazy(() => import('../blog-widgets/CoveredStrategyChart'));
+const AbcMusic = lazy(() => import('../blog-widgets/AbcMusic'));
 
+const renderWidget = (Component, props = {}) => (
+    <Suspense fallback={<div className="my-6 h-64 animate-pulse rounded-xl bg-current/5" aria-label="Loading interactive widget" />}>
+        <Component {...props} />
+    </Suspense>
+);
 
 const REMARK_PLUGINS = [remarkMath, remarkGfm];
 
@@ -39,7 +43,7 @@ const getTextFromChildren = (children) => {
 // Helper to detect Chinese characters
 const hasChinese = (text) => /[\u4e00-\u9fa5]/.test(text);
 
-const REHYPE_PLUGINS = [rehypeHighlight, rehypeKatex, rehypeRaw];
+const REHYPE_PLUGINS = [rehypeSelectiveHighlight, rehypeKatex, rehypeRaw];
 
 // 3. 排版细节样式 (Prose)
 const getTypographyStyle = (universe) => {
@@ -281,23 +285,29 @@ const BlogPost = ({ post }) => {
     const { title, date, readTime, tags, content, slug } = post;
 
     useEffect(() => {
+        let animationFrame;
         const handleScroll = () => {
-            const totalScroll = document.documentElement.scrollTop;
-            const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            if (windowHeight > 0) {
-                const scroll = totalScroll / windowHeight;
-                setScrollProgress(Number(scroll));
-            }
+            if (animationFrame) return;
+            animationFrame = window.requestAnimationFrame(() => {
+                const totalScroll = document.documentElement.scrollTop;
+                const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                if (windowHeight > 0) setScrollProgress(totalScroll / windowHeight);
+                animationFrame = undefined;
+            });
         }
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
+        handleScroll();
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            if (animationFrame) window.cancelAnimationFrame(animationFrame);
+        };
     }, []);
 
     // --- 样式配置工厂 ---
 
     // 2. 文章容器样式 (纸张/屏幕)
     const getArticleContainerStyle = () => {
-        const base = "max-w-5xl mx-auto transition-all duration-500 relative";
+        const base = "w-full min-w-0 box-border max-w-5xl mx-auto transition-all duration-500 relative";
 
         switch (universe) {
             case 'neon': return `${base} bg-white rounded-[2.5rem] p-8 md:p-12 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.05)] border border-white/50`;
@@ -470,7 +480,7 @@ const BlogPost = ({ post }) => {
                     </header>
 
                     {/* Content Body */}
-                    <div className={`prose max-w-none ${universe === 'retro' ? 'font-pixel' : ''} ${universe === 'terminal' ? 'prose-invert' : ''} ${universe === 'newspaper' ? 'md:columns-2 md:gap-12' : ''}`}>
+                    <div className={`prose min-w-0 max-w-none ${universe === 'retro' ? 'font-pixel' : ''} ${universe === 'terminal' ? 'prose-invert' : ''} ${universe === 'newspaper' ? 'md:columns-2 md:gap-12' : ''}`}>
                         <ReactMarkdown
                             children={content}
                             remarkPlugins={REMARK_PLUGINS}
@@ -560,24 +570,24 @@ const BlogPost = ({ post }) => {
                                     if (!inline && match && match[1] === 'chart') {
                                         const chartType = String(children).trim();
                                         if (chartType === 'option-strategy') {
-                                            return <OptionStrategyChart />;
+                                            return renderWidget(OptionStrategyChart);
                                         } else if (['bull-call-spread', 'bull-put-spread', 'bear-call-spread', 'bear-put-spread'].includes(chartType)) {
-                                            return <VerticalSpreadChart strategy={chartType} />;
+                                            return renderWidget(VerticalSpreadChart, { strategy: chartType });
                                         } else if (['long-straddle', 'long-strangle'].includes(chartType)) {
-                                            return <VolatilityStrategyChart strategy={chartType} />;
+                                            return renderWidget(VolatilityStrategyChart, { strategy: chartType });
                                         } else if (['iron-condor', 'long-call-butterfly', 'long-put-butterfly'].includes(chartType)) {
-                                            return <NeutralStrategyChart strategy={chartType} />;
+                                            return renderWidget(NeutralStrategyChart, { strategy: chartType });
                                         } else if (['covered-call', 'covered-put', 'covered-combo'].includes(chartType)) {
-                                            return <CoveredStrategyChart strategy={chartType} />;
+                                            return renderWidget(CoveredStrategyChart, { strategy: chartType });
                                         }
                                     }
 
                                     if (!inline && match && match[1] === 'abc') {
-                                        return <AbcMusic abc={String(children)} />;
+                                        return renderWidget(AbcMusic, { abc: String(children) });
                                     }
 
                                     return !inline && match ? (
-                                        <div className="rounded-xl overflow-hidden my-6 shadow-2xl bg-[#282c34] border border-white/10">
+                                        <div className="min-w-0 max-w-full rounded-xl overflow-hidden my-6 shadow-2xl bg-[#282c34] border border-white/10">
                                             {/* Window Header */}
                                             <div className="flex items-center justify-between px-4 py-3 bg-[#21252b] border-b border-white/5">
                                                 <div className="flex items-center gap-2">

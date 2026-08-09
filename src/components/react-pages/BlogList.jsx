@@ -1,13 +1,11 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
-import { ArrowLeft } from 'lucide-react';
 import { useStore } from '@nanostores/react';
 import { universe } from '../../stores/universeStore';
 import { lang, toggleLang } from '../../stores/langStore'; // Adjust path
 import { getFontClass, getCardStyle } from '../../utils/theme';
 import BackNavigation from '../BackNavigation';
 
-const BlogList = ({ posts, activeTag }) => {
+const BlogList = ({ posts, activeTag = null }) => {
     const $universe = useStore(universe);
     const $lang = useStore(lang);
 
@@ -26,7 +24,7 @@ const BlogList = ({ posts, activeTag }) => {
             const updateUrl = (newLang) => {
                 const url = new URL(window.location);
                 url.searchParams.set('lang', newLang);
-                window.history.pushState({}, '', url);
+                window.history.replaceState({}, '', url);
             };
 
             // Run immediately in case we need to set the URL to default
@@ -85,19 +83,21 @@ const BlogList = ({ posts, activeTag }) => {
                         </h2>
                         <div className={`text-xl font-bold ${getFontClass($universe, 'body')}`}>
                             {/* Language Toggles */}
-                            <span
+                            <button
+                                type="button"
                                 onClick={() => $lang !== 'zh' && toggleLang()}
                                 className={`cursor-pointer transition-all ${$lang === 'zh' ? 'opacity-100 border-b-2 border-current' : 'opacity-30 hover:opacity-100'}`}
                             >
                                 ZH
-                            </span>
+                            </button>
                             <span className="opacity-30 mx-2">/</span>
-                            <span
+                            <button
+                                type="button"
                                 onClick={() => $lang !== 'en' && toggleLang()}
                                 className={`cursor-pointer transition-all ${$lang === 'en' ? 'opacity-100 border-b-2 border-current' : 'opacity-30 hover:opacity-100'}`}
                             >
                                 EN
-                            </span>
+                            </button>
                         </div>
                     </div>
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "更新网站状态"
+  short_description: "Manage personal website status from one sentence and photo"
+  default_prompt: "Use $update-site-status to update my personal website status from this sentence and attached photo."

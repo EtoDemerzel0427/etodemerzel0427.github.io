@@ -57,7 +57,7 @@ const MediaItemCard = ({ item, universe, onClick }) => {
     // Theme-specific styles (Updated to use dynamic punk color)
     const getCardStyle = () => {
         // Base transitions and layout
-        const base = "relative flex flex-col transition-all duration-300 cursor-pointer group";
+        const base = "relative flex w-full flex-col text-left transition-all duration-300 cursor-pointer group";
         // Only hide overflow for non-Lofi themes to allow tape to stick out
         const overflow = universe === 'lofi' ? '' : 'overflow-hidden';
 
@@ -102,9 +102,11 @@ const MediaItemCard = ({ item, universe, onClick }) => {
     };
 
     return (
-        <div
+        <button
+            type="button"
             className={getCardStyle()}
             onClick={() => onClick(item)}
+            aria-label={`Open details for ${item.title}`}
             style={{
                 ...(universe === 'punk' ? { backgroundColor: randomStyle.punkColor } : {}),
                 ...(universe === 'lofi' ? { backgroundColor: randomStyle.lofiBg } : {})
@@ -138,6 +140,9 @@ const MediaItemCard = ({ item, universe, onClick }) => {
                 <img
                     src={item.cover}
                     alt={item.title}
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     className={`w-full h-full object-cover transition-transform duration-500 hover:scale-110
                         ${universe === 'retro' || universe === 'noir' ? 'grayscale hover:grayscale-0' : ''}
                         ${universe === 'lofi' ? 'sepia-[0.3]' : ''}
@@ -228,7 +233,7 @@ const MediaItemCard = ({ item, universe, onClick }) => {
                     </div>
                 )}
             </div>
-        </div>
+        </button>
     );
 };
 

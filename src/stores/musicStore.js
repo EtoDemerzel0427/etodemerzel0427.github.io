@@ -1,20 +1,17 @@
 import { atom } from 'nanostores';
 
-const getInitialState = () => {
-    if (typeof window !== 'undefined') {
-        return localStorage.getItem('music_isPlaying') === 'true';
-    }
-    return false;
-};
+let stopPersistence;
 
-export const isPlaying = atom(getInitialState());
+export const isPlaying = atom(false);
 
-// Subscription to save changes
-if (typeof window !== 'undefined') {
-    isPlaying.subscribe(params => {
-        localStorage.setItem('music_isPlaying', String(params));
+export const initializeMusic = () => {
+    if (typeof window === 'undefined' || stopPersistence) return;
+
+    isPlaying.set(localStorage.getItem('music_isPlaying') === 'true');
+    stopPersistence = isPlaying.subscribe(value => {
+        localStorage.setItem('music_isPlaying', String(value));
     });
-}
+};
 
 export const toggleMusic = () => {
     isPlaying.set(!isPlaying.get());

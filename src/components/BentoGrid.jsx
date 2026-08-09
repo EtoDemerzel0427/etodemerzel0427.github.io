@@ -7,6 +7,27 @@ import { useScores } from '../hooks/useScores';
 import { useGitHubStats } from '../hooks/useGitHubStats';
 import { CardRegistry } from '../components/CardRegistry';
 import { libraryData } from '../data/library';
+import { findLatestLibraryItem, toGameCardData, toReadingCardData } from '../utils/library';
+
+const resolveCardData = (type, context) => {
+    switch (type) {
+        case 'music': return USER_CONTENT.nowPlaying;
+        case 'archive': return { count: context.postCount, siteUrl: '/blog' };
+        case 'tech': return context.latestPost || USER_CONTENT.featuredArticle;
+        case 'reading': return toReadingCardData(context.latestBook);
+        case 'score': return context.scores;
+        case 'game': return toGameCardData(context.latestGame);
+        case 'activity': return {
+            profile: context.userProfile,
+            contributions: context.contributionStats,
+            fallbackUrl: `https://github.com/${USER_CONTENT.social.github}`,
+        };
+        case 'bio': return {
+            projectUrl: `https://github.com/${USER_CONTENT.social.github}?tab=repositories`,
+        };
+        default: return {};
+    }
+};
 
 const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData }) => {
     // Global State via Nano Stores
@@ -20,18 +41,25 @@ const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData }) =>
     // Derived State: Latest Playing Game
     // PREFER SERVER DATA (Optimized Cover) -> Fallback to Client Logic
     const latestGame = React.useMemo(() => {
-        if (latestGameData) return latestGameData; // Use optimized data
-        const playingGames = libraryData.filter(item => item.type === 'game' && item.status === 'playing');
-        return playingGames.length > 0 ? playingGames[playingGames.length - 1] : USER_CONTENT.game;
+        if (latestGameData) return latestGameData;
+        return findLatestLibraryItem(libraryData, {
+            type: 'game', status: 'playing', fallback: USER_CONTENT.game,
+        });
     }, [latestGameData]);
 
     // Derived State: Latest Reading Book
     // PREFER SERVER DATA (Optimized Cover) -> Fallback to Client Logic
-    const latestBook = React.useMemo(() => {
-        if (latestBookData) return latestBookData; // Use optimized data
-        const readingBooks = libraryData.filter(item => item.type === 'book' && item.status === 'reading');
-        return readingBooks.length > 0 ? readingBooks[readingBooks.length - 1] : USER_CONTENT.reading;
-    }, [latestBookData]);
+    const latestBook = latestBookData || USER_CONTENT.reading;
+
+    const cardContext = {
+        contributionStats,
+        latestBook,
+        latestGame,
+        latestPost,
+        postCount,
+        scores,
+        userProfile,
+    };
 
     return (
         <div className="max-w-7xl mx-auto relative z-10">
@@ -40,35 +68,7 @@ const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData }) =>
                     const Component = CardRegistry[cardConfig.type];
                     if (!Component) return null;
 
-                    // Resolve Data
-                    let data = {};
-                    if (cardConfig.type === 'music') data = USER_CONTENT.nowPlaying;
-                    else if (cardConfig.type === 'archive') data = { count: postCount, siteUrl: '/blog' }; // Use prop
-                    else if (cardConfig.type === 'tech') data = latestPost || USER_CONTENT.featuredArticle; // Use prop
-                    else if (cardConfig.type === 'reading') {
-                        const source = latestBook;
-                        data = {
-                            title: source.title,
-                            author: source.creator || source.author, // Library uses 'creator', config uses 'author'
-                            cover: source.cover,
-                            progress: source.progress,
-                            status: source.status === 'reading' ? 'Reading' : source.status // Ensure status text consistency
-                        };
-                    }
-                    else if (cardConfig.type === 'score') data = scores;
-                    else if (cardConfig.type === 'game') {
-                        // Adapt library data format to GameCard format
-                        const source = latestGame;
-                        data = {
-                            title: source.title,
-                            platform: source.platform || 'PC', // Fallback
-                            status: 'Now Playing', // Override status text for homepage card
-                            cover: source.cover,
-                            link: '/gallery?tab=game' // Internal link is handled by Card onClick, avoiding data.link usage
-                        };
-                    }
-                    else if (cardConfig.type === 'activity') data = { profile: userProfile, contributions: contributionStats, fallbackUrl: `https://github.com/${USER_CONTENT.social.github}` };
-                    else if (cardConfig.type === 'bio') data = { projectUrl: `https://github.com/${USER_CONTENT.social.github}?tab=repositories` };
+                    const data = resolveCardData(cardConfig.type, cardContext);
 
                     // Resolve Special Props
                     const extraProps = {};
@@ -91,13 +91,6 @@ const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData }) =>
                     );
                 })}
             </div>
-            {/* Styles for Music Bar Animation */}
-            <style>{`
-                 @keyframes music-bar {
-                  0%, 100% { height: 40%; }
-                  50% { height: 100%; }
-                }
-            `}</style>
         </div>
     );
 };
