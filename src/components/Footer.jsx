@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, Sprout, Linkedin, Book } from 'lucide-react';
+import { Mail, Sprout, Contact, Book } from 'lucide-react';
 import { useStore } from '@nanostores/react';
 import { universe } from '../stores/universeStore';
 import { USER_CONTENT } from '../config';
@@ -33,7 +33,7 @@ const Footer = () => {
                 </div>
             )}
 
-            <p>© 2025 {USER_CONTENT.name}.</p>
+            <p>© {new Date().getFullYear()} {USER_CONTENT.name}.</p>
             <div className="flex gap-8 mt-4 md:mt-0">
                 <a href="https://huangweiran.club/notes" target="_blank" rel="noopener noreferrer" className="hover:opacity-50 transition-opacity flex items-center gap-2">
                     <Book size={16} /> Wiki
@@ -42,7 +42,7 @@ const Footer = () => {
                     <Mail size={16} /> Email
                 </a>
                 <a href={`https://www.linkedin.com/in/${USER_CONTENT.social.linkedin}/`} target="_blank" rel="noopener noreferrer" className="hover:opacity-50 transition-opacity flex items-center gap-2">
-                    <Linkedin size={16} /> LinkedIn
+                    <Contact size={16} /> LinkedIn
                 </a>
             </div>
         </footer>

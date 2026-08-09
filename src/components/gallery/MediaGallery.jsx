@@ -13,26 +13,24 @@ const MediaGallery = ({ initialLibraryData }) => {
     const universe = useStore(universeStore);
     const dataSource = initialLibraryData || libraryData;
 
-    // Initialize state from URL param or default to 'book'
-    const [activeTab, setActiveTab] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            const tab = params.get('tab');
-            return ['book', 'movie', 'music', 'game'].includes(tab) ? tab : 'book';
-        }
-        return 'book';
-    });
+    const [activeTab, setActiveTab] = useState('book');
+    const [hasReadUrl, setHasReadUrl] = useState(false);
 
     const [selectedItem, setSelectedItem] = useState(null);
 
-    // Sync URL when tab changes
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const url = new URL(window.location);
-            url.searchParams.set('tab', activeTab);
-            window.history.pushState({}, '', url);
-        }
-    }, [activeTab]);
+        const tab = new URLSearchParams(window.location.search).get('tab');
+        if (['book', 'movie', 'music', 'game'].includes(tab)) setActiveTab(tab);
+        setHasReadUrl(true);
+    }, []);
+
+    // Sync URL after the initial query parameter has been read.
+    useEffect(() => {
+        if (!hasReadUrl) return;
+        const url = new URL(window.location);
+        url.searchParams.set('tab', activeTab);
+        window.history.replaceState({}, '', url);
+    }, [activeTab, hasReadUrl]);
 
     const filteredData = useMemo(() => {
         return dataSource.filter(item => item.type === activeTab);

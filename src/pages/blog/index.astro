@@ -3,13 +3,14 @@ import Layout from '../../layouts/Layout.astro';
 import BlogList from '../../components/react-pages/BlogList';
 import getReadingTime from 'reading-time';
 import { getCollection } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import { sortPostsByDate, toPostSummary } from '../../utils/posts';
+import type { PostSummary } from '../../utils/posts';
 
 const allPosts = await getCollection('posts');
-const posts = allPosts.map(p => ({
-    slug: p.slug,
-    ...p.data,
-    readTime: getReadingTime(p.body).text
-})).sort((a, b) => new Date(b.date) - new Date(a.date));
+const posts: PostSummary[] = sortPostsByDate(allPosts.map((post: CollectionEntry<'posts'>) => (
+    toPostSummary(post, getReadingTime(post.body ?? '').text)
+)));
 ---
 
 <Layout 
@@ -17,5 +18,5 @@ const posts = allPosts.map(p => ({
     description="Unboxing Weiran's thoughts: Engineering patterns, option strategies, artistic experiments, and life adventures."
     canonicalURL={new URL('/blog', Astro.site).toString()}
 >
-    <BlogList client:only="react" posts={posts} />
+    <BlogList client:load posts={posts} />
 </Layout>

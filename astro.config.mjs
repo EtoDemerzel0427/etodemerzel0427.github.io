@@ -1,6 +1,5 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
-import tailwind from '@astrojs/tailwind';
 import partytown from '@astrojs/partytown';
 import sitemap from '@astrojs/sitemap';
 
@@ -8,8 +7,7 @@ export default defineConfig({
     site: 'https://huangweiran.club',
     base: '/',
     integrations: [
-        react({ include: ['**/react/*'] }),
-        tailwind({ applyBaseStyles: false }),
+        react(),
         partytown(),
         sitemap()
     ],

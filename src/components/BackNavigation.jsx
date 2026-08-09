@@ -1,13 +1,19 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft } from 'lucide-react';
 import { getFontClass } from '../utils/theme';
 
 const BackNavigation = ({ universe, href = "/", label = "Back to Home" }) => {
+    const [portalTarget, setPortalTarget] = useState(null);
+
+    useEffect(() => {
+        setPortalTarget(document.body);
+    }, []);
+
     // Standardized Navigation Bar Style
     // Source of Truth: Derived from BlogList.jsx logic which was verified as "better"
     const getHeaderClass = () => {
-        const base = "absolute top-0 left-0 w-full p-6 flex justify-between items-center z-50 transition-all duration-500 pointer-events-none";
+        const base = "absolute top-0 left-0 w-full box-border p-6 flex justify-between items-center z-50 transition-all duration-500 pointer-events-none";
 
         switch (universe) {
             case 'terminal': return `${base} text-[#33ff00]`;
@@ -26,6 +32,8 @@ const BackNavigation = ({ universe, href = "/", label = "Back to Home" }) => {
         }
     };
 
+    if (!portalTarget) return null;
+
     return createPortal(
         <nav className={getHeaderClass()}>
             <a href={href} className={`flex items-center gap-2 font-bold pointer-events-auto transition-opacity hover:opacity-100 opacity-60
@@ -35,7 +43,7 @@ const BackNavigation = ({ universe, href = "/", label = "Back to Home" }) => {
                 <span>{label}</span>
             </a>
         </nav>,
-        document.body
+        portalTarget
     );
 };
 

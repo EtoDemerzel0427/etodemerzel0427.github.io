@@ -1,9 +1,12 @@
-import { defineCollection, z } from 'astro:content';
+import { defineCollection } from 'astro:content';
+import { glob } from 'astro/loaders';
+import { z } from 'astro/zod';
 
 const posts = defineCollection({
-    // Keep using the legacy content collection API to ensure 100% backward compatibility
-    // with your existing getStaticPaths logic (like post.slug and post.body).
-    type: 'content',
+    loader: glob({
+        pattern: '**/[^_]*.{md,mdx}',
+        base: './src/content/posts',
+    }),
     schema: z.object({
         title: z.string(),
         date: z.date().or(z.string()),

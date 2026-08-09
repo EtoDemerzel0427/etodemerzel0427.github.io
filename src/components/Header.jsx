@@ -25,14 +25,17 @@ const Header = () => {
                 </div>
             )}
 
-            <div className="">
+            <div>
                 {/* 状态栏 */}
                 {(() => {
-                    const hasPolaroid = USER_CONTENT.status.meta && USER_CONTENT.status.meta.photoUrl;
+                    const hasPolaroid = Boolean(USER_CONTENT.status.photo?.src);
                     return (
-                        <div
+                        <button
+                            type="button"
+                            disabled={!hasPolaroid}
                             onClick={() => hasPolaroid && setShowStatusCard(true)}
-                            className={`inline-flex items-center gap-2 px-4 py-2 mb-6 text-sm font-medium transition-all
+                            aria-label={hasPolaroid ? 'Open current status photo' : undefined}
+                            className={`appearance-none inline-flex items-center gap-2 px-4 py-2 mb-6 text-sm font-medium transition-all
             ${hasPolaroid ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-default'}
             ${$universe === 'noir' ? 'text-gray-300 border border-white/10 rounded-full bg-white/5' : ''}
             ${$universe === 'punk' ? 'bg-white text-black border-2 border-black rotate-1 shadow-[2px_2px_0px_#000]' : ''}
@@ -49,7 +52,7 @@ const Header = () => {
           `}>
                             <span className="text-lg animate-pulse">{USER_CONTENT.status.emoji}</span>
                             <span>{USER_CONTENT.status.text}</span>
-                        </div>
+                        </button>
                     );
                 })()}
 

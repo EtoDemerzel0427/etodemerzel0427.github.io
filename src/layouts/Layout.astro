@@ -1,5 +1,5 @@
 ---
-import { ViewTransitions } from 'astro:transitions';
+import { ClientRouter } from 'astro:transitions';
 import BackgroundManager from '../components/BackgroundManager';
 import GlobalUI from '../components/GlobalUI';
 import ThemeSync from '../components/ThemeSync';
@@ -27,7 +27,7 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<link rel="icon" type="image/png" href="/favicon.png" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
@@ -53,8 +53,8 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
         <!-- Google Analytics (Partytown) -->
         {import.meta.env.PROD && USER_CONTENT.googleAnalytics?.id && (
             <>
-                <script type="text/partytown" async src={`https://www.googletagmanager.com/gtag/js?id=${USER_CONTENT.googleAnalytics.id}`}></script>
-                <script type="text/partytown" define:vars={{ gaId: USER_CONTENT.googleAnalytics.id }}>
+                <script is:inline type="text/partytown" async src={`https://www.googletagmanager.com/gtag/js?id=${USER_CONTENT.googleAnalytics.id}`}></script>
+                <script is:inline type="text/partytown" define:vars={{ gaId: USER_CONTENT.googleAnalytics.id }}>
                     window.dataLayer = window.dataLayer || [];
                     function gtag(){dataLayer.push(arguments);}
                     gtag('js', new Date());
@@ -163,12 +163,12 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
 
 
         </style>
-		<ViewTransitions />
+		<ClientRouter />
 	</head>
 	<body class="min-h-screen relative z-0">
         <!-- WeChat Sharing Optimization (Hidden Image Hack) -->
         <div style="display:none; visibility:hidden; width:0; height:0;">
-            <img src={resolvedImage} alt="wechat-thumb" width="300" height="300" />
+            <img src={resolvedImage} alt="wechat-thumb" width="300" height="300" loading="lazy" decoding="async" />
         </div>
 
         <!-- Persistent Global UI (Backgrounds, Modals, Music) -->
@@ -176,16 +176,16 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
         <!-- Music Player: We need to implement it to verify "music continues playing" -->
         <!-- <MusicPlayer client:only="react" transition:persist="music" /> -->
         
-        <div class="relative z-10 flex flex-col min-h-screen p-4 md:p-8 overflow-hidden">
-            <ThemeSync client:only="react" />
-            <BackgroundManager client:only="react" />
-            <GlobalUI client:only="react" />
-            <MusicPlayer client:only="react" transition:persist="music" />
+	        <div class="relative z-10 flex min-h-screen flex-col overflow-x-clip p-4 md:p-8">
+            <ThemeSync client:load />
+            <BackgroundManager client:load />
+            <GlobalUI client:load />
+            <MusicPlayer client:load transition:persist="music" />
 
             {/* HEADER - Wrapped for alignment */}
             {showHeader && (
                 <div class="w-full max-w-7xl mx-auto pt-12">
-                    <Header client:only="react">
+                    <Header client:load>
                         <div slot="fallback" class="h-20 w-full animate-pulse bg-white/5 rounded-xl mb-12"></div>
                     </Header>
                 </div>
@@ -194,7 +194,7 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
             <!-- Main Content Slot -->
             <main class="flex-1 w-full max-w-7xl mx-auto flex flex-col">
     		    <slot />
-                <Footer client:only="react">
+                <Footer client:load>
                     <div slot="fallback" class="h-16 w-full animate-pulse bg-white/5 rounded-xl mt-8"></div>
                 </Footer>
             </main>

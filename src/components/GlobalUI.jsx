@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Grid3X3, X } from 'lucide-react';
 import { useStore } from '@nanostores/react';
@@ -11,6 +11,7 @@ import StatusCard from './StatusCard';
 /* --- Helper Components --- */
 const UniverseCard = ({ id, label, icon: Icon, color, desc, active, onSelect }) => (
     <button
+        type="button"
         onClick={() => onSelect(id)}
         className={`relative group p-4 rounded-2xl border transition-all duration-300 text-left h-full flex flex-col justify-between overflow-hidden
       ${active ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
@@ -27,10 +28,26 @@ const UniverseCard = ({ id, label, icon: Icon, color, desc, active, onSelect }) 
     </button>
 );
 
-const GlobalUI = ({ children }) => {
+const GlobalUI = ({ children = null }) => {
     const $universe = useStore(universe);
     const $showStatusCard = useStore(showStatusCard);
     const [showPortal, setShowPortal] = useState(false);
+
+    useEffect(() => {
+        if (!showPortal) return undefined;
+
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setShowPortal(false);
+        };
+
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showPortal]);
 
     const handleUniverseSelect = (id) => {
         setUniverse(id);
@@ -43,7 +60,9 @@ const GlobalUI = ({ children }) => {
             <div className="absolute top-6 right-6 z-[40]">
                 {/* ... button content kept same ... */}
                 <button
+                    type="button"
                     onClick={() => setShowPortal(true)}
+                    aria-label="Switch visual theme"
                     className={`px-5 py-2.5 rounded-full font-bold shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2
             ${$universe === 'retro' ? 'bg-[#ff0055] text-white border-2 border-white rounded-sm font-pixel text-[10px]' :
                             $universe === 'terminal' ? 'bg-[#00ff41] text-black rounded-none border border-[#00ff41] font-mono' :
@@ -67,13 +86,13 @@ const GlobalUI = ({ children }) => {
 
             {/* PORTAL MODAL */}
             {showPortal && createPortal(
-                <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${getFontClass($universe, 'body')}`}>
+                <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 ${getFontClass($universe, 'body')}`} role="dialog" aria-modal="true" aria-labelledby="universe-dialog-title">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity" onClick={() => setShowPortal(false)}></div>
                     <div className="relative bg-white rounded-3xl w-full max-w-5xl h-[85vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-300">
                         {/* Portal Content */}
                         <div className="flex items-center justify-between p-6 border-b bg-white top-0 z-10 sticky">
-                            <h2 className={`text-xl font-bold ${getFontClass($universe, 'title')}`}>CHOOSE YOUR UNIVERSE</h2>
-                            <button onClick={() => setShowPortal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                            <h2 id="universe-dialog-title" className={`text-xl font-bold ${getFontClass($universe, 'title')}`}>CHOOSE YOUR UNIVERSE</h2>
+                            <button type="button" onClick={() => setShowPortal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors" aria-label="Close theme picker">
                                 <X size={24} className="text-gray-500" />
                             </button>
                         </div>
