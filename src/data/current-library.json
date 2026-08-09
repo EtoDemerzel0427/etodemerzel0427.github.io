@@ -1,5 +1,11 @@
 {
   "readingId": "b1",
-  "gameId": "g2",
-  "overrides": {}
+  "gameId": "game-ea-sports-fc-26",
+  "overrides": {
+    "game-ea-sports-fc-26": {
+      "summary": "玩下来基本感受不出跟 FC 25 的区别，不过因为是 PS 会员免费领取，没有花钱，所以给个三星。",
+      "review": "玩下来基本感受不出跟 FC 25 的区别，不过因为是 PS 会员免费领取，没有花钱，所以给个三星。",
+      "rating": 3
+    }
+  }
 }
