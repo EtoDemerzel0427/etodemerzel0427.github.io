@@ -7,6 +7,7 @@ import ScoreCard from './cards/ScoreCard';
 import QuoteCard from './cards/QuoteCard';
 import GameCard from './cards/GameCard';
 import ActivityCard from './cards/ActivityCard';
+import WikiCard from './cards/WikiCard';
 
 export const CardRegistry = {
     'bio': BioCard,
@@ -18,4 +19,5 @@ export const CardRegistry = {
     'quote': QuoteCard,
     'game': GameCard,
     'activity': ActivityCard,
+    'wiki': WikiCard,
 };

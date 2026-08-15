@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, Sprout, Contact, Book } from 'lucide-react';
+import { Mail, Sprout, Contact, CalendarDays } from 'lucide-react';
 import { useStore } from '@nanostores/react';
 import { universe } from '../stores/universeStore';
 import { USER_CONTENT } from '../config';
@@ -34,9 +34,9 @@ const Footer = () => {
             )}
 
             <p>© {new Date().getFullYear()} {USER_CONTENT.name}.</p>
-            <div className="flex gap-8 mt-4 md:mt-0">
-                <a href="https://huangweiran.club/notes" target="_blank" rel="noopener noreferrer" className="hover:opacity-50 transition-opacity flex items-center gap-2">
-                    <Book size={16} /> Wiki
+            <div className="flex gap-6 md:gap-8 mt-4 md:mt-0 whitespace-nowrap">
+                <a href={USER_CONTENT.lifeCalendar.url} target="_blank" rel="noopener noreferrer" className="hover:opacity-50 transition-opacity flex items-center gap-2">
+                    <CalendarDays size={16} /> Life Calendar
                 </a>
                 <a href={`mailto:${USER_CONTENT.social.email}`} className="hover:opacity-50 transition-opacity flex items-center gap-2">
                     <Mail size={16} /> Email

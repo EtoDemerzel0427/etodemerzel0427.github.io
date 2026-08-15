@@ -36,6 +36,26 @@ export const USER_CONTENT = {
         cover: "https://external-preview.redd.it/no-new-mls-stadiums-in-eafc-25-fifa-for-the-2nd-year-in-a-v0-siI7JlZbMpFK-YkWObnGvmV1KAi7Hzffl7wLqelaT94.jpg?auto=webp&s=909e8c1eff86cf42418e1ddb0f69d4c2986df4a8", // User Provided Reddit Image
         link: "https://www.ea.com/games/ea-sports-fc/fc-25",
     },
+    // Fallback snapshot (used when the wiki's content.json can't be fetched at build time)
+    wiki: {
+        title: "Weiran's Notes",
+        url: "https://huangweiran.club/notes",
+        noteCount: 21,
+        categoryCount: 6,
+        categories: [
+            { name: "Dev", count: 8 },
+            { name: "Trading", count: 7 },
+            { name: "Music", count: 2 },
+            { name: "Travel", count: 2 },
+            { name: "Meta", count: 1 },
+            { name: "Personal", count: 1 },
+        ],
+        recent: [],
+        updatedAt: "",
+    },
+    lifeCalendar: {
+        url: "https://huangweiran.club/LifeCalendar/",
+    },
     reading: {
         title: "Options, Futures, and Other Derivatives",
         author: "John C. Hull",
@@ -64,4 +84,7 @@ export const LAYOUT_CONFIG = [
     { id: 'quote', type: 'quote', colSpan: 1, rowSpan: 1 },
     { id: 'game', type: 'game', colSpan: 1, rowSpan: 1, className: 'md:col-span-2' },
     { id: 'activity', type: 'activity', colSpan: 1, rowSpan: 1 },
+    // New band below the original grid, so the layout above is untouched. It deliberately
+    // does NOT fill the row — the space beside it is where future cards go.
+    { id: 'wiki', type: 'wiki', colSpan: 2, rowSpan: 2, className: 'row-span-2 lg:col-span-2' },
 ];

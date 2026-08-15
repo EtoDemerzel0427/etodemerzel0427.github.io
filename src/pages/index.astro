@@ -9,6 +9,7 @@ import { USER_CONTENT, LAYOUT_CONFIG } from '../config';
 import { findLibraryItemById } from '../utils/library';
 import { sortPostsByDate, toPostSummary } from '../utils/posts';
 import type { PostSummary } from '../utils/posts';
+import { fetchWikiSummary } from '../utils/wiki';
 
 const allPosts = await getCollection('posts');
 const posts: PostSummary[] = sortPostsByDate(allPosts.map(
@@ -21,6 +22,9 @@ const postCount = posts.length;
 const latestGame = findLibraryItemById(libraryData, currentLibrary.gameId, USER_CONTENT.game);
 const latestBook = findLibraryItemById(libraryData, currentLibrary.readingId, USER_CONTENT.reading);
 
+// Wiki (huangweiran.club/notes) metadata, resolved at build time.
+const wikiSummary = (await fetchWikiSummary()) || USER_CONTENT.wiki;
+
 ---
 
 <Layout title="Weiran's Universe">
@@ -30,6 +34,7 @@ const latestBook = findLibraryItemById(libraryData, currentLibrary.readingId, US
         postCount={postCount}
         latestGameData={latestGame}
         latestBookData={latestBook}
+        wikiData={wikiSummary}
     >
         <div slot="fallback" class="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 auto-rows-[200px] md:auto-rows-[240px]">
             {LAYOUT_CONFIG.map(card => (

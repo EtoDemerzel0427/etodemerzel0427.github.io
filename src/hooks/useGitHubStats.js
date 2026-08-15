@@ -35,9 +35,10 @@ export const useGitHubStats = (username) => {
                 if (statsRes.ok) {
                     const json = await statsRes.json();
 
-                    // Total for current year
+                    // `?y=last` returns a rolling 365-day window, keyed as `lastYear`
+                    // (not by calendar year — that form needs `?y=<year>`).
                     const currentYear = new Date().getFullYear();
-                    const total = json.total[currentYear] || 0;
+                    const total = json.total?.lastYear ?? json.total?.[currentYear] ?? 0;
 
                     // Last 28 days
                     const last28Days = json.contributions.slice(-28).map(day => ({

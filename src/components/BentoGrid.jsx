@@ -25,11 +25,12 @@ const resolveCardData = (type, context) => {
         case 'bio': return {
             projectUrl: `https://github.com/${USER_CONTENT.social.github}?tab=repositories`,
         };
+        case 'wiki': return context.wiki;
         default: return {};
     }
 };
 
-const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData }) => {
+const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData, wikiData }) => {
     // Global State via Nano Stores
     const universe = useStore(universeStore);
     const isPlaying = useStore(isPlayingStore);
@@ -51,6 +52,9 @@ const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData }) =>
     // PREFER SERVER DATA (Optimized Cover) -> Fallback to Client Logic
     const latestBook = latestBookData || USER_CONTENT.reading;
 
+    // Wiki metadata is fetched from the notes site at build time; fall back to the static snapshot.
+    const wiki = wikiData || USER_CONTENT.wiki;
+
     const cardContext = {
         contributionStats,
         latestBook,
@@ -59,6 +63,7 @@ const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData }) =>
         postCount,
         scores,
         userProfile,
+        wiki,
     };
 
     return (
