@@ -28,8 +28,10 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-micro-32.png" />
-		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-micro-16.png" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-geometric-32.png" media="(prefers-color-scheme: light)" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-geometric-dark-32.png" media="(prefers-color-scheme: dark)" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-geometric-16.png" media="(prefers-color-scheme: light)" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-geometric-dark-16.png" media="(prefers-color-scheme: dark)" />
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v3.png" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
