@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Grid3X3, X } from 'lucide-react';
 import { useStore } from '@nanostores/react';
-import { universe, setUniverse } from '../stores/universeStore';
+import { setUniverse } from '../stores/universeStore';
+import { useUniverse } from '../hooks/useUniverse';
 import { showStatusCard, setShowStatusCard } from '../stores/uiStore';
 import { UNIVERSE_OPTIONS } from '../utils/constants';
 import { getFontClass } from '../utils/theme';
@@ -29,7 +30,7 @@ const UniverseCard = ({ id, label, icon: Icon, color, desc, active, onSelect }) 
 );
 
 const GlobalUI = ({ children = null }) => {
-    const $universe = useStore(universe);
+    const $universe = useUniverse();
     const $showStatusCard = useStore(showStatusCard);
     const [showPortal, setShowPortal] = useState(false);
 

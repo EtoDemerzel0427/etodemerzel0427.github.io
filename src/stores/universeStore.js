@@ -1,7 +1,8 @@
 import { atom } from 'nanostores';
 import { USER_CONTENT } from '../config';
 
-const initialUniverse = USER_CONTENT.defaultTheme || 'neon';
+export const DEFAULT_UNIVERSE = USER_CONTENT.defaultTheme || 'neon';
+const initialUniverse = DEFAULT_UNIVERSE;
 const validUniverses = new Set([
     'neon', 'noir', 'aero', 'punk', 'retro', 'terminal',
     'bauhaus', 'newspaper', 'comic', 'lofi', 'botanical', 'cyberpunk'

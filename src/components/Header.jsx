@@ -1,14 +1,13 @@
 import React from 'react';
 import { MapPin } from 'lucide-react';
-import { useStore } from '@nanostores/react';
-import { universe } from '../stores/universeStore';
+import { useUniverse } from '../hooks/useUniverse';
 import { setShowStatusCard } from '../stores/uiStore'; // Import UI Store
 import { USER_CONTENT } from '../config';
 import Clock from './Clock';
 import { getFontClass } from '../utils/theme';
 
 const Header = () => {
-    const $universe = useStore(universe);
+    const $universe = useUniverse();
 
     return (
         <header className="flex flex-col md:flex-row md:items-end justify-between mb-12 px-2 relative">

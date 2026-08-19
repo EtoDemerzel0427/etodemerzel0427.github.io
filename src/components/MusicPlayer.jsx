@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useStore } from '@nanostores/react';
 import { initializeMusic, isPlaying, toggleMusic, setPlaying } from '../stores/musicStore';
-import { universe as universeStore } from '../stores/universeStore';
+import { useUniverse } from '../hooks/useUniverse';
 import { USER_CONTENT } from '../config';
 import { Pause, Play, GripHorizontal, X } from 'lucide-react';
 import { getFontClass } from '../utils/theme';
 
 const MusicPlayer = () => {
     const $isPlaying = useStore(isPlaying);
-    const $universe = useStore(universeStore);
+    const $universe = useUniverse();
     const audioRef = useRef(null);
 
     // UI State
@@ -165,7 +165,7 @@ const MusicPlayer = () => {
             {isVisible && (
                 <div
                     ref={modalRef}
-                    className={`fixed z-[9999] shadow-2xl backdrop-blur-md transition-shadow select-none
+                    className={`fixed z-[9999] overflow-hidden shadow-2xl backdrop-blur-md transition-shadow select-none
                         ${$universe === 'retro' ? 'bg-[#ff0055] text-white border-2 border-white rounded-sm font-pixel' :
                             $universe === 'terminal' ? 'bg-black text-[#00ff41] border border-[#00ff41] font-mono' :
                                 $universe === 'punk' ? 'bg-white text-black border-2 border-black font-code' :

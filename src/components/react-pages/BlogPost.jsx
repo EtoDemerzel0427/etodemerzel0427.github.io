@@ -8,8 +8,7 @@ import 'highlight.js/styles/atom-one-dark-reasonable.css';
 import {
     ArrowLeft, Calendar, Clock, Share2, MessageCircle
 } from 'lucide-react';
-import { useStore } from '@nanostores/react';
-import { universe as universeStore } from '../../stores/universeStore';
+import { useUniverse } from '../../hooks/useUniverse';
 import { getFontClass } from '../../utils/theme';
 import DisqusComments from '../DisqusComments';
 import BackNavigation from '../BackNavigation';
@@ -275,7 +274,7 @@ const getTypographyStyle = (universe) => {
 
 const BlogPost = ({ post }) => {
     // ... existing hooks ...
-    const universe = useStore(universeStore);
+    const universe = useUniverse();
     const [scrollProgress, setScrollProgress] = useState(0);
     // ...
 

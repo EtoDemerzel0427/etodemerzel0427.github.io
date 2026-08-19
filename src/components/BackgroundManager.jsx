@@ -1,12 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { useStore } from '@nanostores/react';
-import { universe } from '../stores/universeStore';
+import { useUniverse } from '../hooks/useUniverse';
 import { getContainerStyle } from '../utils/theme';
 import { AeroBackground, BauhausBackground, BotanicalBackground } from './Backgrounds';
 
 const BackgroundManager = () => {
-    const $universe = useStore(universe);
+    const $universe = useUniverse();
 
     return (
         <div className={`fixed inset-0 pointer-events-none transition-all duration-700 ${getContainerStyle($universe)} z-[-1]`}>

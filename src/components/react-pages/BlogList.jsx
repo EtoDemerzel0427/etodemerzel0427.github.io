@@ -1,12 +1,12 @@
 import React from 'react';
 import { useStore } from '@nanostores/react';
-import { universe } from '../../stores/universeStore';
+import { useUniverse } from '../../hooks/useUniverse';
 import { lang, toggleLang } from '../../stores/langStore'; // Adjust path
 import { getFontClass, getCardStyle } from '../../utils/theme';
 import BackNavigation from '../BackNavigation';
 
 const BlogList = ({ posts, activeTag = null }) => {
-    const $universe = useStore(universe);
+    const $universe = useUniverse();
     const $lang = useStore(lang);
 
     // Sync URL with Language Store

@@ -1,11 +1,10 @@
 import React from 'react';
 import { Mail, Sprout, Contact, CalendarDays } from 'lucide-react';
-import { useStore } from '@nanostores/react';
-import { universe } from '../stores/universeStore';
+import { useUniverse } from '../hooks/useUniverse';
 import { USER_CONTENT } from '../config';
 
 const Footer = () => {
-    const $universe = useStore(universe);
+    const $universe = useUniverse();
 
     return (
         <footer className={`relative mt-20 pt-8 flex flex-col md:flex-row justify-between items-center border-t-2 text-xs font-bold tracking-widest uppercase

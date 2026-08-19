@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useStore } from '@nanostores/react';
-import { universe as universeStore } from '../../stores/universeStore';
+import { useUniverse } from '../../hooks/useUniverse';
 import { libraryData } from '../../data/library';
 import MediaItemCard from './MediaItemCard';
 import { Book, Film, Music, Gamepad2, LayoutGrid } from 'lucide-react';
@@ -10,7 +9,7 @@ import MediaDetailModal from './MediaDetailModal';
 import BackNavigation from '../BackNavigation';
 
 const MediaGallery = ({ initialLibraryData }) => {
-    const universe = useStore(universeStore);
+    const universe = useUniverse();
     const dataSource = initialLibraryData || libraryData;
 
     const [activeTab, setActiveTab] = useState('book');

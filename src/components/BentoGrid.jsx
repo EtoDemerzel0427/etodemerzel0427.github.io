@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from '@nanostores/react';
-import { universe as universeStore } from '../stores/universeStore';
+import { useUniverse } from '../hooks/useUniverse';
 import { isPlaying as isPlayingStore, toggleMusic } from '../stores/musicStore';
 import { USER_CONTENT, LAYOUT_CONFIG } from '../config';
 import { useScores } from '../hooks/useScores';
@@ -32,7 +32,7 @@ const resolveCardData = (type, context) => {
 
 const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData, wikiData }) => {
     // Global State via Nano Stores
-    const universe = useStore(universeStore);
+    const universe = useUniverse();
     const isPlaying = useStore(isPlayingStore);
 
     // Data Hooks (Client-side fetching for other dynamic cards)
