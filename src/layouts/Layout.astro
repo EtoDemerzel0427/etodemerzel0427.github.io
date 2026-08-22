@@ -67,20 +67,29 @@ const universeClasses = getContainerClassMap(UNIVERSE_IDS);
                     else root.dataset.themePending = '';
                 }
 
-                // Astro drops the `ssr` attribute from an island once it has hydrated, so
-                // the markup is safe to show one frame after the last island loses it —
-                // revealing any earlier shows islands still rendering the default theme.
+                // Astro drops the `ssr` attribute from an island once it has hydrated. Wait
+                // for a short quiet spell with nothing left to hydrate — React re-renders
+                // the islands in the real universe a beat after that — but never hold the
+                // markup back for longer than a blink: a page can carry slow islands of
+                // its own (chart widgets in a post), and showing them a frame late beats
+                // blanking the whole page while they load.
                 function revealWhenHydrated() {
-                    var settledFrames = 0;
+                    var start = performance.now();
+                    var quietSince = 0;
 
                     (function check() {
                         if (!('themePending' in root.dataset)) return;
 
-                        if (document.querySelector('astro-island[ssr]')) settledFrames = 0;
-                        else settledFrames += 1;
+                        var now = performance.now();
+                        if (document.querySelector('astro-island[ssr]')) quietSince = 0;
+                        else if (!quietSince) quietSince = now;
 
-                        if (settledFrames > 1) delete root.dataset.themePending;
-                        else requestAnimationFrame(check);
+                        if ((quietSince && now - quietSince > 60) || now - start > 250) {
+                            delete root.dataset.themePending;
+                            return;
+                        }
+
+                        requestAnimationFrame(check);
                     })();
                 }
 
