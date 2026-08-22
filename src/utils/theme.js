@@ -8,7 +8,7 @@ export const getContainerStyle = (universe) => {
         case 'retro': return "bg-[#202028] text-[#e0e0e0] font-pixel selection:bg-[#ff0055] selection:text-white relative";
         case 'terminal': return "bg-black text-[#33ff00] font-mono selection:bg-[#33ff00] selection:text-black";
         case 'newspaper': return "bg-[#f4f4f0] text-[#111] font-serif selection:bg-black selection:text-white";
-        case 'aero': return "text-gray-900 font-sans selection:bg-blue-500/30 selection:text-blue-900";
+        case 'aero': return "bg-[#eef2ff] text-gray-900 font-sans selection:bg-blue-500/30 selection:text-blue-900";
         case 'comic': return "bg-[#fff9f0] text-black font-comic selection:bg-black selection:text-white";
         case 'lofi': return "bg-[#fdf6e3] text-[#586e75] font-hand selection:bg-[#eee8d5] selection:text-[#b58900]";
         case 'cyberpunk': return "bg-[#050a0e] text-[#fcee0a] font-cyber selection:bg-[#fcee0a] selection:text-black";
@@ -17,6 +17,13 @@ export const getContainerStyle = (universe) => {
         case 'neon': default: return "bg-[#F4F5F7] text-gray-900 font-sans selection:bg-[#3A86FF]/20 selection:text-[#3A86FF]";
     }
 };
+
+// The container classes are applied to <html> before first paint by the inline
+// boot script in Layout.astro, so the page is painted in the visitor's universe
+// instead of the pre-rendered default. Keep this map and getContainerStyle in sync.
+export const getContainerClassMap = (ids) => Object.fromEntries(
+    ids.map((id) => [id, getContainerStyle(id)])
+);
 
 export const getCardStyle = (universe, type = 'default', customClass = "") => {
     const baseTransition = "relative flex flex-col justify-between transition-all duration-500 ease-out";

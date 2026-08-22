@@ -7,6 +7,8 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import MusicPlayer from '../components/MusicPlayer'; // We will create this wrapper next
 import { USER_CONTENT } from '../config';
+import { getContainerClassMap } from '../utils/theme';
+import { UNIVERSE_IDS, DEFAULT_UNIVERSE } from '../stores/universeStore';
 import '../index.css';
 
 const { 
@@ -21,6 +23,9 @@ const {
 // Resolution logic for robust image URL handling
 const resolvedImage = image ? new URL(image, Astro.site).toString() : new URL(USER_CONTENT.social.defaultImage, Astro.site).toString();
 const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toString() : new URL(Astro.url.pathname, Astro.site).toString();
+
+// Painted before hydration by the boot script below.
+const universeClasses = getContainerClassMap(UNIVERSE_IDS);
 ---
 
 <!doctype html>
@@ -35,6 +40,67 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v3.png" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+
+        <!--
+            Universe boot: the pages are pre-rendered in DEFAULT_UNIVERSE, so without
+            this the first painted frame is always the default theme. Running before
+            the body exists puts the visitor's universe on <html> in time for the very
+            first paint, and re-running it on astro:after-swap survives ClientRouter
+            navigations (Astro replaces the root element's attributes on swap).
+        -->
+        <script is:inline define:vars={{ universeClasses, defaultUniverse: DEFAULT_UNIVERSE }}>
+            (function () {
+                var root = document.documentElement;
+
+                function applyUniverse() {
+                    var stored;
+                    try { stored = localStorage.getItem('universe'); } catch (error) { /* private mode */ }
+
+                    var next = stored && universeClasses[stored] ? stored : defaultUniverse;
+
+                    root.dataset.universe = next;
+                    root.className = universeClasses[next] || '';
+
+                    // Only gate the markup when the pre-rendered theme is the wrong one;
+                    // first-time visitors get the static HTML with no delay at all.
+                    if (next === defaultUniverse) delete root.dataset.themePending;
+                    else root.dataset.themePending = '';
+                }
+
+                // Astro drops the `ssr` attribute from an island once it has hydrated, so
+                // the markup is safe to show one frame after the last island loses it —
+                // revealing any earlier shows islands still rendering the default theme.
+                function revealWhenHydrated() {
+                    var settledFrames = 0;
+
+                    (function check() {
+                        if (!('themePending' in root.dataset)) return;
+
+                        if (document.querySelector('astro-island[ssr]')) settledFrames = 0;
+                        else settledFrames += 1;
+
+                        if (settledFrames > 1) delete root.dataset.themePending;
+                        else requestAnimationFrame(check);
+                    })();
+                }
+
+                applyUniverse();
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', revealWhenHydrated);
+                } else {
+                    revealWhenHydrated();
+                }
+
+                if (!window.__universeBoot) {
+                    window.__universeBoot = true;
+                    document.addEventListener('astro:after-swap', function () {
+                        applyUniverse();
+                        revealWhenHydrated();
+                    });
+                }
+            })();
+        </script>
 
         <!-- SEO Metadata -->
         <meta name="description" content={description} />
@@ -160,6 +226,31 @@ const resolvedCanonical = canonicalURL ? new URL(canonicalURL, Astro.site).toStr
                 background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%);
                 pointer-events: none;
             }
+            /* --- Universe boot (see the inline script in <head>) --- */
+            /* Hide the markup only while the pre-rendered theme is the wrong one, so
+               the visitor never sees the default universe morph into theirs. The page
+               background is on <html> and stays visible throughout. */
+            html[data-theme-pending] body {
+                visibility: hidden;
+                /* Safety net: reveal anyway if hydration is slow or never happens. */
+                animation: universe-reveal 0s 600ms forwards;
+            }
+            @keyframes universe-reveal {
+                to { visibility: visible; }
+            }
+
+            /* Background overlays carry no universe in their markup, so the right one
+               is painted with the first frame instead of after hydration. */
+            .u-overlay { display: none; }
+            html[data-universe="retro"] .u-overlay--retro,
+            html[data-universe="terminal"] .u-overlay--terminal,
+            html[data-universe="newspaper"] .u-overlay--newspaper,
+            html[data-universe="comic"] .u-overlay--comic,
+            html[data-universe="lofi"] .u-overlay--lofi,
+            html[data-universe="cyberpunk"] .u-overlay--cyberpunk {
+                display: block;
+            }
+
             @keyframes music-bar {
                 0%, 100% { height: 40%; }
                 50% { height: 100%; }

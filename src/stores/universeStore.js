@@ -3,10 +3,11 @@ import { USER_CONTENT } from '../config';
 
 export const DEFAULT_UNIVERSE = USER_CONTENT.defaultTheme || 'neon';
 const initialUniverse = DEFAULT_UNIVERSE;
-const validUniverses = new Set([
+export const UNIVERSE_IDS = [
     'neon', 'noir', 'aero', 'punk', 'retro', 'terminal',
     'bauhaus', 'newspaper', 'comic', 'lofi', 'botanical', 'cyberpunk'
-]);
+];
+const validUniverses = new Set(UNIVERSE_IDS);
 let stopPersistence;
 
 export const universe = atom(initialUniverse);

@@ -11,11 +11,15 @@ const ThemeSync = () => {
     }, []);
 
     useEffect(() => {
-        // Apply the container styles to the body element
-        // This ensures text colors, fonts, and selection styles apply globally
-        document.body.className = `transition-all duration-700 ${getContainerStyle($universe)}`;
-        document.documentElement.dataset.universe = $universe;
+        // The universe lives on <html> rather than <body>: the boot script in
+        // Layout.astro puts it there before the first paint, and this keeps it in
+        // sync afterwards (theme switches, client-side navigation).
+        const root = document.documentElement;
+        root.className = `transition-all duration-700 ${getContainerStyle($universe)}`;
+        root.dataset.universe = $universe;
 
+        // The boot script in Layout.astro owns data-themePending: it reveals the markup
+        // once every island has hydrated, which is later than this effect runs.
     }, [$universe]);
 
     return null; // This component renders nothing
