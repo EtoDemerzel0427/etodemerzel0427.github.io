@@ -268,9 +268,18 @@ function buildShell(group) {
         position: [(3.08 + WIN_X) / 2, WALL_H / 2, -1.09], parent: group, outline: 0,
     });
 
-    /* 天花板。cast=false 是关键：三维里投影贴图只渲染 castShadow 的物体，
-       关掉之后厨房那盏从上往下打的主光才不会被这块板挡住。 */
-    solid(box(WIN_X + 3.85, 0.12, TV_Z + 2.10), matte(0xf0ece2, { roughness: 0.95 }), {
+    /* 天花板。两处非做不可的处理：
+
+       cast=false —— 三维里投影贴图只渲染 castShadow 的物体，关掉之后
+       从上往下打的主光才不会被这块板挡住。
+
+       自发光 0.30 —— 屋里**没有任何光照得到天花板的下表面**：射灯朝下、
+       主光在天花板之上、半球光按法线取色而朝下的面拿到的是偏暗的地面色。
+       材质明明是暖白，渲出来是一片脏棕。现实里天花板全靠地面和墙的反弹
+       光照亮，这里没有全局光照，就用一点自发光顶替那份反弹 —— 数值只够
+       把它托到「白墙」的亮度，不至于自己变成一个光源。 */
+    solid(box(WIN_X + 3.85, 0.12, TV_Z + 2.10),
+        matte(0xf0ece2, { roughness: 0.95, emissive: 0xf0ece2, emissiveIntensity: 0.30 }), {
         position: [(WIN_X - 3.85) / 2 + 0.0, CEIL + 0.06, (TV_Z - 1.95) / 2 + 0.05],
         parent: group, outline: 0, cast: false,
     });

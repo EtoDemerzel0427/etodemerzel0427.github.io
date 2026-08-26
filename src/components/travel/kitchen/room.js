@@ -562,7 +562,7 @@ function buildHallway(group, { WALL_H, ceil, LW_Z, wallMat }) {
     wall(BR_W, BR_E, BR_END - HALL_T, BR_END);                  // 看到头那面
     // 支廊上方补一块天花板：客厅那块只铺到 lz≈-1.98
     solid(box(END_X - BR_E + 0.3, 0.12, BR_S - BR_END + 0.3),
-        matte(0xf0ece2, { roughness: 0.95 }), {
+        matte(0xf0ece2, { roughness: 0.95, emissive: 0xf0ece2, emissiveIntensity: 0.30 }), {
             position: [(END_X + BR_E) / 2, ceil + 0.06, (BR_S + BR_END) / 2],
             parent: group, outline: 0, cast: false,
         });
@@ -813,7 +813,15 @@ export function buildLights(scene) {
     scene.add(key, key.target);
     fitShadowCamera(key);          // 别再写死视锥，见 fitShadowCamera 的说明
 
-    const hemi = new THREE.HemisphereLight(0xfff2e6, 0x22201f, 0.17);
+    /* 半球光。**地面色不能是黑的** —— 半球光按法线取色，朝下的面拿到的是
+       地面色，而屋里朝下的最大一块面就是天花板。原来给的 0x22201f 几乎是黑，
+       于是天花板的下表面基本没有任何光：材质明明是暖白 0xf0ece2，渲出来却是
+       一片脏棕。
+
+       抬到浅木地板反弹的量级，柜子和桌面的底面就不再是死黑 —— 那本来
+       就是反弹光该做的事。天花板光靠它还不够（见 living.js 天花板那段，
+       补了一点自发光顶替反弹）。 */
+    const hemi = new THREE.HemisphereLight(0xfff2e6, 0x5a5049, 0.28);
     scene.add(hemi);
 
     /* 厨房顶上那条轨道灯。三个头各一盏**聚光灯**，不是点光源 ——

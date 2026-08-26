@@ -1006,7 +1006,9 @@ export default function KitchenScene({ places = [] }) {
         <div className="fv-root">
             <canvas className="fv-canvas" ref={canvasRef} />
 
-            {!ready && !failed && <div className="fv-boot">正在布置厨房…</div>}
+            {/* 这儿以前写的是「正在布置厨房」—— 那时候整页只有一台冰箱。
+                现在是一整套公寓了，措辞跟着改；而且开场本来就是灯一盏盏亮起来。 */}
+            {!ready && !failed && <div className="fv-boot">正在开灯…</div>}
             {ready && <div className="fv-boot is-done" />}
 
             {hover && !activeSlug && (
