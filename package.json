@@ -28,8 +28,8 @@
     "chart.js": "^4.5.1",
     "chartjs-plugin-annotation": "^3.1.0",
     "katex": "^0.18.3",
-    "lucide-react": "^1.31.0",
     "lowlight": "^3.3.0",
+    "lucide-react": "^1.31.0",
     "nanostores": "^1.4.2",
     "react": "^19.2.8",
     "react-chartjs-2": "^5.3.1",
@@ -39,7 +39,8 @@
     "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0"
+    "remark-math": "^6.0.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

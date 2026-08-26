@@ -1,0 +1,54 @@
+---
+import { getCollection } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import KitchenScene from '../../components/travel/KitchenScene';
+
+// 独立页面：不套 Layout.astro，不接 universe 主题体系，自己一套视觉语言。
+const entries = (await getCollection('travel') as CollectionEntry<'travel'>[])
+    .filter((e: CollectionEntry<'travel'>) => !e.data.draft);
+
+const places = entries
+    .sort((a, b) => (b.data.year ?? 0) - (a.data.year ?? 0))
+    .map((e) => ({
+        slug: e.id,
+        body: e.body ?? '',
+        ...e.data,
+    }));
+
+const title = '住在这儿 | Weiran Verse';
+const description = `一间照着实测尺寸复刻的公寓。冰箱门上贴着 ${places.length} 枚旅行纪念、朋友赠礼与收藏磁贴。`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#170e33" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-geometric-32.png" />
+    <link rel="canonical" href="https://huangweiran.club/my-apt/" />
+    <link rel="alternate" type="text/html" href="/my-apt/list/" title="纯文本版" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap"
+        rel="stylesheet"
+    />
+    <style is:global>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background: #170e33;
+            overscroll-behavior: none;
+        }
+        * { box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <KitchenScene client:only="react" places={places} />
+</body>
+</html>

@@ -6,6 +6,12 @@ import sitemap from '@astrojs/sitemap';
 export default defineConfig({
     site: 'https://huangweiran.club',
     base: '/',
+    // 房间那页原来叫 /travel/，长成一整套公寓之后改名 /my-apt/。
+    // 旧链接留个兜底（静态构建会生成 meta-refresh 页）。
+    redirects: {
+        '/travel': '/my-apt/',
+        '/travel/list': '/my-apt/list/',
+    },
     integrations: [
         react(),
         partytown(),

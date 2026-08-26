@@ -1,0 +1,110 @@
+---
+import { getCollection, render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+
+// 纯文本回退版：服务端渲染，无 JS 可读，给爬虫和不想看动画的人。
+const entries = (await getCollection('travel') as CollectionEntry<'travel'>[])
+    .filter((e: CollectionEntry<'travel'>) => !e.data.draft);
+const items = await Promise.all(
+    entries
+        .sort((a, b) => (b.data.year ?? 0) - (a.data.year ?? 0))
+        .map(async (e) => ({ data: e.data, Content: (await render(e)).Content })),
+);
+
+const magnetMeta = (data: CollectionEntry<'travel'>['data']) => {
+    if (data.kind === 'gift') return `${data.country} · 朋友赠送 · 未到访`;
+    if (data.kind === 'fandom') return '收藏 · 非旅行地点';
+    return data.country;
+};
+---
+
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>冰箱贴收藏 · 列表 | Weiran Verse</title>
+    <meta name="description" content={`冰箱上的 ${items.length} 枚旅行纪念、朋友赠礼与收藏磁贴。`} />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-geometric-32.png" />
+    <link rel="canonical" href="https://huangweiran.club/my-apt/list/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&display=swap" rel="stylesheet" />
+    <style is:global>
+        body {
+            margin: 0;
+            background: #170e33;
+            color: #f8f0e0;
+            font-family: 'Patrick Hand', system-ui, sans-serif;
+            padding: 40px 20px 80px;
+        }
+        .wrap { max-width: 720px; margin: 0 auto; }
+        .credits {
+            margin-top: 56px; padding-top: 20px;
+            border-top: 1px solid rgba(248, 240, 224, 0.18);
+            font-size: 14px; opacity: 0.62; line-height: 1.7;
+        }
+        .credits p { margin: 6px 0; }
+        h1 {
+            font-family: 'Bangers', cursive;
+            font-size: 42px;
+            letter-spacing: 0.05em;
+            margin: 0 0 6px;
+            text-shadow: 3px 3px 0 #150f2c, 6px 6px 0 #ff2e88;
+        }
+        .top { display: flex; gap: 14px; align-items: baseline; margin-bottom: 28px; }
+        a.link { color: #35e2ff; }
+        article {
+            background: #f8f0e0;
+            color: #2b1f52;
+            border: 6px solid #150f2c;
+            box-shadow: 8px 9px 0 rgba(0,0,0,0.5);
+            padding: 16px 18px;
+            margin-bottom: 20px;
+        }
+        article h2 {
+            font-family: 'Bangers', cursive;
+            font-size: 28px;
+            letter-spacing: 0.04em;
+            margin: 0 0 4px;
+            color: #150f2c;
+        }
+        .meta { font-size: 14px; opacity: 0.75; margin-bottom: 10px; }
+        article p { line-height: 1.75; margin: 0 0 12px; }
+        article blockquote {
+            margin: 14px 0 0; padding: 8px 12px;
+            border-left: 5px solid #ff2e88;
+            background: rgba(255,46,136,0.08);
+            font-size: 15px; opacity: 0.85;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="top">
+            <h1>冰箱贴收藏</h1>
+            <a class="link" href="/my-apt/">← 回房间</a>
+        </div>
+        {items.map((it) => (
+            <article>
+                <h2>{it.data.place} <small>{it.data.placeEn}</small></h2>
+                <div class="meta">
+                    {magnetMeta(it.data)}{it.data.dates || it.data.year ? ` · ${it.data.dates || it.data.year}` : ''}
+                    {typeof it.data.rating === 'number' ? ` · ${it.data.rating}/5` : ''}
+                </div>
+                <it.Content />
+            </article>
+        ))}
+
+        <!-- 房间那页用到的第三方素材，署名放这儿（纯文本版是这站的永久链接） -->
+        <footer class="credits">
+            <p>房间里那台电钢琴用的采样是
+                <a class="link" href="https://archive.org/details/SalamanderGrandPianoV3" rel="noopener">Salamander Grand Piano</a>
+                （Alexander Holm，<a class="link" href="https://creativecommons.org/licenses/by/3.0/" rel="noopener">CC-BY 3.0</a>），
+                每 6 个半音取一个样本、裁短转码后放在 <code>/travel/piano/</code>。
+            </p>
+            <p>唱片封面来自 iTunes Search API，仅用于标示我书架上实际有的那几张唱片。</p>
+        </footer>
+    </div>
+</body>
+</html>
