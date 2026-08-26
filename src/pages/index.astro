@@ -12,6 +12,10 @@ import type { PostSummary } from '../utils/posts';
 import { fetchWikiSummary } from '../utils/wiki';
 
 const allPosts = await getCollection('posts');
+
+// 冰箱上的磁贴数 —— 和 /my-apt/ 里贴的是同一份 travel 集合
+const magnetCount = (await getCollection('travel'))
+    .filter((entry: CollectionEntry<'travel'>) => !entry.data.draft).length;
 const posts: PostSummary[] = sortPostsByDate(allPosts.map(
     (post: CollectionEntry<'posts'>) => toPostSummary(post)
 ));
@@ -35,6 +39,7 @@ const wikiSummary = (await fetchWikiSummary()) || USER_CONTENT.wiki;
         latestGameData={latestGame}
         latestBookData={latestBook}
         wikiData={wikiSummary}
+        magnetCount={magnetCount}
     >
         <div slot="fallback" class="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 auto-rows-[200px] md:auto-rows-[240px]">
             {LAYOUT_CONFIG.map(card => (

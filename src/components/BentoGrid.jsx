@@ -26,11 +26,12 @@ const resolveCardData = (type, context) => {
             projectUrl: `https://github.com/${USER_CONTENT.social.github}?tab=repositories`,
         };
         case 'wiki': return context.wiki;
+        case 'apartment': return { ...USER_CONTENT.apartment, magnetCount: context.magnetCount ?? USER_CONTENT.apartment.magnetCount };
         default: return {};
     }
 };
 
-const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData, wikiData }) => {
+const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData, wikiData, magnetCount }) => {
     // Global State via Nano Stores
     const universe = useUniverse();
     const isPlaying = useStore(isPlayingStore);
@@ -57,6 +58,7 @@ const BentoGrid = ({ latestPost, postCount, latestGameData, latestBookData, wiki
 
     const cardContext = {
         contributionStats,
+        magnetCount,
         latestBook,
         latestGame,
         latestPost,

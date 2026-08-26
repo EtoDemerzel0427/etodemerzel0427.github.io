@@ -53,6 +53,13 @@ export const USER_CONTENT = {
         recent: [],
         updatedAt: "",
     },
+    // /my-apt/ 那间 three.js 复刻。magnetCount 是兜底值，首页会用 travel 集合的真实条数覆盖。
+    apartment: {
+        url: "/my-apt/",
+        magnetCount: 20,
+        pianoKeys: 88,
+        lamps: 3,
+    },
     lifeCalendar: {
         url: "https://huangweiran.club/LifeCalendar/",
     },
@@ -84,7 +91,7 @@ export const LAYOUT_CONFIG = [
     { id: 'quote', type: 'quote', colSpan: 1, rowSpan: 1 },
     { id: 'game', type: 'game', colSpan: 1, rowSpan: 1, className: 'md:col-span-2' },
     { id: 'activity', type: 'activity', colSpan: 1, rowSpan: 1 },
-    // New band below the original grid, so the layout above is untouched. It deliberately
-    // does NOT fill the row — the space beside it is where future cards go.
+    // New band below the original grid, so the layout above is untouched.
     { id: 'wiki', type: 'wiki', colSpan: 2, rowSpan: 2, className: 'row-span-2 lg:col-span-2' },
+    { id: 'apartment', type: 'apartment', colSpan: 2, rowSpan: 2, className: 'row-span-2 lg:col-span-2' },
 ];
