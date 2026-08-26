@@ -2,7 +2,7 @@
 place: 黄石国家公园
 placeEn: Yellowstone National Park
 country: 美国
-magnet: /travel/magnets/yellowstone-redrawn.png
+magnet: /travel/magnets/yellowstone-redrawn.webp
 magnetAspect: 0.826
 magnetShape: alpha-card
 magnetEdge: "#b98137"

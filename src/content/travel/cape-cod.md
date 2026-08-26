@@ -2,7 +2,7 @@
 place: 科德角
 placeEn: Cape Cod
 country: 美国
-magnet: /travel/magnets/cape-cod-redrawn-v2.png
+magnet: /travel/magnets/cape-cod-redrawn-v2.webp
 magnetAspect: 1.29
 magnetShape: alpha-card
 magnetEdge: "#ded9ca"

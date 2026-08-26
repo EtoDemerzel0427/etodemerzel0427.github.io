@@ -2,7 +2,7 @@
 place: 大提顿国家公园
 placeEn: Grand Teton National Park
 country: 美国
-magnet: /travel/magnets/grand-teton-redrawn.png
+magnet: /travel/magnets/grand-teton-redrawn.webp
 magnetAspect: 1.012
 magnetShape: alpha-card
 magnetEdge: "#9b6334"

@@ -3,7 +3,7 @@ place: 赫奇帕奇
 placeEn: Hufflepuff
 country: 收藏
 kind: fandom
-magnet: /travel/magnets/hufflepuff-redrawn.png
+magnet: /travel/magnets/hufflepuff-redrawn.webp
 magnetAspect: 0.688
 magnetShape: alpha-card
 magnetEdge: "#8e553e"

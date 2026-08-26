@@ -201,12 +201,18 @@ export default function KitchenScene({ places = [] }) {
                 const power = living.userData.pianoPower;
                 const pressed = new Map();      // key mesh -> 松手的时刻
                 let pianoOn = false;            // 电钢琴，开机才响
+                let nudgeUntil = 0;             // 没开机就弹琴时，让指示灯闪几下指路
                 function hitKey(mesh) {
                     const d = mesh.userData;
                     if (!d || d.midi === undefined) return;
                     // 键是机械的，没通电也压得下去；只是不出声
                     pressed.set(mesh, performance.now() + 110);
-                    if (!pianoOn) return;
+                    if (!pianoOn) {
+                        /* 没电还去弹 —— 别只是「没反应」，那样人会以为琴是死的。
+                           让电源指示灯猛闪一秒半，眼睛自然会被带到开关上。 */
+                        nudgeUntil = performance.now() + 1500;
+                        return;
+                    }
                     // 力度给一点随机，不至于每下都一模一样
                     audio.playPianoNote(d.midi, 0.72 + Math.random() * 0.2, PIANO_AT);
                 }
@@ -646,8 +652,11 @@ export default function KitchenScene({ places = [] }) {
                         canvas.classList.toggle('is-pointing', !!hovered);
                         const d = hovered?.userData;
                         if (d?.place) setHover({ slug: d.place.slug, place: d.place.place });
-                        else if (d?.note) setHover({ slug: `key-${d.midi}`, place: pianoOn ? d.note : '电源没开' });
-                        else if (hovered && power.pick.includes(hovered)) setHover({ slug: 'power', place: '电源' });
+                        else if (d?.note) {
+                            setHover({ slug: `key-${d.midi}`, place: pianoOn ? d.note : '琴没开 · 按低音那头的电源' });
+                        } else if (hovered && power.pick.includes(hovered)) {
+                            setHover({ slug: 'power', place: pianoOn ? '关掉电钢琴' : '开电钢琴' });
+                        }
                         else if (hovered && lampOf(hovered)) {
                             setHover({ slug: 'lamp', place: lampOf(hovered).on ? '关灯' : '开灯' });
                         }
@@ -824,13 +833,19 @@ export default function KitchenScene({ places = [] }) {
                         }
                     }
 
-                    /* 电源指示：红灯 + 小屏，开机才亮 */
+                    /* 电源指示。关机时**不是灭的，是慢慢呼吸**的待机红灯 ——
+                       这台琴最不显眼的地方就是它能开机，一个会动的小红点是
+                       整个画面里唯一会主动招手的东西。
+                       刚被「弹了但没电」戳过的一秒半里改成急闪，指路更明确。 */
                     {
-                        const want = pianoOn ? 1 : 0;
                         const led = power.led.material, scr = power.screen.material;
                         const k = 1 - Math.exp(-9 * dt);
-                        led.emissiveIntensity += (want * 2.4 - led.emissiveIntensity) * k;
-                        scr.emissiveIntensity += (want * 1.1 - scr.emissiveIntensity) * k;
+                        let wantLed;
+                        if (pianoOn) wantLed = 2.4;
+                        else if (performance.now() < nudgeUntil) wantLed = Math.sin(t * 26) > 0 ? 3.2 : 0.1;
+                        else wantLed = 0.42 + 0.30 * Math.sin(t * 2.1);
+                        led.emissiveIntensity += (wantLed - led.emissiveIntensity) * k;
+                        scr.emissiveIntensity += ((pianoOn ? 1.1 : 0) - scr.emissiveIntensity) * k;
                     }
 
                     /* 唱机：掀盖 / 唱盘 33⅓ 转 / 唱臂落针再慢慢往内圈走 */

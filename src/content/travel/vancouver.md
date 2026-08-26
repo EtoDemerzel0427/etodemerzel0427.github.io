@@ -3,7 +3,7 @@ place: 温哥华
 placeEn: Vancouver
 country: 加拿大
 kind: gift
-magnet: /travel/magnets/vancouver-redrawn.png
+magnet: /travel/magnets/vancouver-redrawn.webp
 magnetAspect: 2.069
 magnetShape: alpha-card
 magnetEdge: "#e2dfd4"

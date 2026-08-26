@@ -3,7 +3,7 @@ place: 斯莱特林
 placeEn: Slytherin
 country: 收藏
 kind: fandom
-magnet: /travel/magnets/slytherin-redrawn.png
+magnet: /travel/magnets/slytherin-redrawn.webp
 magnetAspect: 0.691
 magnetShape: alpha-card
 magnetEdge: "#345c4b"

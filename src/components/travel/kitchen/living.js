@@ -1724,18 +1724,30 @@ function buildPiano(group) {
     /* 电源键。板琴的电源都在低音那一头的端上，按键旁边一颗指示灯。
        实物只有 12mm 见方，在屏幕上不到几个像素，所以照例套一个看不见的
        大命中盒 —— 真正被点的是盒子。 */
+    /* 电源那一块。这里刻意做得比实物**显眼一号**：
+
+       实物的电源键 12mm 见方、指示灯 3mm，在屏幕上是三五个像素 —— 只有
+       知道它在那儿的人才找得到，等于没有。所以按键放大到 28mm 并加了一圈
+       亮边、指示灯放大到 10mm，命中盒更是横跨整个低音端 30cm。
+       另外指示灯待机时会慢慢呼吸（见 KitchenScene），眼睛会被它带过去。 */
     const POWER_Z = CZ - 0.545;
-    const powerBtn = solid(cyl(0.0085, 0.0085, 0.005, 14), matte(0x4a4a56, { roughness: 0.45 }), {
-        position: [PX + 0.022, BED_Y + 0.043, POWER_Z], parent: group, outline: 0.002, cast: false,
+    solid(rb(PW - 0.012, 0.004, 0.115, 0.002), matte(0x2b2b33, { roughness: 0.55 }), {
+        position: [PX, BED_Y + 0.043, POWER_Z], parent: group, outline: 0.003, cast: false,
     });
-    const powerLed = solid(cyl(0.0035, 0.0035, 0.0035, 10), matte(0x5c1d1d, {
+    solid(cyl(0.0185, 0.0185, 0.004, 18), matte(0x8b8f9a, { roughness: 0.35, metalness: 0.4 }), {
+        position: [PX + 0.020, BED_Y + 0.046, POWER_Z], parent: group, outline: 0.003, cast: false,
+    });
+    const powerBtn = solid(cyl(0.0140, 0.0140, 0.006, 18), matte(0x55555f, { roughness: 0.42 }), {
+        position: [PX + 0.020, BED_Y + 0.048, POWER_Z], parent: group, outline: 0.003, cast: false,
+    });
+    const powerLed = solid(cyl(0.0050, 0.0050, 0.004, 12), matte(0x5c1d1d, {
         roughness: 0.3, emissive: 0xff3b2e, emissiveIntensity: 0,
-    }), { position: [PX - 0.014, BED_Y + 0.043, POWER_Z], parent: group, outline: 0, cast: false });
+    }), { position: [PX - 0.022, BED_Y + 0.046, POWER_Z], parent: group, outline: 0, cast: false });
     const powerGrab = new THREE.Mesh(
-        box(PW, 0.045, 0.085),
+        box(PW + 0.06, 0.075, 0.30),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
     );
-    powerGrab.position.set(PX, BED_Y + 0.040, POWER_Z);
+    powerGrab.position.set(PX, BED_Y + 0.050, POWER_Z + 0.02);
     powerGrab.castShadow = powerGrab.receiveShadow = false;
     powerGrab.userData.pickProxy = true;
     group.add(powerGrab);

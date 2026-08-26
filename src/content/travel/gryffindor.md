@@ -3,7 +3,7 @@ place: 格兰芬多
 placeEn: Gryffindor
 country: 收藏
 kind: fandom
-magnet: /travel/magnets/gryffindor-redrawn.png
+magnet: /travel/magnets/gryffindor-redrawn.webp
 magnetAspect: 0.811
 magnetShape: alpha-card
 magnetEdge: "#944b36"

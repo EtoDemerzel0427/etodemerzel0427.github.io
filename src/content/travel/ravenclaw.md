@@ -3,7 +3,7 @@ place: 拉文克劳
 placeEn: Ravenclaw
 country: 收藏
 kind: fandom
-magnet: /travel/magnets/ravenclaw-redrawn.png
+magnet: /travel/magnets/ravenclaw-redrawn.webp
 magnetAspect: 0.943
 magnetShape: alpha-card
 magnetEdge: "#7794ad"
