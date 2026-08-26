@@ -398,7 +398,13 @@ export function buildRoom() {
    轨道沿 X 架在过道上方，和灶台一线平行，正好压在 buildLights 那盏
    `ceiling` 点光源上 —— 光和灯具这才对得上。 */
 function buildCeilingLights(group) {
-    const steel = metal(0xc0c4c8, 0.26);
+    /* 拉丝铝，不是镜面。这里踩的坑和 living.js 那盏方罩灯是同一个：
+       metal() 是 metalness 0.72，再配 0.26 的粗糙度基本就是面镜子，而环境
+       贴图里**专门有一条横向亮带**（materials.js：不锈钢那道柔和高光就靠它）。
+       一根横着的金属方管正对这条横带，反射出来是一道贯穿全长的高光 ——
+       看着就像轨道自己在发光；再被 bloom 一糊，天花板上还多一圈光晕。
+       粗糙度提到 0.5、金属度压到 0.45，高光散开成柔和的缎面。 */
+    const steel = matte(0xc0c4c8, { roughness: 0.50, metalness: 0.45 });
     const dark = matte(0x1a1a1f, { roughness: 0.5 });
     const TR_X0 = 0.20, TR_X1 = 2.62, TR_Z = TRACK_Z;
     const y = CEIL - 0.022;
@@ -748,6 +754,52 @@ function buildHallway(group, { WALL_H, ceil, LW_Z, wallMat }) {
     }), { position: [-2.30, ceil - 0.05, -0.76], parent: group, outline: 0.007, cast: false });
 }
 
+
+/* 整间屋子（含走廊 / 支廊）的世界包围盒。阴影相机照着它来收。 */
+export const WORLD_BOUNDS = new THREE.Box3(
+    new THREE.Vector3(-4.15, -0.15, -4.15),
+    new THREE.Vector3(4.15, 3.50, 4.95),
+);
+
+/** 把方向光的阴影相机**收到刚好罩住整间屋子**。
+ *
+ *  为什么必须算而不是写死：DirectionalLight 的阴影是一台固定大小的正交
+ *  相机，盒子外面的表面压根不在深度图里，three 就按「完全没有阴影」渲。
+ *  于是盒内盒外之间是一条刀切一样的直线 —— 投在平墙上就是一条横贯整面墙
+ *  的硬带。这屋子这几版一直在长（走廊往西、支廊往南），写死的 ±3.5
+ *  早就罩不住了，北墙顶那一角正好越界。
+ *
+ *  three 的阴影相机架在 light.position、朝 target 看，left/right/top/bottom
+ *  是**它自己那套轴**上的量，所以这里得按 lookAt 的定义把基重建出来：
+ *  z = normalize(eye - target)，x = cross(worldUp, z)，y = cross(z, x)。 */
+export function fitShadowCamera(light, box = WORLD_BOUNDS, pad = 0.4) {
+    const z = new THREE.Vector3().subVectors(light.position, light.target.position).normalize();
+    const x = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), z).normalize();
+    const y = new THREE.Vector3().crossVectors(z, x);
+
+    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    const v = new THREE.Vector3();
+    for (const px of [box.min.x, box.max.x]) {
+        for (const py of [box.min.y, box.max.y]) {
+            for (const pz of [box.min.z, box.max.z]) {
+                v.set(px, py, pz).sub(light.position);
+                const c = [v.dot(x), v.dot(y), -v.dot(z)];   // 相机看向 -z，深度取负
+                for (let i = 0; i < 3; i++) {
+                    lo[i] = Math.min(lo[i], c[i]);
+                    hi[i] = Math.max(hi[i], c[i]);
+                }
+            }
+        }
+    }
+    const cam = light.shadow.camera;
+    cam.left = lo[0] - pad; cam.right = hi[0] + pad;
+    cam.bottom = lo[1] - pad; cam.top = hi[1] + pad;
+    cam.near = Math.max(0.1, lo[2] - pad);
+    cam.far = hi[2] + pad;
+    cam.updateProjectionMatrix();
+    return cam;
+}
+
 /* 灯光：公寓白天的顶灯 + 侧向自然光，比之前那版平、亮、中性。
    漫画感靠后期和轮廓光，不再靠一束戏剧化的夕阳。 */
 export function buildLights(scene) {
@@ -756,15 +808,10 @@ export function buildLights(scene) {
     key.target.position.set(0.07, 1.1, -1.3);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
-    key.shadow.camera.near = 0.5;
-    key.shadow.camera.far = 16;
-    key.shadow.camera.left = -3.5;
-    key.shadow.camera.right = 3.5;
-    key.shadow.camera.top = 3.2;
-    key.shadow.camera.bottom = -1.4;
     key.shadow.bias = -0.001;
     key.shadow.normalBias = 0.02;
     scene.add(key, key.target);
+    fitShadowCamera(key);          // 别再写死视锥，见 fitShadowCamera 的说明
 
     const hemi = new THREE.HemisphereLight(0xfff2e6, 0x22201f, 0.17);
     scene.add(hemi);
@@ -818,14 +865,20 @@ export function buildLights(scene) {
     underCab.position.set(1.52, 1.22, -1.25);
     scene.add(underCab);
 
-    // 冷补光，让暗部偏蓝而不是发灰
-    const coolFill = new THREE.DirectionalLight(0xa8b2f5, 0.22);
+    /* 冷补光，让暗部偏蓝而不是发灰。强度压到 0.14 —— 见下面 rimCyan 那段。 */
+    const coolFill = new THREE.DirectionalLight(0xa8b2f5, 0.14);
     coolFill.position.set(3.77, 1.6, 3.0);
     coolFill.target.position.set(0.17, 1.0, -1.3);
     scene.add(coolFill, coolFill.target);
 
-    // 两道轮廓光，把冰箱从柜体里抠出来
-    const rimCyan = new THREE.DirectionalLight(0x74ecff, 0.55);
+    /* 轮廓光，把冰箱从柜体里抠出来。
+
+       这里有个容易忽略的事：**方向光是照全场的**，target 只决定方向、
+       不决定照到谁。所以这盏本来只想勾冰箱边的饱和青光（0x74ecff @ 0.55）
+       其实把整间屋子朝那个角度的面都染了一层青 —— 客厅墙下半截发薄荷绿
+       就是它干的，再被色阶量化切一刀，就成了一条横带。
+       颜色收淡、强度砍到 1/4，勾边还在，屋子不再是青的。 */
+    const rimCyan = new THREE.DirectionalLight(0x9fd6e8, 0.14);
     rimCyan.position.set(4.37, 2.2, -2.4);
     rimCyan.target.position.set(-0.08, 1.2, -1.2);
     scene.add(rimCyan, rimCyan.target);

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { PALETTE, artworkMaterial, inkOutline, matte, metal, solid, woodFor } from './materials.js';
+import {
+    PALETTE, artworkMaterial, inkOutline, matte, metal, shadeGradient, solid, woodFor,
+} from './materials.js';
+import { fitShadowCamera } from './room.js';
 
 /* ============================================================================
    客厅。和 room.js 共用同一个局部坐标系。
@@ -141,20 +144,27 @@ function windowWall(parent, {
     const frameMat = matte(0xe6e2d9, { roughness: 0.6 });
 
     /** 在 (u0..u1) × (ya..yb) 上放一块墙板 */
-    const slab = (u0, u1, ya, yb) => {
+    const slab = (u0, u1, ya, yb, cast = true) => {
         if (u1 - u0 < 0.004 || yb - ya < 0.004) return;
         const p = plane - facing * (WALL_T / 2);
         const g = axis === 'x' ? box(WALL_T, yb - ya, u1 - u0) : box(u1 - u0, yb - ya, WALL_T);
         const pos = axis === 'x'
             ? [p, (ya + yb) / 2, (u0 + u1) / 2]
             : [(u0 + u1) / 2, (ya + yb) / 2, p];
-        solid(g, wallMat, { position: pos, parent, outline: 0 });
+        solid(g, wallMat, { position: pos, parent, outline: 0, cast });
     };
 
     slab(from, winFrom, y0, y1);          // 洞口两侧各一整条
     slab(winTo, to, y0, y1);
     slab(winFrom, winTo, y0, sillY);      // 窗台以下
-    slab(winFrom, winTo, headY, y1);      // 窗顶以上
+    /* 窗顶以上那一截**不能投影**。窗顶就是吊顶高度，所以这块板整个在天花板
+       之上，屋里根本看不见 —— 它只是为了不让墙和天花板之间露缝。
+
+       但天花板本身是 cast:false（不然从上方来的主光会被整块板挡死，屋里就黑
+       了），于是光穿过天花板、再被这块看不见的板挡住，在对面墙上投下一条
+       凭空出现的水平硬边 —— 客厅墙上那条阴影带就是它。
+       板留着占位，投影关掉。 */
+    slab(winFrom, winTo, headY, y1, false);
 
     /* 帘布。窗户在画面里是光源，用 MeshBasic —— 再被房间的灯照一遍就灰了。 */
     const shade = new THREE.Mesh(
@@ -852,15 +862,24 @@ function buildDesk(group) {
         position: [0, -SH / 2, 0], parent: shadeGrp, outline: 0.007, cast: false,
     });
     cone.material.side = THREE.DoubleSide;
+    // 金属罩不发光，「亮着」全靠罩口那圈；关灯就是把那圈灭掉
+    const deskGlow = diffuserMaterial();
     solid(cyl(0.044, 0.044, 0.012, 22), steel, {            // 顶盖
         position: [0, 0.006, 0], parent: shadeGrp, outline: 0.004, cast: false,
     });
     solid(cyl(0.011, 0.011, 0.030, 10), brass, {            // 顶上那颗小帽
         position: [0, 0.028, 0], parent: shadeGrp, outline: 0.004, cast: false,
     });
-    solid(cyl(0.080, 0.080, 0.004, 22), matte(0xffe6b8, {   // 罩口那圈暖光
-        roughness: 0.9, emissive: 0xffd79a, emissiveIntensity: 1.5,
-    }), { position: [0, -SH + 0.012, 0], parent: shadeGrp, outline: 0, cast: false });
+    solid(cyl(0.080, 0.080, 0.004, 22), deskGlow, {          // 罩口那圈暖光
+        position: [0, -SH + 0.012, 0], parent: shadeGrp, outline: 0, cast: false,
+    });
+    group.userData.lamps = {
+        ...(group.userData.lamps || {}),
+        desk: {
+            pick: [lampGrab(cyl(0.115, 0.115, 0.24, 14), [0, -SH / 2, 0], shadeGrp)],
+            shade: null, glow: deskGlow,
+        },
+    };
 }
 
 /** 五星脚 + 气杆。两把椅子共用，颜色不同。
@@ -1415,10 +1434,39 @@ function buildMedia(group) {
 
 /* ---------- 落地灯两盏（扫描里没有，但它们是这屋子夜里的光源） ---------- */
 
+/** 亮着的布灯罩。每盏灯各要一份 —— 材质是共享引用，
+ *  共用一份的话开一盏三盏一起亮。
+ *
+ *  颜色是有讲究的：底色和自发光都得**留住黄**。之前给的是米白底
+ *  + 1.7 的自发光，漫画滤镜再叠 1.38 的对比和 1.16 的饱和，直接顶到
+ *  纯白 —— 那就是「过曝」的来源。实物那个罩子是明确的暖黄，最白的地方
+ *  只有底下罩口那一圈。所以：底色压深、自发光收到 0.95 但颜色更饱和，
+ *  真正接近白的只留给罩口那块小圆片。 */
+const shadeMaterial = () => matte(0xd9b871, {
+    roughness: 0.9,
+    emissive: 0xffffff,                 // 颜色交给贴图，这里给白让它原样透出来
+    emissiveMap: shadeGradient(),
+    emissiveIntensity: 1.7,
+});
+const diffuserMaterial = () => matte(0xfff4dc, {
+    roughness: 0.85, emissive: 0xffe6b4, emissiveIntensity: 2.2,
+});
+/** 看不见的命中盒，用来点灯罩开关 */
+const lampGrab = (geo, pos, parent) => {
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        transparent: true, opacity: 0, depthWrite: false, colorWrite: false,
+    }));
+    m.position.set(...pos);
+    m.castShadow = m.receiveShadow = false;
+    m.userData.pickProxy = true;
+    parent.add(m);
+    return m;
+};
+
 function buildLamps(group) {
-    const shade = matte(0xf2e4c4, { roughness: 0.9, emissive: 0xffdca6, emissiveIntensity: 0.55 });
     const brass = metal(0xb59a6a, 0.35);
     const dark = matte(0x2a2a30, { roughness: 0.6 });
+    const lamps = {};
 
     /* 弓形落地灯：底座在北墙边，灯臂弯过来罩住沙发那头（照片二）。
        灯臂用一条曲线扫出来 —— 拿 TorusGeometry 去掰姿态很难对，
@@ -1432,12 +1480,40 @@ function buildLamps(group) {
         new THREE.Vector3(0.58, 2.18, 2.86),
         new THREE.Vector3(0.92, 1.98, 2.97),
     ].map((v) => v));
-    solid(new THREE.TubeGeometry(spine, 40, 0.021, 8, false), brass, {
+    /* 弓臂是**藤编**的，不是铜管 —— 实拍里能一圈一圈数出缠绕的痕。
+       所以除了把颜色换成浅藤色，还沿着曲线套了一圈圈细环；
+       少了这个它就只是一根塑料棒。 */
+    const rattan = matte(0xd6bd90, { roughness: 0.88 });
+    solid(new THREE.TubeGeometry(spine, 40, 0.021, 8, false), rattan, {
         parent: group, outline: 0.006,
     });
-    solid(cyl(0.21, 0.25, 0.30, 20, 1, true), shade, {
+    const ringGeo = new THREE.TorusGeometry(0.0222, 0.0042, 5, 12);
+    const ringMat = matte(0xc7aa79, { roughness: 0.9 });
+    const tmpP = new THREE.Vector3(), tmpT = new THREE.Vector3();
+    for (let i = 1; i < 30; i++) {
+        const t = i / 30;
+        spine.getPointAt(t, tmpP);
+        spine.getTangentAt(t, tmpT);
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.copy(tmpP);
+        ring.lookAt(tmpP.clone().add(tmpT));       // 环面法线对齐切线
+        ring.castShadow = false;
+        group.add(ring);
+    }
+
+    const arcShade = shadeMaterial();
+    solid(cyl(0.21, 0.25, 0.30, 20, 1, true), arcShade, {
         position: [0.92, 1.80, 2.97], parent: group, outline: 0.008, cast: false,
     });
+    // 罩口那块亮片：整盏灯里唯一该接近白的地方
+    const arcGlow = diffuserMaterial();
+    solid(cyl(0.238, 0.238, 0.004, 20), arcGlow, {
+        position: [0.92, 1.655, 2.97], parent: group, outline: 0, cast: false,
+    });
+    lamps.arc = {
+        pick: [lampGrab(cyl(0.30, 0.30, 0.34, 12), [0.92, 1.80, 2.97], group)],
+        shade: arcShade, glow: arcGlow,
+    };
 
     /* 电视机旁那盏落地灯。杆的形状前面猜错了三次，实物是：
 
@@ -1521,9 +1597,19 @@ function buildLamps(group) {
         position: [0, POST_H + 0.095, 0], parent: stem, outline: 0.004, cast: false,
     });
     // 直筒方罩：宽 0.36 × 高 0.32 × 深 0.30，底 1.22
-    solid(rb(0.36, 0.32, 0.30, 0.006, 1), shade, {
+    const boxShade = shadeMaterial();
+    solid(rb(0.36, 0.32, 0.30, 0.006, 1), boxShade, {
         position: [0, POST_H + 0.266, 0], parent: stem, outline: 0.008, cast: false,
     });
+    const boxGlow = diffuserMaterial();
+    solid(box(0.335, 0.004, 0.275), boxGlow, {
+        position: [0, POST_H + 0.108, 0], parent: stem, outline: 0, cast: false,
+    });
+    lamps.floor = {
+        pick: [lampGrab(box(0.42, 0.38, 0.36), [0, POST_H + 0.266, 0], stem)],
+        shade: boxShade, glow: boxGlow,
+    };
+    group.userData.lamps = { ...(group.userData.lamps || {}), ...lamps };
 }
 
 /* ---------- 电钢琴（靠窗、键朝房间） ----------
@@ -1759,15 +1845,10 @@ export function buildLivingLights(scene) {
     win.target.position.set(1.0, 0.9, 2.6);
     win.castShadow = true;
     win.shadow.mapSize.set(2048, 2048);
-    win.shadow.camera.near = 0.5;
-    win.shadow.camera.far = 16;
-    win.shadow.camera.left = -4.0;
-    win.shadow.camera.right = 4.0;
-    win.shadow.camera.top = 3.0;
-    win.shadow.camera.bottom = -2.2;
     win.shadow.bias = -0.001;
     win.shadow.normalBias = 0.02;
     scene.add(win, win.target);
+    fitShadowCamera(win);          // 同 key：视锥按整屋算，不写死
 
     /* 两盏落地灯。原来各是一颗点光源，而且**摆在灯罩里面** ——
        弓形灯那盏在 y=1.76，灯罩内壁就在 4cm 外，按平方反比是
@@ -1777,12 +1858,12 @@ export function buildLivingLights(scene) {
        带罩的灯本来就是**朝下开口**的：光源挪到罩口、换成聚光灯，
        罩子在光源背后就不再被自己照。罩子「亮着」的观感交给材质的
        emissive，那本来也是它该负责的事。 */
-    const arc = new THREE.SpotLight(0xffd9a2, 4.5, 6.0, 1.00, 0.9, 2);
+    const arc = new THREE.SpotLight(0xffd9a2, 9.0, 6.5, 1.15, 0.9, 2);
     arc.position.set(0.92, 1.63, 2.97);          // 弓形灯罩口（罩子 1.65~1.95）
     arc.target.position.set(0.92, 0, 2.97);
     scene.add(arc, arc.target);
 
-    const floorLamp = new THREE.SpotLight(0xffd9a2, 4.0, 5.2, 1.05, 0.9, 2);
+    const floorLamp = new THREE.SpotLight(0xffd9a2, 6.5, 5.6, 1.10, 0.9, 2);
     floorLamp.position.set(2.62, 1.20, 4.24);    // 方罩口（罩子 1.22~1.54）
     floorLamp.target.position.set(2.62, 0, 4.24);
     scene.add(floorLamp, floorLamp.target);

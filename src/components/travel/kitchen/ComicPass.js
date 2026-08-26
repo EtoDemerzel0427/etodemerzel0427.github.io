@@ -13,7 +13,10 @@ export const ComicShader = {
         uTime: { value: 0 },
         uDotSize: { value: 4.4 },      // 网点周期，CSS 像素
         uContrast: { value: 1.38 },
-        uDither: { value: 0.22 },
+        /* 抖动幅度 = uDither / uPosterize 个色阶。墙面这种极缓的渐变，
+           一整面墙才跨一级，0.22 级的抖动根本盖不住那条台阶线 ——
+           画面上就是一条横贯整面墙的硬边。给到 0.55 才打得散。 */
+        uDither: { value: 0.55 },
         uKnee: { value: 0.60 },
         uShoulder: { value: 0.30 },
         uDotStrength: { value: 0.62 },

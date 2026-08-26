@@ -114,6 +114,37 @@ export function artworkMaterial(url, fallbackColor = 0x8b8478) {
 }
 
 
+
+/* 亮着的布灯罩的自发光贴图：一张竖向渐变。
+
+   为什么非要一张贴图不可 —— 均匀自发光有两条死路：
+     · 调低 → 整块平黄，看着是「一块黄布」不是「一盏亮着的灯」
+     · 调高 → 整块顶到纯白，再被色阶量化拍成一个死形状，就是「过曝」
+   实物是有层次的：贴着灯泡的下沿几乎发白，往上收成琥珀色。有了这个梯度，
+   量化切出来是两三层台阶而不是一整块，亮和「有形」才能同时成立。
+
+   另外颜色要**压住蓝通道**。emissive 乘上强度之后是逐通道 clamp 的：
+   蓝低的话红绿先饱和、蓝还留着余量，于是越亮越黄；蓝一高就三个通道
+   一起顶到 1，那就是白。 */
+let shadeGradTex = null;
+export function shadeGradient() {
+    if (shadeGradTex) return shadeGradTex;
+    const [c, ctx] = canvas2d(8);
+    c.width = 8; c.height = 128;
+    const g = ctx.createLinearGradient(0, 0, 0, 128);
+    g.addColorStop(0.00, '#c07d22');   // v=1 罩顶：最暗，琥珀
+    g.addColorStop(0.42, '#e8b342');
+    g.addColorStop(0.80, '#ffd25e');
+    g.addColorStop(1.00, '#ffeaa8');   // v=0 罩口：贴着灯泡，最亮
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 8, 128);
+    shadeGradTex = new THREE.CanvasTexture(c);
+    shadeGradTex.colorSpace = THREE.SRGBColorSpace;
+    shadeGradTex.wrapS = THREE.ClampToEdgeWrapping;
+    shadeGradTex.wrapT = THREE.ClampToEdgeWrapping;
+    return shadeGradTex;
+}
+
 /* 走廊书架上那张裱起来的毕业证。
    照实物画：黑木框 + 一圈金色珠边 + 深色卡纸 + 金线 + 米色证书。
    为什么用 canvas 画而不是贴一张照片：这是本人的学位证，扫描件不该

@@ -146,7 +146,38 @@ export default function KitchenScene({ places = [] }) {
                 // 客厅：和厨房同一个局部坐标系，往 +Z / +X 长出去
                 const { group: living } = buildLiving();
                 scene.add(living);
-                buildLivingLights(scene);
+                const livingLights = buildLivingLights(scene);
+
+                /* 三盏落地灯都能开关：点灯罩就行。
+                   灯具（living.userData.lamps）和光源（buildLivingLights 的返回值）
+                   是两处建的，这里按名字配对起来 —— 一盏灯 = 一个罩 + 一圈罩口亮片
+                   + 一个光源，三样要一起灭，只灭光源的话罩子还亮着，很出戏。 */
+                const lampDefs = living.userData.lamps || {};
+                const lamps = [
+                    ['arc', livingLights.arc],
+                    ['floor', livingLights.floorLamp],
+                    ['desk', livingLights.desk],
+                ].map(([name, light]) => {
+                    const d = lampDefs[name];
+                    if (!d || !light) return null;
+                    return {
+                        pick: d.pick,
+                        light,
+                        baseIntensity: light.intensity,
+                        shade: d.shade,
+                        baseShade: d.shade ? d.shade.emissiveIntensity : 0,
+                        glow: d.glow,
+                        baseGlow: d.glow ? d.glow.emissiveIntensity : 0,
+                        on: true,
+                    };
+                }).filter(Boolean);
+                const lampOf = (o) => lamps.find((l) => l.pick.includes(o)) || null;
+                function toggleLamp(l) {
+                    l.on = !l.on;
+                    l.light.intensity = l.on ? l.baseIntensity : 0;
+                    if (l.shade) l.shade.emissiveIntensity = l.on ? l.baseShade : 0;
+                    if (l.glow) l.glow.emissiveIntensity = l.on ? l.baseGlow : 0;
+                }
 
                 /* 水龙头：上半截能转，手柄能开关水。
                    两件事分开 —— 实物上转的只有接缝以上那根柱子，
@@ -341,6 +372,7 @@ export default function KitchenScene({ places = [] }) {
                 const pickSet = new Set([
                     ...magnets, ...range.knobs, ...faucet.pickSpout, ...faucet.pickLever,
                     ...pianoKeys, ...power.pick, ...tt.pickCover, ...tt.pickPlay,
+                    ...lamps.flatMap((l) => l.pick),
                 ]);
                 const pickList = [...pickSet];
                 /** 撞到的这块几何属于哪个可交互件（大棱镜那枚磁贴是一堆零件拼的，
@@ -489,6 +521,8 @@ export default function KitchenScene({ places = [] }) {
                         }
                         if (faucet.pickLever.includes(o)) { waterOn = !waterOn; return; }
                         if (faucet.pickSpout.includes(o)) { swivelSpout(); return; }
+                        const lamp = lampOf(o);
+                        if (lamp) { toggleLamp(lamp); return; }
                         if (power.pick.includes(o)) { togglePiano(); return; }
                         if (tt.pickCover.includes(o)) { toggleLid(); return; }
                         if (tt.pickPlay.includes(o)) { togglePlay(); return; }
@@ -614,6 +648,9 @@ export default function KitchenScene({ places = [] }) {
                         if (d?.place) setHover({ slug: d.place.slug, place: d.place.place });
                         else if (d?.note) setHover({ slug: `key-${d.midi}`, place: pianoOn ? d.note : '电源没开' });
                         else if (hovered && power.pick.includes(hovered)) setHover({ slug: 'power', place: '电源' });
+                        else if (hovered && lampOf(hovered)) {
+                            setHover({ slug: 'lamp', place: lampOf(hovered).on ? '关灯' : '开灯' });
+                        }
                         else setHover(null);
                     }
 
@@ -1004,7 +1041,7 @@ export default function KitchenScene({ places = [] }) {
                     {coarse ? '拖动转视角 · 点哪儿走哪儿' : 'WASD 走动 · 拖动或 ← → 转视角 · 点哪儿走哪儿'}
                     {view === 'fridge'
                         ? ` · ${places.length} 枚冰箱贴，点开看详情 · 旋钮点火、龙头能转能放水`
-                        : ' · 钢琴开电源就能弹 · 唱机能掀盖、能放唱片'}
+                        : ' · 钢琴开电源就能弹 · 唱机能掀盖、能放唱片 · 灯罩点一下开关灯'}
                 </span>
             </div>
 
