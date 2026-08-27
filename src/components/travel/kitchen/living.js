@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import {
-    PALETTE, artworkMaterial, inkOutline, matte, metal, shadeGradient, solid, woodFor,
+    PALETTE, artworkMaterial, carcass, inkOutline, matte, metal, shadeGradient, solid, woodFor,
 } from './materials.js';
 import { fitShadowCamera } from './room.js';
 
@@ -69,69 +69,251 @@ const cyl = (rt, rb_, h, seg = 16) => new THREE.CylinderGeometry(rt, rb_, h, seg
    窗：卷帘 + 帘后的城市
    ---------------------------------------------------------------------------
    实拍里这是「太阳能卷帘全放下来、但还透得过去」的状态：城市是一层被压平的
-   剪影，帘子的织纹叠在上面。所以贴图一次画完（城市 → 织纹），材质用
-   MeshBasic —— 窗户是画面里的**光源**，不该再被房间的灯照一遍变灰。 */
-let shadeTex = null;
-export function shadeTexture() {
-    if (shadeTex) return shadeTex;
-    const w = 1024, h = 512;
+   剪影，帘子的织纹叠在上面。所以贴图一次画完（城市 → 失焦 → 帘布），材质用
+   MeshBasic —— 窗户是画面里的**光源**，不该再被房间的灯照一遍变灰。
+
+   这张图之前有四个地方让它看着廉价，都不是「细节不够多」，而是画错了：
+
+     1. 所有窗共用一张 2:1 的图。窗墙 4.96×2.76、电视墙 3.48×2.76，同一张图
+        贴上去一面被拉长一面被压扁，两面的楼还一模一样 —— 站在转角上一眼
+        就看出是同一张贴图翻了个面。现在按**实际开窗尺寸**各生成一张，
+        像素/米固定，两面的楼于是一样大、但不是同一座城。
+
+     2. 城市是**清晰**的。隔着一层织物看东西不可能清晰；矢量般的硬边就是
+        「贴图」感的来源。现在整层做一次失焦再叠回去。
+
+     3. 窗光是随机撒的小方块。真楼的窗是**按层按跨排的网格**，随机撒点读作
+        噪点。现在按层高/柱距排，每栋楼自己的点亮率不同。
+
+     4. 织纹是 3px 的**井字格**，alpha 0.16。它和 ComicPass 亮部那层网点
+        正好打架，斜着看一片摩尔纹。现在改成纬向的软噪声 + 极淡的横向肋，
+        竖向那半直接去掉。 */
+const shadeCache = new Map();
+
+/** 一块卷帘的贴图。widthM / heightM 是这面窗的**实际尺寸**（米）。
+ *  seed 换一个就是另一座城 —— 转角上两面窗不该看见同一排楼。 */
+export function shadeTexture({ widthM = 4.96, heightM = 2.76, seed = 7 } = {}) {
+    const key = `${widthM.toFixed(2)}x${heightM.toFixed(2)}#${seed}`;
+    const hit = shadeCache.get(key);
+    if (hit) return hit;
+
+    // 像素/米固定，两面窗的楼才一样大
+    const PPM = 240;
+    const w = Math.round(widthM * PPM), h = Math.round(heightM * PPM);
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     const ctx = c.getContext('2d');
 
-    // 黄昏天空：上面偏冷，接近地平线转暖
-    const sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0.00, '#6e7f9c');
-    sky.addColorStop(0.45, '#8f9db4');
-    sky.addColorStop(0.72, '#b3aeb0');
-    sky.addColorStop(1.00, '#9a8f88');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, w, h);
+    // 固定的伪随机序列，免得每次刷新窗外都换一座城
+    let sd = (seed >>> 0) || 1;
+    const rnd = () => (sd = (sd * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const rng = (a, b) => a + (b - a) * rnd();
 
-    // 楼群剪影。用固定的伪随机序列，免得每次刷新窗外都换一座城。
-    let seed = 7;
-    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-    const horizon = h * 0.80;
-    for (const [depth, tint] of [[0.55, '#7d879b'], [0.25, '#5f6779']]) {
-        let x = -20;
-        while (x < w + 20) {
-            const bw = 34 + rnd() * 76;
-            const bh = (40 + rnd() * 150) * (1 - depth * 0.45);   // 高度不跟着放大，楼才不会变成积木
-            ctx.fillStyle = tint;
-            ctx.fillRect(x, horizon - bh, bw, bh);
-            // 零星的窗光，近处那层才点
-            if (depth < 0.4) {
-                for (let i = 0; i < 14; i++) {
-                    if (rnd() > 0.55) continue;
-                    ctx.fillStyle = 'rgba(255,226,170,0.5)';
-                    ctx.fillRect(x + 6 + rnd() * (bw - 14), horizon - bh + 6 + rnd() * (bh - 14), 4, 5);
-                }
-            }
-            x += bw + 5 + rnd() * 14;
-        }
-    }
-    // 地面那一带压暗
-    const grd = ctx.createLinearGradient(0, horizon, 0, h);
-    grd.addColorStop(0, 'rgba(60,58,60,0.55)');
-    grd.addColorStop(1, 'rgba(40,38,40,0.85)');
-    ctx.fillStyle = grd;
+    /* 地平线（**最远那层**的楼脚）压在 0.66 —— 楼在窗子下半，上面大片留给天。
+       实拍那张就是这个构图：帘子主要是一大片光，城市只是个交代。
+       近处几层的楼脚会从这条线往下逐层错开，见后面的 STEP。 */
+    const horizon = Math.round(h * 0.66);
+
+    // 黄昏天空：上面偏冷，接近地平线转暖
+    const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+    sky.addColorStop(0.00, '#93a3c0');
+    sky.addColorStop(0.36, '#b0b8cb');
+    sky.addColorStop(0.72, '#cdcccb');
+    sky.addColorStop(1.00, '#e7d4b6');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, horizon);
+    // 地平线以下不能是另一种颜色硬接上来 —— 那条硬边就是「贴图感」。
+    // 顺着天色继续往下压一点，剩下的交给后面的霾和低层城市。
+    const under = ctx.createLinearGradient(0, horizon, 0, h);
+    under.addColorStop(0.00, '#e7d4b6');
+    under.addColorStop(1.00, '#b3a89c');
+    ctx.fillStyle = under;
     ctx.fillRect(0, horizon, w, h - horizon);
 
-    // 卷帘织纹。故意做得很淡：后期的色阶量化会把任何明显条纹切成色带。
-    ctx.globalAlpha = 0.16;
-    ctx.fillStyle = '#3a3a3e';
-    for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1);
-    for (let x = 0; x < w; x += 3) ctx.fillRect(x, 0, 1, h);
-    ctx.globalAlpha = 1;
-
-    // 帘子本身的灰调，把城市压到「隐约看得见」
-    ctx.fillStyle = 'rgba(152,154,158,0.55)';
+    /* 太阳在楼后面。整张图有一个光心，比一片均匀的灰天贵得多 ——
+       这也是后面帘布那层暖色渗光的锚点，两处必须对齐。 */
+    const sunX = Math.round(w * rng(0.22, 0.72));
+    const sunY = Math.round(horizon - h * 0.10);
+    const glow = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, h * 0.66);
+    glow.addColorStop(0.00, 'rgba(255,229,182,0.50)');
+    glow.addColorStop(0.42, 'rgba(255,218,168,0.19)');
+    glow.addColorStop(1.00, 'rgba(255,210,158,0)');
+    ctx.fillStyle = glow;
     ctx.fillRect(0, 0, w, h);
 
-    shadeTex = new THREE.CanvasTexture(c);
-    shadeTex.colorSpace = THREE.SRGBColorSpace;
-    shadeTex.wrapS = shadeTex.wrapT = THREE.ClampToEdgeWrapping;
-    return shadeTex;
+    /* 楼群，四层，由远及近。三件事决定它读不读得出「天际线」，
+       而它们都不是「多画几栋楼」：
+
+         · **每近一层楼脚往下挪一档**。四层都踩在同一条地平线上，画出来
+           是一排贴在墙上的方块；错开之后才有前后。
+         · **高度按 pow(rnd, 1.8) 取**。均匀分布给出的是一排差不多高的楼，
+           天际线的轮廓是平的；加权之后大多数是矮楼、偶尔冒出一座塔。
+         · **楼之间要露天**。挨着排就没有剪影可言 —— 越近的一层间距越大。
+
+       颜色上每层往天色里兑一点，这是空气透视：远近的差别首先是对比度，
+       不是大小。 */
+    const BUILD = [66, 76, 98], HAZE = [176, 182, 195];
+    const tintOf = (t) => `rgb(${BUILD.map((v, i) => Math.round(v + (HAZE[i] - v) * t)).join(',')})`;
+    const STEP = Math.round(h * 0.052);
+    const LAYERS = [
+        { haze: 0.80, hi: [0.10, 0.34], wd: [0.10, 0.26], gap: [0.005, 0.04], lit: 0 },
+        { haze: 0.58, hi: [0.12, 0.44], wd: [0.12, 0.32], gap: [0.010, 0.07], lit: 0.16 },
+        { haze: 0.34, hi: [0.14, 0.56], wd: [0.14, 0.40], gap: [0.020, 0.12], lit: 0.34 },
+        { haze: 0.13, hi: [0.16, 0.76], wd: [0.16, 0.50], gap: [0.050, 0.26], lit: 0.50 },
+    ];
+
+    LAYERS.forEach((L, li) => {
+        const tint = tintOf(L.haze);
+        const base = horizon + li * STEP;
+        let x = -Math.round(rnd() * horizon * 0.3);
+        while (x < w + 10) {
+            const bw = Math.round(horizon * rng(L.wd[0], L.wd[1]));
+            // 矮楼多、高楼少：均匀分布画出来是一排一样高的积木
+            const bh = Math.round(horizon * (L.hi[0] + (L.hi[1] - L.hi[0]) * Math.pow(rnd(), 1.8)));
+            const top = base - bh;
+            ctx.fillStyle = tint;
+            ctx.fillRect(x, top, bw, bh);
+
+            /* 收分。同一个矩形重复一百遍就是「积木」，真正让天际线成立的是
+               楼顶那一两级台阶 —— 剪影一有变化，眼睛才认它是建筑。 */
+            let sx = x, sw = bw, sy = top;
+            for (let k = 0, steps = rnd() < 0.55 ? (rnd() < 0.38 ? 2 : 1) : 0; k < steps; k++) {
+                const nw = Math.max(3, Math.round(sw * rng(0.46, 0.78)));
+                sx = Math.round(sx + (sw - nw) * rng(0.2, 0.8));
+                sw = nw;
+                const sh = Math.max(2, Math.round(bh * rng(0.07, 0.20)));
+                ctx.fillRect(sx, sy - sh, sw, sh);
+                sy -= sh;
+            }
+            if (rnd() < 0.28) {                       // 天线 / 桅杆
+                const aw = Math.max(1, Math.round(sw * 0.06));
+                const ah = Math.round(bh * rng(0.06, 0.16));
+                ctx.fillRect(Math.round(sx + sw / 2 - aw / 2), sy - ah, aw, ah);
+            }
+
+            /* 窗光按**层高和柱距**排，而且**按竖列聚团**。两条都要：
+               随机撒的亮点眼睛读作噪点；排成均匀网格又读作打孔板。
+               真楼是一列一列亮的（一梯几户、加班的那几列），所以每一竖列
+               先抽一个自己的权重，再决定这列上的窗亮不亮。 */
+            if (L.lit > 0 && bw > 12) {
+                const floorH = 9, colW = 7, pad = 4;
+                const density = L.lit * rng(0.18, 0.92);
+                const colW8 = [];
+                for (let ci = 0; ci * colW < bw; ci++) colW8.push(rnd() < 0.34 ? rng(0.05, 0.3) : rng(0.6, 1.4));
+                for (let yy = top + pad; yy < base - pad - 4; yy += floorH) {
+                    let ci = 0;
+                    for (let xx = x + pad; xx < x + bw - pad - 3; xx += colW, ci++) {
+                        if (rnd() > density * colW8[ci]) continue;
+                        ctx.fillStyle = `rgba(255,226,176,${rng(0.26, 0.62).toFixed(3)})`;
+                        ctx.fillRect(xx, yy, 3, 4);
+                    }
+                }
+            }
+            x += bw + Math.round(horizon * rng(L.gap[0], L.gap[1]));
+        }
+    });
+
+    /* 最近那层楼脚以下：城市继续往下延伸，但已经沉在霾里。
+       之前这儿是一条平铺的暖褐色 + 一条硬边，看着像海滩不像城市。 */
+    const nearBase = horizon + (LAYERS.length - 1) * STEP;
+    const low = ctx.createLinearGradient(0, nearBase - STEP, 0, h);
+    low.addColorStop(0.00, 'rgba(104,110,124,0)');
+    low.addColorStop(0.45, 'rgba(96,101,114,0.38)');
+    low.addColorStop(1.00, 'rgba(78,82,94,0.58)');
+    ctx.fillStyle = low;
+    ctx.fillRect(0, nearBase - STEP, w, h - (nearBase - STEP));
+
+    // 整体再罩一层从下往上散开的霾，把四层的楼脚统一进同一片空气里
+    const air = ctx.createLinearGradient(0, horizon - h * 0.22, 0, h);
+    air.addColorStop(0.00, 'rgba(196,196,198,0)');
+    air.addColorStop(1.00, 'rgba(196,196,198,0.20)');
+    ctx.fillStyle = air;
+    ctx.fillRect(0, horizon - h * 0.22, w, h - (horizon - h * 0.22));
+
+    /* 失焦。隔着织物看东西不会是清晰的，剪影的硬边一软，「矢量画的城市」
+       立刻变成「一层布后面的城市」。
+       用降采样再放大来做，不用 ctx.filter —— 后者在老一点的 Safari 上是
+       静默失效的，那会直接退回到「清晰的贴图」，正是要躲的那个毛病。 */
+    const bw2 = Math.max(2, Math.round(w / 3)), bh2 = Math.max(2, Math.round(h / 3));
+    const small = document.createElement('canvas');
+    small.width = bw2; small.height = bh2;
+    const sctx = small.getContext('2d');
+    sctx.imageSmoothingEnabled = true; sctx.imageSmoothingQuality = 'high';
+    sctx.drawImage(c, 0, 0, bw2, bh2);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.globalAlpha = 0.60;                   // 留一点原图，不然连轮廓都没了
+    ctx.drawImage(small, 0, 0, w, h);
+    ctx.globalAlpha = 1;
+
+    /* 帘布本身。之前是一整块 55% 的平灰盖上去 —— 均匀的遮罩会把所有层次
+       一起压掉，那正是「廉价」的观感来源。织物的密度是有分布的：贴着帘盒
+       那头最密，中间被光透得最亮，两侧收边又暗回去。 */
+    const veil = ctx.createLinearGradient(0, 0, 0, h);
+    veil.addColorStop(0.00, 'rgba(176,176,180,0.66)');
+    veil.addColorStop(0.07, 'rgba(196,196,198,0.38)');
+    veil.addColorStop(0.58, 'rgba(194,195,197,0.34)');
+    veil.addColorStop(1.00, 'rgba(172,172,176,0.50)');
+    ctx.fillStyle = veil;
+    ctx.fillRect(0, 0, w, h);
+
+    // 太阳透过来的那一团暖光，锚在前面那个光心上
+    const bleed = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, h * 0.9);
+    bleed.addColorStop(0.00, 'rgba(255,231,188,0.30)');
+    bleed.addColorStop(0.50, 'rgba(255,224,180,0.11)');
+    bleed.addColorStop(1.00, 'rgba(255,218,172,0)');
+    ctx.fillStyle = bleed;
+    ctx.fillRect(0, 0, w, h);
+
+    /* 织纹：一张**纬向相关**的噪声放大铺满。纯白噪声看着像电视雪花，
+       让每一行沿 x 递推才有布的絮感；放大 6 倍是故意的，2~3 米开外
+       织物本来就只读得出这种云絮般的疏密，读不出经纬。 */
+    const NW = 192, NH = 192;
+    const nz = document.createElement('canvas');
+    nz.width = NW; nz.height = NH;
+    const nctx = nz.getContext('2d');
+    const img = nctx.createImageData(NW, NH);
+    for (let y = 0; y < NH; y++) {
+        let v = 128;
+        for (let x = 0; x < NW; x++) {
+            v = v * 0.58 + (108 + rnd() * 42) * 0.42;
+            const i = (y * NW + x) * 4;
+            img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+            img.data[i + 3] = 255;
+        }
+    }
+    nctx.putImageData(img, 0, 0);
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.globalAlpha = 0.18;
+    ctx.drawImage(nz, 0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+
+    // 极淡的横向肋。竖向那半不能加：井字格和亮部网点会打出摩尔纹
+    ctx.globalAlpha = 0.045;
+    ctx.fillStyle = '#2f3136';
+    for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+    ctx.globalAlpha = 1;
+
+    // 两侧收边：帘子是缩在窗挺后面的，边上本来就该暗一档
+    const edge = ctx.createLinearGradient(0, 0, w, 0);
+    edge.addColorStop(0.00, 'rgba(44,46,52,0.24)');
+    edge.addColorStop(0.05, 'rgba(44,46,52,0)');
+    edge.addColorStop(0.95, 'rgba(44,46,52,0)');
+    edge.addColorStop(1.00, 'rgba(44,46,52,0.24)');
+    ctx.fillStyle = edge;
+    ctx.fillRect(0, 0, w, h);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    /* 各向异性 + mipmap：窗子多半是斜着看的，少了这两样，横向肋和窗光
+       在掠射角上会闪成一片。 */
+    tex.anisotropy = 8;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    shadeCache.set(key, tex);
+    return tex;
 }
 
 /** 一整面开窗的墙：墙体按洞口切成四块，再补竖挺、上下收边和帘布。
@@ -140,6 +322,7 @@ export function shadeTexture() {
 function windowWall(parent, {
     axis, plane, facing, from, to, y0, y1,
     winFrom, winTo, sillY, headY, wallMat, mullionEvery = 1.25, mullionsAt = null,
+    shadeSeed = 7,
 }) {
     const frameMat = matte(0xe6e2d9, { roughness: 0.6 });
 
@@ -166,10 +349,15 @@ function windowWall(parent, {
        板留着占位，投影关掉。 */
     slab(winFrom, winTo, headY, y1, false);
 
-    /* 帘布。窗户在画面里是光源，用 MeshBasic —— 再被房间的灯照一遍就灰了。 */
+    /* 帘布。窗户在画面里是光源，用 MeshBasic —— 再被房间的灯照一遍就灰了。
+       贴图按**这面窗自己的尺寸**生成，不共用：共用就得拉伸，两面窗还会
+       出现同一排楼。 */
+    const shadeW = winTo - winFrom, shadeH = headY - sillY;
     const shade = new THREE.Mesh(
-        new THREE.PlaneGeometry(winTo - winFrom, headY - sillY),
-        new THREE.MeshBasicMaterial({ map: shadeTexture() }),
+        new THREE.PlaneGeometry(shadeW, shadeH),
+        new THREE.MeshBasicMaterial({
+            map: shadeTexture({ widthM: shadeW, heightM: shadeH, seed: shadeSeed }),
+        }),
     );
     const sp = plane - facing * 0.035;
     if (axis === 'x') {
@@ -225,7 +413,7 @@ function buildShell(group) {
         axis: 'x', plane: WIN_X, facing: -1,
         from: -1.09, to: 3.95, y0: 0, y1: WALL_H,
         winFrom: -1.02, winTo: 3.94, sillY: SILL, headY: HEAD,
-        wallMat, mullionEvery: 1.24,
+        wallMat, mullionEvery: 1.24, shadeSeed: 7,
     });
 
     /* 电视墙 lz = 4.61，从北墙 lx=-0.40 到柱子 lx=3.14。
@@ -237,7 +425,7 @@ function buildShell(group) {
         axis: 'z', plane: TV_Z, facing: -1,
         from: NORTH_X, to: 3.14, y0: 0, y1: WALL_H,
         winFrom: -0.37, winTo: 3.11, sillY: SILL, headY: HEAD,
-        wallMat, mullionsAt: [1.55],
+        wallMat, mullionsAt: [1.55], shadeSeed: 41,   // 转角上两面窗不该是同一排楼
     });
 
     /* 北墙 lx = -0.40（贴照片、带出风口那面），实墙 */
@@ -372,6 +560,7 @@ function holedPlate(x0, x1, z0, z1, holes, thickness) {
 /* ---------- 半岛吧台（扫描 storage_cabinet_mid4_0 + sink_2 + dishwasher_0） ---------- */
 
 function buildPeninsula(group) {
+    const cabinets = group.userData.cabinets || (group.userData.cabinets = []);
     /* 东端刻意比扫描短 0.35m。
 
        扫描给的是 lx 0.69..2.88（storage_cabinet_mid4_0），书桌一线是 3.11..3.90
@@ -405,27 +594,198 @@ function buildPeninsula(group) {
        如果尺寸一样就是三组共面，深度缓冲区分不出先后，槽里会一直闪。
        现在从内到外依次是 台面洞 < 槽体 < 柜体洞，两两错开，谁也不贴着谁。 */
     const SK_CAB = { x0: SK.x0 - 0.03, x1: SK.x1 + 0.03, z0: SK.z0 - 0.03, z1: SK.z1 + 0.03 };
-    solid(holedPlate(X0, X1, Z0, Z1, [SK_CAB], TOP - 0.105), whiteMat, {
-        position: [0, 0.095, 0], parent: group, outline: 0.011,
+    // 洗碗机不是贴在柜门上的装饰面，而是占掉一整格柜体。柜体主体因此
+    // 分成左段、右侧窄立板和后段，前方留下真正连通的开口；不能用一个
+    // 内部闭合的“洞”，否则洞前仍会留下一张薄薄但完全遮挡视线的白墙。
+    const DISH_CAV = { x0: 1.80, x1: 2.50, z1: 0.39 };
+    const CAB_H = TOP - 0.105;
+    const CAB_Y = 0.095 + CAB_H / 2;
+    /* 水槽那一格要**空心**：两扇门点得开，开了得看得见台下盆的外壳和下水管。
+       原来这儿是一整块挤出体（只有水槽那一竖井是通的），门开了里面是一坨白塑料。
+       拆成：一块带水槽洞的顶板（把柜内和台面之间那截封住）+ 底 / 背 / 两端立板。 */
+    const PT = 0.018;                       // 板厚
+    const CAV_TOP = 0.860;                  // 柜内净空上沿（台面底在 0.8795）
+    const CAV_BOT = 0.095 + PT;
+    /* 实拍的顺序（钢琴那头往回数）：洗碗机 → 门 → 门 → 抽屉。
+       所以西头这 1.11m 里，最西边留给一列抽屉，剩下的是水槽对开柜 ——
+       水槽在 1.14..1.76，正好落在两扇门上头。 */
+    const SINK_X1 = DISH_CAV.x0, SINK_X0 = 1.06;
+    const sinkCabW = SINK_X1 - X0, sinkCabD = Z1 - Z0;
+    solid(holedPlate(X0, SINK_X1, Z0, Z1, [SK_CAB], 0.095 + CAB_H - CAV_TOP), whiteMat, {
+        position: [0, CAV_TOP, 0], parent: group, outline: 0.009,
+    });
+    solid(box(sinkCabW, PT, sinkCabD), whiteMat, {
+        position: [(X0 + SINK_X1) / 2, 0.095 + PT / 2, (Z0 + Z1) / 2],
+        parent: group, outline: 0.006, cast: false,
+    });
+    solid(box(sinkCabW, CAV_TOP - CAV_BOT, PT), whiteMat, {          // 背板＝客厅那侧那块白板
+        position: [(X0 + SINK_X1) / 2, (CAV_BOT + CAV_TOP) / 2, Z1 - PT / 2],
+        parent: group, outline: 0.006,
+    });
+    for (const px of [X0 + PT / 2, SINK_X0, SINK_X1 - PT / 2]) {   // 两端立板 + 抽屉柜/水槽柜之间的隔板
+        solid(box(PT, CAV_TOP - CAV_BOT, sinkCabD), whiteMat, {
+            position: [px, (CAV_BOT + CAV_TOP) / 2, (Z0 + Z1) / 2],
+            parent: group, outline: 0.006,
+        });
+    }
+    solid(box(X1 - DISH_CAV.x1, CAB_H, Z1 - Z0), whiteMat, {
+        position: [(DISH_CAV.x1 + X1) / 2, CAB_Y, (Z0 + Z1) / 2],
+        parent: group, outline: 0.009,
+    });
+    solid(box(DISH_CAV.x1 - DISH_CAV.x0, CAB_H, Z1 - DISH_CAV.z1), whiteMat, {
+        position: [(DISH_CAV.x0 + DISH_CAV.x1) / 2, CAB_Y, (DISH_CAV.z1 + Z1) / 2],
+        parent: group, outline: 0.009,
     });
 
     // 厨房那一侧（lz = Z0）才有柜门和洗碗机；客厅这一侧是一整块白板
     const frontZ = Z0 - 0.013;
     // 洗碗机 lx 1.82..2.49（紧挨着水槽，占掉柜体东头）
+    const dishH = TOP - 0.16;
+    const dishCy = (TOP + 0.10) / 2 - 0.005;
+    const dishPivot = new THREE.Group();
+    dishPivot.position.set(2.15, dishCy - dishH / 2, frontZ);
+    group.add(dishPivot);
     solid(rb(0.67, TOP - 0.16, 0.026, 0.006), matte(0xb3bac2, { roughness: 0.4, metalness: 0.5 }), {
-        position: [2.15, (TOP + 0.10) / 2 - 0.005, frontZ], parent: group, outline: 0.009,
+        position: [0, dishH / 2, 0], parent: dishPivot, outline: 0.009,
     });
-    solid(rb(0.60, 0.022, 0.030, 0.008), metal(0xc2c8d0, 0.28), {
-        position: [2.15, TOP - 0.13, frontZ - 0.014], parent: group, outline: 0.005, cast: false,
+    const dishHandle = solid(rb(0.60, 0.022, 0.030, 0.008), metal(0xc2c8d0, 0.28), {
+        position: [0, TOP - 0.13 - dishPivot.position.y, -0.014], parent: dishPivot, outline: 0.005, cast: false,
     });
-    // 洗碗机左边两扇木柜门
-    for (const [dx, dw] of [[0.96, 0.51], [1.51, 0.53]]) {
-        solid(rb(dw, TOP - 0.20, 0.024, 0.005), woodFrontMat, {
-            position: [dx, (TOP + 0.14) / 2, frontZ], parent: group, outline: 0.009,
+    // 门背不锈钢内衬与洗涤剂盒，翻平后朝上。
+    const dishInner = matte(0xb8bec5, { roughness: 0.48, metalness: 0.34 });
+    solid(rb(0.625, dishH - 0.050, 0.014, 0.008), dishInner, {
+        position: [0, dishH / 2, 0.021], parent: dishPivot, outline: 0.005,
+    });
+    solid(rb(0.145, 0.085, 0.028, 0.010), matte(0x8d949d, { roughness: 0.62 }), {
+        position: [0.145, dishH * 0.40, 0.036], parent: dishPivot, outline: 0.004,
+    });
+    solid(rb(0.085, 0.050, 0.020, 0.008), matte(0xd5d9dc, { roughness: 0.55 }), {
+        position: [-0.115, dishH * 0.39, 0.034], parent: dishPivot, outline: 0.003,
+    });
+
+    // 柜体内的深色不锈钢内胆与上下两层碗篮。内胆后壁放在腔体深处，
+    // 不能贴着门板；碗篮也要完整落在 frontZ 的后方（+z），否则开门后
+    // 会有一半悬到机器外面。
+    const dishRackFrontZ = frontZ + 0.055;
+    const dishRackBackZ = frontZ + 0.555;
+    const dishRackCenterZ = (dishRackFrontZ + dishRackBackZ) / 2;
+    const dishRackDepth = dishRackBackZ - dishRackFrontZ;
+    // 内胆的底、顶、左右侧板；周围白色柜体现在已经挖空，这些板才是开门后
+    // 应该看到的洗碗机腔壁。
+    for (const sx of [-1, 1]) {
+        solid(rb(0.014, dishH - 0.055, dishRackDepth + 0.035, 0.004), dishInner, {
+            position: [2.15 + sx * 0.313, dishCy, dishRackCenterZ],
+            parent: group, outline: 0.004,
         });
-        solid(rb(dw * 0.4, 0.014, 0.016, 0.006), metal(0xb9bfc7, 0.3), {
-            position: [dx, TOP - 0.20, frontZ - 0.016], parent: group, outline: 0.005, cast: false,
+    }
+    for (const y of [0.135, TOP - 0.125]) {
+        solid(rb(0.625, 0.014, dishRackDepth + 0.035, 0.004), dishInner, {
+            position: [2.15, y, dishRackCenterZ], parent: group, outline: 0.004,
         });
+    }
+    solid(rb(0.625, dishH - 0.055, 0.022, 0.008), matte(0x555b63, { roughness: 0.58, metalness: 0.28 }), {
+        position: [2.15, dishCy, dishRackBackZ + 0.018], parent: group, outline: 0.006,
+    });
+    /* 腔壁。这一格白柜体是整段挖掉的，只剩上面那五片内胆板；内胆四周和腔口
+       之间还留着几条通缝，门一开就从旁边漏过去。按内胆的外沿把余下的补齐。 */
+    const LIN_X = 0.320, LIN_B = 0.128, LIN_T = TOP - 0.118, LIN_BK = dishRackBackZ + 0.040;
+    const cavZc = (Z0 + DISH_CAV.z1) / 2, cavD = DISH_CAV.z1 - Z0;
+    const cavW = DISH_CAV.x1 - DISH_CAV.x0, cavXc = (DISH_CAV.x0 + DISH_CAV.x1) / 2;
+    solid(box(cavW, LIN_B - 0.095, cavD), whiteMat, {                        // 内胆底下
+        position: [cavXc, (0.095 + LIN_B) / 2, cavZc], parent: group, outline: 0, cast: false,
+    });
+    solid(box(cavW, 0.095 + CAB_H - LIN_T, cavD), whiteMat, {                // 内胆上头
+        position: [cavXc, (LIN_T + 0.095 + CAB_H) / 2, cavZc], parent: group, outline: 0, cast: false,
+    });
+    for (const sx of [-1, 1]) {                                              // 内胆两侧
+        const w = cavW / 2 - LIN_X;
+        solid(box(w, LIN_T - LIN_B, cavD), whiteMat, {
+            position: [cavXc + sx * (cavW / 2 - w / 2), (LIN_B + LIN_T) / 2, cavZc],
+            parent: group, outline: 0, cast: false,
+        });
+    }
+    solid(box(LIN_X * 2, LIN_T - LIN_B, DISH_CAV.z1 - LIN_BK), whiteMat, {   // 内胆后头
+        position: [cavXc, (LIN_B + LIN_T) / 2, (LIN_BK + DISH_CAV.z1) / 2],
+        parent: group, outline: 0, cast: false,
+    });
+    /* 门下那道缝：合页在 y=0.125，踢脚凹顶只到 0.10，中间 2.5cm 一开门就
+       露出腔体。实物这儿是一块不锈钢踢脚板，从地面一直封到门下沿。 */
+    solid(rb(0.67, 0.122, 0.020, 0.005), matte(0x9aa1a9, { roughness: 0.5, metalness: 0.45 }), {
+        position: [2.15, 0.061, Z0 - 0.004], parent: group, outline: 0.005, cast: false,
+    });
+    const rackMat = metal(0xaeb5bd, 0.42);
+    for (const y of [0.36, 0.66]) {
+        for (let i = -4; i <= 4; i++) {
+            solid(cyl(0.003, 0.003, dishRackDepth, 8), rackMat, {
+                position: [2.15 + i * 0.060, y, dishRackCenterZ],
+                rotation: [Math.PI / 2, 0, 0], parent: group, outline: 0, cast: false,
+            });
+        }
+        for (const z of [dishRackFrontZ, dishRackBackZ]) {
+            solid(cyl(0.004, 0.004, 0.56, 8), rackMat, {
+                position: [2.15, y, z], rotation: [0, 0, Math.PI / 2],
+                parent: group, outline: 0, cast: false,
+            });
+        }
+    }
+    cabinets.push({
+        kind: 'dishwasher-door', node: dishPivot, pick: [dishHandle],
+        axis: 'x', spin: -1, swing: 1.43,
+    });
+    /* 洗碗机左边那两扇 = 水槽柜的对开门。照实拍改了三处：
+         · 门**下到踢脚凹、上到台面底**；原来上边顶进台面里、下边离踢脚还差 7cm。
+         · 把手是贴着门顶边的一小截横条、靠对开缝那一侧；原来是居中的一根宽条。
+         · 门能开了 —— 原来只是两块贴在柜面上的板。
+       柜子正面朝 -Z（和厨房那些朝 +Z 的相反），所以 spin = -hinge，同电视柜。 */
+    const DOOR_B = 0.108, DOOR_T = 0.872, DR = 0.008;
+    const sdH = DOOR_T - DOOR_B, sdCy = (DOOR_B + DOOR_T) / 2;
+    const sdW = (SINK_X1 - SINK_X0 - DR * 3) / 2;
+    for (let i = 0; i < 2; i++) {
+        const dx = SINK_X0 + DR + sdW / 2 + i * (sdW + DR);
+        const hinge = i === 0 ? -1 : 1;      // 左扇合页在左、右扇合页在右，从中缝往两边开
+        const g = new THREE.Group();
+        g.position.set(dx + hinge * sdW / 2, sdCy, frontZ);
+        group.add(g);
+        const door = solid(rb(sdW, sdH, 0.024, 0.005), woodFrontMat, {
+            position: [-hinge * sdW / 2, 0, 0], parent: g, outline: 0.009,
+        });
+        const handle = solid(rb(0.135, 0.016, 0.020, 0.006), metal(0xb9bfc7, 0.3), {
+            position: [-hinge * (sdW - 0.10), sdH / 2 - 0.030, -0.022],
+            parent: g, outline: 0.005, cast: false,
+        });
+        cabinets.push({ kind: 'door', node: g, pick: [door, handle], spin: -hinge, swing: 1.25 });
+    }
+
+    /* 最西头那一列抽屉：上薄下厚三个。做法和厨房一线那组一样 —— 整组沿轴平移，
+       后面挂一只抽屉盒，拉开才有东西看。这个柜子正面朝 -Z，所以 dir = -1。 */
+    const drawerBox = matte(0x8a7c68, { roughness: 0.8 });
+    const dwW = SINK_X0 - X0 - DR * 2;
+    let dwY = DOOR_B;
+    for (const dh of [0.22, 0.26, 0.28]) {
+        const g = new THREE.Group();
+        g.position.set(X0 + DR + dwW / 2, dwY + dh / 2, 0);
+        group.add(g);
+        const front = solid(rb(dwW, dh - 0.008, 0.024, 0.005), woodFrontMat, {
+            position: [0, 0, frontZ], parent: g, outline: 0.009,
+        });
+        const grip = solid(rb(0.135, 0.016, 0.020, 0.006), metal(0xb9bfc7, 0.3), {
+            position: [dwW / 2 - 0.10, dh / 2 - 0.042, frontZ - 0.022],
+            parent: g, outline: 0.005, cast: false,
+        });
+        const bd = 0.40, bh = Math.min(dh - 0.06, 0.20), bz = frontZ + bd / 2 + 0.022;
+        solid(box(dwW - 0.022, 0.010, bd), drawerBox, {
+            position: [0, -bh / 2, bz], parent: g, outline: 0, cast: false,
+        });
+        for (const sx of [-1, 1]) {
+            solid(box(0.010, bh, bd), drawerBox, {
+                position: [sx * (dwW / 2 - 0.016), 0, bz], parent: g, outline: 0, cast: false,
+            });
+        }
+        solid(box(dwW - 0.022, bh, 0.010), drawerBox, {
+            position: [0, 0, frontZ + bd + 0.022], parent: g, outline: 0, cast: false,
+        });
+        cabinets.push({ kind: 'drawer', node: g, pick: [front, grip], axis: 'z', dir: -1, travel: 0.28 });
+        dwY += dh;
     }
 
     // 客厅这一侧的插座面板（照片三）。一整块白板没有任何参照物，
@@ -456,6 +816,22 @@ function buildPeninsula(group) {
     // 落水口离槽底抬 8mm，别又贴上去
     solid(cyl(0.042, 0.042, 0.010, 16), matte(0x74797f, { roughness: 0.55, metalness: 0.25 }), {
         position: [skCx, TOP - 0.232, skCz], parent: group, outline: 0.004, cast: false, receive: false,
+    });
+
+    /* 台下盆的**外壳**。上面那只盆是 BackSide 的盒子 —— 从柜子里往上看它是
+       透明的，两扇门一开，水槽位置就是个悬空的洞。补一层朝外的壳，柜内看到的
+       才是盆底；再挂一段下水管，「打开是水池下面」这件事才立得住。 */
+    solid(rb(SK.x1 - SK.x0 + 0.05, 0.165, SK.z1 - SK.z0 + 0.05, 0.010),
+        matte(0x8f959c, { roughness: 0.62, metalness: 0.22 }), {
+        position: [skCx, TOP - 0.158, skCz], parent: group, outline: 0.006, cast: false,
+    });
+    const pipeMat = matte(0x9298a0, { roughness: 0.5, metalness: 0.3 });
+    solid(cyl(0.026, 0.026, 0.25, 14), pipeMat, {                 // 竖管
+        position: [skCx, TOP - 0.370, skCz], parent: group, outline: 0.004, cast: false,
+    });
+    solid(cyl(0.026, 0.026, 0.70, 14), pipeMat, {                 // 横管，往客厅那侧的背板去
+        position: [skCx, TOP - 0.495, skCz + 0.35], rotation: [Math.PI / 2, 0, 0],
+        parent: group, outline: 0.004, cast: false,
     });
     /* 抽拉式龙头。之前那版是照着「硬 90° 折角 + 方管 + 往下折的方头」建的，
        那是把照片看错了。实物是：
@@ -742,24 +1118,147 @@ function buildDesk(group) {
         }
     }
 
-    /** 显示器：屏面朝 -X（人坐在房间那头） */
-    const monitor = (z, w, h, x = 3.81) => {
-        solid(rb(0.030, h, w, 0.006), bezel, {
-            position: [x, TOP + TH + 0.11 + h / 2, z], parent: group, outline: 0.008,
+    /* 显示器。屏面朝 -X（人坐在房间那头）。
+       两台的**支架不一样**，这是照片里最先认出「哪台是哪台」的东西，
+       不该共用一个圆柱：
+         · 左桌那台是方铁底板 + 扁方立柱，柱子中间一个过线孔
+         · 右桌那台（LG）是多节银色圆柱 + 有厚度的 ArcLine 圆弧底座
+       边框也收窄了：原来上下各 13mm 一圈均匀边框，那是十年前的屏；
+       实物是三面 8mm 窄边 + 20mm 下巴。 */
+    const poleMat = matte(0xe4e1da, { roughness: 0.38 });
+    const monitor = (z, w, h, { x = 3.81, stand = 'plate', lift = 0.115, whiteBack = false } = {}) => {
+        const cy = TOP + TH + lift + h / 2;
+        /* 背壳和前脸是**两种颜色**：27UP850K 的后壳是白的，只有正面那圈
+           边框是黑的。做成一整块黑，从侧面和背后看就完全不是那台屏了。 */
+        solid(rb(0.026, h, w, 0.006), whiteBack ? poleMat : bezel, {
+            position: [x, cy, z], parent: group, outline: 0.007,
         });
-        solid(box(0.004, h - 0.026, w - 0.026), screenMat, {
-            position: [x - 0.018, TOP + TH + 0.11 + h / 2, z], parent: group, outline: 0, cast: false,
+        solid(box(0.005, h - 0.004, w - 0.004), bezel, {          // 正面黑边框
+            position: [x - 0.0155, cy, z], parent: group, outline: 0, cast: false,
         });
-        solid(cyl(0.022, 0.022, 0.11, 8), bezel, {
-            position: [x + 0.02, TOP + TH + 0.055, z], parent: group, outline: 0.006,
+        const SB = 0.008, CHIN = 0.020;
+        solid(box(0.004, h - SB - CHIN, w - SB * 2), screenMat, {
+            position: [x - 0.0195, cy + (CHIN - SB) / 2, z], parent: group, outline: 0, cast: false,
         });
-        solid(rb(0.20, 0.014, 0.24, 0.005), bezel, {
-            position: [x + 0.02, TOP + TH + 0.007, z], parent: group, outline: 0.006, cast: false,
-        });
+        if (stand === 'plate') {
+            solid(box(0.052, 0.058, 0.072), bezel, {              // 球头颈
+                position: [x + 0.030, cy - h / 2 + 0.048, z], parent: group, outline: 0.005, cast: false,
+            });
+            solid(rb(0.235, 0.012, 0.30, 0.004), bezel, {         // 方铁底板
+                position: [3.80, TOP + TH + 0.006, z], parent: group, outline: 0.005, cast: false,
+            });
+            const PH = 0.20;
+            solid(box(0.045, PH, 0.086), bezel, {                 // 扁方立柱（在屏板**背后**）
+                position: [3.845, TOP + TH + 0.012 + PH / 2, z], parent: group, outline: 0.006,
+            });
+            // 过线孔：挖不出来，用一块更深的凹面顶上去，够读出「这儿是个孔」
+            solid(box(0.008, 0.032, 0.044), matte(0x0b0c0f, { roughness: 0.95 }), {
+                position: [3.8225, TOP + TH + 0.012 + PH * 0.52, z], parent: group, outline: 0, cast: false,
+            });
+        } else {
+            /* LG 27UP850K 的 ArcLine 底座。近照能确认它不是椭圆扁带：内外边
+               是同心圆弧，截面有平整顶面和明显的竖向厚度；后柱则由多节不同
+               直径的圆柱套接。立柱位于屏幕后，不能穿过屏板。 */
+            const AX = 3.855;
+            const lgMetal = matte(0xb9b9b6, {
+                roughness: 0.33, metalness: 0.43, side: THREE.DoubleSide,
+            });
+
+            /* 四条同心圆轨道缝出一个矩形截面的圆弧实体：顶面、底面、内壁、
+               外壁和两个端面都是真几何，不是压扁的圆管或一张薄片。 */
+            const arcBand = (outerRx, outerRz, innerRx, innerRz, halfAngle, thickness, segments = 64) => {
+                const positions = [];
+                for (let i = 0; i <= segments; i++) {
+                    const a = -halfAngle + halfAngle * 2 * i / segments;
+                    const ca = Math.cos(a), sa = Math.sin(a);
+                    positions.push(
+                        outerRx * ca, -thickness / 2, outerRz * sa,
+                        innerRx * ca, -thickness / 2, innerRz * sa,
+                        outerRx * ca,  thickness / 2, outerRz * sa,
+                        innerRx * ca,  thickness / 2, innerRz * sa,
+                    );
+                }
+                const indices = [];
+                for (let i = 0; i < segments; i++) {
+                    const a = i * 4, b = a + 4;
+                    indices.push(
+                        a + 2, a + 3, b + 2, b + 2, a + 3, b + 3,
+                        a, b, a + 1, b, b + 1, a + 1,
+                        a, a + 2, b, b, a + 2, b + 2,
+                        a + 1, b + 1, a + 3, b + 1, b + 3, a + 3,
+                    );
+                }
+                const last = segments * 4;
+                indices.push(0, 1, 2, 2, 1, 3, last, last + 2, last + 1, last + 2, last + 3, last + 1);
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geo.setIndex(indices);
+                geo.computeVertexNormals();
+                return geo;
+            };
+
+            // 半径约 25.5cm、张角约 148°：弦宽约 49cm，弓高约 18cm。
+            const outerR = 0.255, innerR = 0.231, halfAngle = 1.29;
+            const baseCenterX = AX - outerR;
+            const crescent = arcBand(outerR, outerR, innerR, innerR, halfAngle, 0.018);
+            solid(crescent, lgMetal, {
+                position: [baseCenterX, TOP + TH + 0.009, z],
+                parent: group, outline: 0.0032, cast: false,
+            });
+
+            // 底部短套筒压在圆弧中点上，遮住圆弧和立柱的接缝。
+            solid(cyl(0.034, 0.036, 0.024, 28), lgMetal, {
+                position: [AX - 0.012, TOP + TH + 0.021, z], parent: group, outline: 0.0035, cast: false,
+            });
+
+            // 下段细长、上段套筒略粗，中间用一道窄环把伸缩接缝读出来。
+            const screenBottom = cy - h / 2;
+            const p0 = TOP + TH + 0.024;
+            const seamY = screenBottom - 0.045;
+            const p1 = screenBottom + 0.088;
+            solid(cyl(0.029, 0.031, seamY - p0, 28), lgMetal, {
+                position: [AX - 0.012, (p0 + seamY) / 2, z], parent: group, outline: 0.0035,
+            });
+            solid(cyl(0.0325, 0.0325, 0.012, 28), matte(0xaeadab, {
+                roughness: 0.37, metalness: 0.39,
+            }), {
+                position: [AX - 0.012, seamY, z], parent: group, outline: 0.0028, cast: false,
+            });
+            solid(cyl(0.034, 0.033, p1 - seamY, 28), lgMetal, {
+                position: [AX - 0.012, (seamY + p1) / 2, z], parent: group, outline: 0.0035,
+            });
+
+            // 上段后面用一根短圆柱横向接进屏背的 OneClick 安装位。
+            solid(cyl(0.028, 0.028, 0.050, 24), lgMetal, {
+                position: [(3.823 + AX - 0.012) / 2, screenBottom + 0.058, z],
+                rotation: [0, 0, Math.PI / 2], parent: group, outline: 0.0032, cast: false,
+            });
+        }
     };
 
-    // 左桌：一块大屏 + 前面的笔记本
-    monitor(1.48, 0.74, 0.44);
+    // 左桌：一块大屏 + 屏顶挂灯 + 前面的笔记本
+    monitor(1.48, 0.74, 0.44, { stand: 'plate' });
+
+    /* 屏幕挂灯。实物是搭在屏顶、灯口朝下偏前的一根黑管，后面吊一块配重。
+       它值得单独做，因为它**是这张桌子上的第二个光源** —— 一根不发光的
+       黑管挂在那儿，读作「屏幕上边黏了个东西」，不读作灯。
+       接线见 buildLivingLights 的 screenBar 和 lamps.screenbar。 */
+    const SBAR_Z = 1.48, SBAR_W = 0.74 * 0.62;
+    const sbarY = TOP + TH + 0.115 + 0.44 + 0.022;
+    const sbarBody = solid(rb(0.034, 0.028, SBAR_W, 0.008), bezel, {
+        position: [3.755, sbarY, SBAR_Z], parent: group, outline: 0.005, cast: false,
+    });
+    solid(box(0.052, 0.018, 0.052), bezel, {                // 屏后那块配重
+        position: [3.836, sbarY - 0.022, SBAR_Z], parent: group, outline: 0.004, cast: false,
+    });
+    solid(box(0.030, 0.010, 0.030), bezel, {                // 搭在屏顶的挂钩
+        position: [3.800, sbarY - 0.020, SBAR_Z], parent: group, outline: 0, cast: false,
+    });
+    const sbarGlowMat = diffuserMaterial();
+    const sbarGlow = solid(box(0.016, 0.004, SBAR_W - 0.02), sbarGlowMat, {
+        position: [3.752, sbarY - 0.015, SBAR_Z], parent: group, outline: 0, cast: false,
+    });
+
     /* 笔记本。**宽度沿 Z、进深沿 X** —— 人坐在 -X 那头面朝 +X，屏面必须朝 -X。
        之前宽度做在了 X 上、上盖还绕 X 轴翻，等于把笔记本侧过来搁在桌上。 */
     const alu = matte(0x3c4048, { roughness: 0.45, metalness: 0.3 });
@@ -790,33 +1289,546 @@ function buildDesk(group) {
     });
     scr.rotation.z = -TILT;
 
-    /* 右桌：一台 27 寸 + 一台立式主机（不是第二块屏）。
-       机箱是「正面朝人」摆的：人坐在 -X 那头，所以 0.42 的进深沿 X、
-       0.20 的宽度沿 Z —— 之前反了，等于把机箱侧过来对着桌子。 */
-    monitor(3.02, 0.62, 0.37);
-    const TX = 3.55, TZ = 3.74, TY = TOP + TH + 0.22;
-    solid(rb(0.42, 0.44, 0.20, 0.010), matte(0x24242a, { roughness: 0.5 }), {
-        position: [TX, TY, TZ], parent: group, outline: 0.009,
-    });
-    // 正面（朝 -X）：细长进风格栅 + 电源键
-    solid(box(0.006, 0.34, 0.13), matte(0x15161a, { roughness: 0.7 }), {
-        position: [TX - 0.213, TY, TZ], parent: group, outline: 0, cast: false,
-    });
-    solid(cyl(0.010, 0.010, 0.006, 10), matte(0x9fd0e0, { roughness: 0.3, emissive: 0x2c6c86, emissiveIntensity: 1.4 }), {
-        position: [TX - 0.214, TY + 0.19, TZ], rotation: [0, 0, Math.PI / 2],
-        parent: group, outline: 0, cast: false,
-    });
-    // 侧透玻璃在朝椅子那一面（-Z）
-    solid(box(0.34, 0.34, 0.004), matte(0x14161c, { roughness: 0.2, metalness: 0.3 }), {
-        position: [TX, TY, TZ - 0.102], parent: group, outline: 0, cast: false,
+    /* 右桌：LG 27UP850K（27 吋 16:9 4K，白后壳 + 月牙底座）+ 一台 30L 主机。
+       外框 614×365，是 16:9 —— 中间那版按带鱼屏做成 0.78×0.335 是我看错了。 */
+    monitor(2.95, 0.614, 0.365, { stand: 'arc', lift: 0.185, whiteBack: true });
+
+    /* 主机是台 **HP OMEN 30L**（GT13）：432 高 × 165 宽 × 421 深，一台又窄又深
+       的塔。前面几版全错在同一件事上 —— 我一直把它当成「宽而扁」的箱子，
+       所以怎么摆都不对。它其实很窄（前脸只有 16.5cm），深度差不多等于高度。
+
+       朝向（两张视角对上了才敢定）：
+         · **前脸朝 -X**（屋里）：靠玻璃那侧一条三角冲孔进风柱，其余是亮面
+           黑塑料，上面一颗 OMEN 菱形标 + 字，底下一圈大圆环，顶端是前置
+           I/O 和电源键
+         · **玻璃侧板朝 -Z**（回头看得见的那一侧，朝着显示器）—— 侧板本身是
+           一个黑框，玻璃是嵌在框里的，不是一整块玻璃
+         · +Z 那侧贴着转角的柱子，顶盖是冲孔网
+
+       深度沿 X（往窗墙里走），宽度沿 Z。 */
+    const CX = 0.421, CZ = 0.165, CH = 0.432;     // 深(X) / 宽(Z) / 高
+    const TX = 3.655, TZ = 3.76, TY = TOP + TH + CH / 2;
+    /* 机箱正对屋里那几面全都背光（主光从窗那头 +X 来），不给一点自发光
+       就是一团纯黑的剪影 —— 和天花板下表面是同一个毛病。 */
+    const caseMat = matte(0x232329, { roughness: 0.52, emissive: 0x3c3e47, emissiveIntensity: 0.55 });
+    const caseDark = matte(0x121317, { roughness: 0.78, emissive: 0x24262c, emissiveIntensity: 0.5 });
+    const caseGloss = matte(0x1a1b20, { roughness: 0.22, metalness: 0.25, emissive: 0x33353d, emissiveIntensity: 0.5 });
+    const faceX = TX - CX / 2, glassZ = TZ - CZ / 2;
+    const panel = (g, pos, m = caseMat) => solid(g, m, { position: pos, parent: group, outline: 0.006, cast: false });
+    panel(box(CX, 0.014, CZ), [TX, TY - CH / 2 + 0.007, TZ]);              // 底
+    panel(box(CX, 0.014, CZ), [TX, TY + CH / 2 - 0.007, TZ]);              // 顶
+    panel(box(0.014, CH - 0.028, CZ), [TX + CX / 2 - 0.007, TY, TZ]);      // 背板
+    panel(box(CX, CH - 0.028, 0.012), [TX, TY, TZ + CZ / 2 - 0.006]);      // +Z 侧（贴柱子）
+    solid(box(CX - 0.050, 0.004, CZ - 0.030), caseDark, {                  // 顶盖冲孔网
+        position: [TX, TY + CH / 2 - 0.012, TZ], parent: group, outline: 0, cast: false,
     });
 
-    // 键盘鼠标，桌面才不是两块空板
-    for (const [kz, kx] of [[1.98, 3.39], [3.20, 3.41]]) {
-        solid(rb(0.14, 0.014, 0.40, 0.004), matte(0x2a2a30, { roughness: 0.6 }), {
-            position: [kx, TOP + TH + 0.007, kz], parent: group, outline: 0.005, cast: false,
+    /* 侧板是**黑框 + 嵌进去的玻璃**，所以框要单独做四条边。
+       整块玻璃直接贴上去就少了实物那圈很显眼的边框。 */
+    const fz = glassZ + 0.006;
+    panel(box(CX - 0.020, 0.024, 0.012), [TX, TY + CH / 2 - 0.026, fz]);   // 框：上
+    panel(box(CX - 0.020, 0.024, 0.012), [TX, TY - CH / 2 + 0.026, fz]);   // 框：下
+    panel(box(0.022, CH - 0.028, 0.012), [faceX + 0.011, TY, fz]);         // 框：前
+    panel(box(0.022, CH - 0.028, 0.012), [TX + CX / 2 - 0.011, TY, fz]);   // 框：后
+
+    /* 前脸：靠玻璃那侧一条冲孔进风柱，其余是亮面黑塑料。 */
+    const MESH_W = 0.050, BEZ_W = CZ - MESH_W;
+    const meshZ = glassZ + MESH_W / 2, bezZ = glassZ + MESH_W + BEZ_W / 2;
+    solid(box(0.016, CH - 0.030, MESH_W), caseDark, {
+        position: [faceX + 0.008, TY, meshZ], parent: group, outline: 0.005, cast: false,
+    });
+    solid(box(0.016, CH - 0.030, BEZ_W - 0.004), caseGloss, {
+        position: [faceX + 0.008, TY, bezZ], parent: group, outline: 0.005, cast: false,
+    });
+    solid(box(0.014, 0.022, BEZ_W - 0.020), caseDark, {                    // 顶端前置 I/O
+        position: [faceX + 0.010, TY + CH / 2 - 0.036, bezZ], parent: group, outline: 0, cast: false,
+    });
+    const omen = matte(0x4b4d56, { roughness: 0.35, emissive: 0x565963, emissiveIntensity: 0.7 });
+    const badge = solid(box(0.003, 0.026, 0.026), omen, {                  // OMEN 菱形标
+        position: [faceX + 0.0005, TY + 0.085, bezZ], parent: group, outline: 0, cast: false,
+    });
+    badge.rotation.x = Math.PI / 4;
+    solid(new THREE.TorusGeometry(0.042, 0.0022, 5, 28), omen, {           // 底下那一圈大圆环
+        position: [faceX + 0.0005, TY - 0.095, bezZ], rotation: [0, Math.PI / 2, 0],
+        parent: group, outline: 0, cast: false,
+    });
+
+    /* 箱子里那几件。关键是**自发光**而不是形状：箱子封闭、屋里没有一盏灯
+       照得进去，没有全局光照的话里面就是纯黑，隔着玻璃只会看到一个黑方块。
+       主板贴 +Z 内壁，塔散和显卡朝 -Z 探出来正对玻璃；箱子只有 16.5cm 宽，
+       所以每件在 Z 上都很薄 —— 这正是窄塔该有的样子。 */
+    const guts = (color, emissive, e = 1.0, rough = 0.6) => matte(color, {
+        roughness: rough, emissive, emissiveIntensity: e,
+    });
+    const gz = TZ + CZ / 2 - 0.026;
+    solid(box(0.245, CH - 0.130, 0.006), guts(0x243029, 0x445c4c, 0.80, 0.8), {   // 主板
+        position: [TX + 0.045, TY + 0.030, gz], parent: group, outline: 0, cast: false,
+    });
+    /* 塔散。之前把风扇的圆面正对着玻璃摆了 —— 那是错的：**侧透看到的是
+       散热器的侧面**，风扇吹的是前后（-X→+X），从侧面只能看见它窄窄的一条
+       框，永远看不到那个圆。一个正对玻璃的大圆等于把风扇拧了 90°，
+       和之前把整个机箱转错是同一类错误。
+       侧面该有的读数是**一摞横鳍片**，所以给一块暗底 + 六道横缝。 */
+    solid(box(0.098, 0.125, 0.058), guts(0x3c4048, 0x5a5f6a, 0.75, 0.55), {
+        position: [TX + 0.030, TY + 0.075, gz - 0.040], parent: group, outline: 0, cast: false,
+    });
+    for (let i = 0; i < 6; i++) {
+        solid(box(0.101, 0.003, 0.060), guts(0x1e2026, 0x33353c, 0.60), {
+            position: [TX + 0.030, TY + 0.026 + i * 0.020, gz - 0.040], parent: group, outline: 0, cast: false,
         });
     }
+    solid(box(0.022, 0.100, 0.060), guts(0x24262c, 0x3f424a, 0.70), {             // 风扇（侧面只是一条框）
+        position: [TX - 0.026, TY + 0.075, gz - 0.040], parent: group, outline: 0, cast: false,
+    });
+    solid(box(0.275, 0.044, 0.048), guts(0x2a2c33, 0x5c606b, 0.95), {             // 显卡（顺着 X 长）
+        position: [TX - 0.010, TY - 0.040, gz - 0.038], parent: group, outline: 0, cast: false,
+    });
+    solid(box(CX - 0.050, 0.056, CZ - 0.034), guts(0x2c2e35, 0x53565f, 0.85, 0.7), {   // 电源仓
+        position: [TX, TY - CH / 2 + 0.048, TZ], parent: group, outline: 0, cast: false,
+    });
+    solid(box(0.230, 0.005, 0.004), matte(0xe3c6ff, { roughness: 0.3, emissive: 0xb07fe0, emissiveIntensity: 2.2 }), {
+        position: [TX - 0.010, TY - 0.018, gz - 0.062], parent: group, outline: 0, cast: false,
+    });
+    /* 前脸网孔柱后面那把 12cm 进风扇。它也是吹前后的，所以从侧透同样
+       只看得见框的侧面 —— 少了它箱子前面 17cm 是空的，但也不能拿一个
+       圆面对着玻璃来凑数。 */
+    solid(box(0.026, 0.120, 0.062), guts(0x24262c, 0x3f424a, 0.70), {
+        position: [TX - CX / 2 + 0.046, TY - 0.010, TZ], parent: group, outline: 0, cast: false,
+    });
+    // 顺着上沿走的一束线，箱子里才不是干干净净的几块板
+    for (const [cy2, cl] of [[TY + 0.148, 0.30], [TY + 0.138, 0.22]]) {
+        solid(box(cl, 0.006, 0.006), guts(0x1b1c20, 0x3a3c44, 0.7), {
+            position: [TX + 0.02, cy2, gz - 0.030], parent: group, outline: 0, cast: false,
+        });
+    }
+
+    /* 玻璃嵌在侧板框里。描边**不能**用 inkOutline —— 沿法线外扩的背面壳
+       套在透明件上就是一块灰板（唱机防尘罩那儿踩过一次）。 */
+    const glassGeo = box(CX - 0.044, CH - 0.052, 0.004);
+    const caseGlass = new THREE.Mesh(glassGeo, new THREE.MeshPhysicalMaterial({
+        color: 0xa8bcc8, roughness: 0.07, metalness: 0,
+        transparent: true, opacity: 0.21, depthWrite: false, side: THREE.DoubleSide,
+    }));
+    caseGlass.position.set(TX, TY, glassZ + 0.007);
+    caseGlass.castShadow = caseGlass.receiveShadow = false;
+    caseGlass.renderOrder = 1;
+    caseGlass.userData.ghost = true;
+    group.add(caseGlass);
+    const glassEdges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(glassGeo),
+        new THREE.LineBasicMaterial({ color: PALETTE.ink, transparent: true, opacity: 0.55 }),
+    );
+    glassEdges.userData.ghost = true;
+    caseGlass.add(glassEdges);
+
+    /* 键盘 + 鼠标。两张桌子上都是全尺寸 MX Keys：主键区、导航岛、倒 T 方向键
+       和四列数字区缺一不可。把整排键帽画成六根黑条会让它更像散热格栅；下面
+       用实例化圆角键帽保留一百来颗独立按键，同时只增加一次绘制调用。 */
+    const kbTray = matte(0x878683, { roughness: 0.38, metalness: 0.28 });
+    const kbWell = matte(0x191a1e, { roughness: 0.63, metalness: 0.05 });
+    const kbKey = matte(0x38393f, { roughness: 0.57 });
+    const keyboard = (kx, kz) => {
+        const KD = 0.132, KW = 0.430, PITCH = 0.018, KEY_GAP = 0.0032;
+        const kg = new THREE.Group();
+        kg.position.set(kx, TOP + TH, kz);
+        group.add(kg);
+
+        solid(rb(KD, 0.012, KW, 0.005), kbTray, {
+            position: [0, 0.006, 0], parent: kg, outline: 0.004, cast: false,
+        });
+        solid(rb(KD - 0.015, 0.0025, KW - 0.018, 0.003), kbWell, {
+            position: [0.001, 0.013, 0], parent: kg, outline: 0, cast: false,
+        });
+
+        const keys = [];
+        const rowX = (row) => KD / 2 - 0.017 - row * 0.0188;
+        const rowY = (row) => 0.0183 + (5 - row) * 0.00045;
+        const addKey = (row, z, units = 1, depth = 0.0144) => {
+            keys.push({ x: rowX(row), y: rowY(row), z, w: units * PITCH - KEY_GAP, d: depth });
+        };
+        const addRun = (row, widths, start) => {
+            let cursor = start;
+            widths.forEach((units) => {
+                addKey(row, cursor + units * PITCH / 2, units);
+                cursor += units * PITCH;
+            });
+        };
+
+        const mainZ = -0.207;
+        // Esc + 四组功能键：细小的组间距在远景里也能留下正确的节奏。
+        [0, 1.65, 2.55, 3.45, 4.35, 5.55, 6.45, 7.35, 8.25,
+            9.45, 10.35, 11.25, 12.15, 13.45, 14.35].forEach((col) => {
+            addKey(0, mainZ + (col + 0.45) * PITCH, 0.9, 0.0128);
+        });
+        addRun(1, [1,1,1,1,1,1,1,1,1,1,1,1,1,2], mainZ);
+        addRun(2, [1.5,1,1,1,1,1,1,1,1,1,1,1,1,1.5], mainZ);
+        addRun(3, [1.75,1,1,1,1,1,1,1,1,1,1,1,2.25], mainZ);
+        addRun(4, [2.25,1,1,1,1,1,1,1,1,1,1,2.75], mainZ);
+        addRun(5, [1.25,1.25,1.25,1.25,6.25,1.25,1.25,1.25], mainZ);
+
+        // 六键导航岛 + 独立倒 T 方向键。
+        const navZ = 0.070;
+        for (let col = 0; col < 3; col++) {
+            addKey(1, navZ + (col + 0.5) * PITCH);
+            addKey(2, navZ + (col + 0.5) * PITCH);
+        }
+        addKey(4, navZ + 1.5 * PITCH);
+        for (let col = 0; col < 3; col++) addKey(5, navZ + (col + 0.5) * PITCH);
+
+        // 四列数字区；双高的 + / Enter 会把轮廓从普通紧凑键盘区分开。
+        const numZ = 0.131;
+        for (let col = 0; col < 4; col++) addKey(0, numZ + (col + 0.5) * PITCH, 1, 0.0128);
+        for (let row = 1; row <= 5; row++) {
+            for (let col = 0; col < 4; col++) addKey(row, numZ + (col + 0.5) * PITCH);
+        }
+
+        const keyGeo = rb(1, 1, 1, 0.16, 2);
+        const keyMesh = new THREE.InstancedMesh(keyGeo, kbKey, keys.length);
+        const dummy = new THREE.Object3D();
+        keys.forEach((key, i) => {
+            dummy.position.set(key.x, key.y, key.z);
+            dummy.scale.set(key.d, 0.0066, key.w);
+            dummy.updateMatrix();
+            keyMesh.setMatrixAt(i, dummy.matrix);
+        });
+        keyMesh.instanceMatrix.needsUpdate = true;
+        keyMesh.castShadow = keyMesh.receiveShadow = false;
+        keyMesh.frustumCulled = false;
+        kg.add(keyMesh);
+    };
+    keyboard(3.40, 1.98);
+    keyboard(3.42, 2.98);      // 键盘贴着月牙的两个尖端，落在豁口正前方
+
+    /* 轨迹球（Logitech MX Ergo，实测 132×99×51）。
+
+       它不是一颗带球的椭圆鼠标。三视图里真正决定身份的是：
+         · 俯视为不对称肾形：前端窄、右后掌托宽，左腰被拇指球切出一道凹口；
+         · 高点偏在右后方，向左前的按键和球窝连续下坡；
+         · 银蓝色球嵌在**左侧斜腰**，球轴朝左上，不是平放在背上。
+
+       下面仍然只给主壳一个描边，但不再用椭球：先画真实的肾形底边，再把六层
+       不同缩放、不同偏心的截面缝成一张连续曲面。这样没有内部黑圈，却同时拿到
+       俯视轮廓和右后隆起。 */
+    const tbBody = matte(0x2b2c31, { roughness: 0.46, metalness: 0.04 });
+    const tbButton = matte(0x24252a, { roughness: 0.50 });
+    const tbDark = matte(0x111216, { roughness: 0.48 });
+
+    const tbPlan = new THREE.CatmullRomCurve3([
+        new THREE.Vector3( 0.066, 0,  0.000),   // 窄前鼻
+        new THREE.Vector3( 0.058, 0,  0.028),
+        new THREE.Vector3( 0.038, 0,  0.045),
+        new THREE.Vector3( 0.004, 0,  0.050),   // 右侧最宽
+        new THREE.Vector3(-0.041, 0,  0.047),
+        new THREE.Vector3(-0.064, 0,  0.029),
+        new THREE.Vector3(-0.068, 0,  0.002),   // 圆后缘
+        new THREE.Vector3(-0.057, 0, -0.025),
+        new THREE.Vector3(-0.032, 0, -0.033),   // 球后的收腰
+        new THREE.Vector3(-0.010, 0, -0.036),
+        new THREE.Vector3( 0.012, 0, -0.055),   // 拇指球外侧的包边
+        new THREE.Vector3( 0.039, 0, -0.054),
+        new THREE.Vector3( 0.059, 0, -0.031),
+    ], true, 'catmullrom', 0.42).getSpacedPoints(64).slice(0, -1);
+
+    /** level = [y, xScale, zScale, xShift, zShift] */
+    const tbShell = (levels) => {
+        const seg = tbPlan.length;
+        const pos = [], idx = [];
+        for (const [y, sx, sz, dx, dz] of levels) {
+            for (const p of tbPlan) pos.push(p.x * sx + dx, y, p.z * sz + dz);
+        }
+        for (let j = 0; j < levels.length - 1; j++) {
+            const lo = j * seg, hi = (j + 1) * seg;
+            for (let i = 0; i < seg; i++) {
+                const n = (i + 1) % seg;
+                idx.push(lo + i, hi + n, lo + n, lo + i, hi + i, hi + n);
+            }
+        }
+        const first = levels[0], last = levels.at(-1);
+        const bottom = pos.length / 3;
+        pos.push(first[3], first[0], first[4]);
+        const top = pos.length / 3;
+        pos.push(last[3], last[0] + 0.001, last[4]);
+        const topLoop = (levels.length - 1) * seg;
+        for (let i = 0; i < seg; i++) {
+            const n = (i + 1) % seg;
+            idx.push(bottom, i, n);
+            idx.push(top, topLoop + n, topLoop + i);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        return geo;
+    };
+
+    const trackball = (mx, mz) => {
+        const y0 = TOP + TH;
+        const mouse = new THREE.Group();
+        mouse.position.set(mx, y0, mz);
+        mouse.rotation.y = 0.14;                    // 桌上自然略微摆斜
+        group.add(mouse);
+
+        // MX Ergo 的磁吸倾斜底板：只露一圈很薄的深色裙边。
+        solid(tbShell([
+            [0.001, 0.93, 0.93,  0.000, 0.000],
+            [0.006, 1.02, 1.02, -0.001, 0.000],
+            [0.010, 0.99, 0.99, -0.001, 0.000],
+        ]), matte(0x15161a, { roughness: 0.44, metalness: 0.18 }), {
+            parent: mouse, outline: 0.0025, cast: false,
+        });
+
+        solid(tbShell([
+            [0.007, 0.96, 0.96,  0.000, 0.000],
+            [0.014, 1.00, 1.00,  0.000, 0.000],
+            [0.026, 0.96, 0.94, -0.004, 0.002],
+            [0.037, 0.86, 0.82, -0.010, 0.006],
+            [0.045, 0.71, 0.66, -0.016, 0.010],
+            [0.050, 0.50, 0.43, -0.021, 0.013],
+        ]), tbBody, { parent: mouse, outline: 0.004, cast: false });
+
+        /* 球窝朝左上方。球心落在壳面上，壳体自动挡住内半球；深色 torus 是
+           球窝唇边，让它读作“嵌入”，而不是在外壳旁粘了一颗珠子。 */
+        const ballAt = [0.016, 0.030, -0.034];
+        solid(new THREE.TorusGeometry(0.0207, 0.0026, 8, 28), tbDark, {
+            position: ballAt, rotation: [-2.67, 0, 0], parent: mouse,
+            outline: 0.0015, cast: false,
+        });
+
+        // 银蓝轨迹球不是纯色塑料：几层半透明云斑就足以做出实物的珠光纹。
+        const ballCanvas = document.createElement('canvas');
+        ballCanvas.width = 256; ballCanvas.height = 128;
+        const btc = ballCanvas.getContext('2d');
+        const bg = btc.createLinearGradient(0, 0, 256, 128);
+        bg.addColorStop(0, '#779aa9'); bg.addColorStop(0.5, '#a9c2ca'); bg.addColorStop(1, '#668895');
+        btc.fillStyle = bg; btc.fillRect(0, 0, 256, 128);
+        const pseudo = (n) => {
+            const v = Math.sin(n * 91.731 + 17.13) * 43758.5453;
+            return v - Math.floor(v);
+        };
+        for (let i = 0; i < 28; i++) {
+            const x = pseudo(i) * 256, y = pseudo(i + 41) * 128;
+            const r = 10 + pseudo(i + 83) * 28;
+            const cloud = btc.createRadialGradient(x, y, 0, x, y, r);
+            cloud.addColorStop(0, i % 3 ? 'rgba(231,239,239,0.30)' : 'rgba(53,89,103,0.22)');
+            cloud.addColorStop(1, 'rgba(110,145,158,0)');
+            btc.fillStyle = cloud; btc.fillRect(x - r, y - r, r * 2, r * 2);
+        }
+        const ballTex = new THREE.CanvasTexture(ballCanvas);
+        ballTex.colorSpace = THREE.SRGBColorSpace;
+        ballTex.wrapS = THREE.RepeatWrapping;
+        solid(new THREE.SphereGeometry(0.0205, 28, 20), matte(0xffffff, {
+            roughness: 0.19, metalness: 0.32, map: ballTex,
+        }), { position: ballAt, parent: mouse, outline: 0.0025, cast: false });
+
+        // 左右主键沿着前坡铺开。只靠轻微色差和窄分缝区分，不各画一圈粗边。
+        const leftKey = solid(rb(0.041, 0.0026, 0.022, 0.0012, 3), tbButton, {
+            position: [0.039, 0.034, -0.013], parent: mouse, outline: 0, cast: false,
+        });
+        leftKey.rotation.y = -0.05;
+        const rightKey = solid(rb(0.047, 0.0026, 0.030, 0.0012, 3), tbButton, {
+            position: [0.034, 0.039, 0.018], parent: mouse, outline: 0, cast: false,
+        });
+        rightKey.rotation.y = 0.04;
+        /* 两道分缝顺着壳面弯，不能用悬空的直方条：纵缝分开左右键，横缝把
+           按键区和掌托断开，俯视正好是照片里那个不规则十字。 */
+        const seam = (pts) => solid(new THREE.TubeGeometry(
+            new THREE.CatmullRomCurve3(pts), 10, 0.00065, 5, false,
+        ), tbDark, { parent: mouse, outline: 0, cast: false });
+        seam([
+            new THREE.Vector3(0.062, 0.0305, 0.002),
+            new THREE.Vector3(0.045, 0.0408, 0.002),
+            new THREE.Vector3(0.014, 0.0460, 0.003),
+        ]);
+        seam([
+            new THREE.Vector3(0.014, 0.0410, -0.020),
+            new THREE.Vector3(0.011, 0.0455,  0.002),
+            new THREE.Vector3(0.008, 0.0435,  0.028),
+        ]);
+
+        // 中央橡胶滚轮，轴沿左右方向；后面是模式切换小键。
+        solid(cyl(0.0055, 0.0055, 0.010, 14), matte(0x44464d, { roughness: 0.72 }), {
+            position: [0.047, 0.039, 0.002], rotation: [Math.PI / 2, 0, 0],
+            parent: mouse, outline: 0.0015, cast: false,
+        });
+        solid(cyl(0.0036, 0.0036, 0.002, 12), tbDark, {
+            position: [0.019, 0.0455, 0.003], parent: mouse, outline: 0, cast: false,
+        });
+
+        // 拇指球上方两枚前进 / 后退键，贴着左侧斜面。
+        for (const [x, z] of [[0.040, -0.034], [0.023, -0.037]]) {
+            const sideKey = solid(rb(0.012, 0.0022, 0.006, 0.001, 3), tbDark, {
+                position: [x, 0.032, z], parent: mouse, outline: 0, cast: false,
+            });
+            sideKey.rotation.x = -0.43;
+        }
+
+        // 掌托上的浅灰 logi 标记；用一张透明贴面，远看只是正确的明度点。
+        const logoCanvas = document.createElement('canvas');
+        logoCanvas.width = 256; logoCanvas.height = 96;
+        const lc = logoCanvas.getContext('2d');
+        lc.clearRect(0, 0, 256, 96);
+        lc.fillStyle = 'rgba(220,220,216,0.72)';
+        lc.font = '600 62px sans-serif'; lc.textAlign = 'center'; lc.textBaseline = 'middle';
+        lc.fillText('logi', 128, 50);
+        const logoTex = new THREE.CanvasTexture(logoCanvas);
+        logoTex.colorSpace = THREE.SRGBColorSpace;
+        const logo = solid(new THREE.PlaneGeometry(0.022, 0.0085), new THREE.MeshBasicMaterial({
+            map: logoTex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+        }), { position: [-0.006, 0.0495, 0.018], parent: mouse, outline: 0, cast: false });
+        logo.rotation.x = -Math.PI / 2;
+    };
+    trackball(3.40, 3.30);      // 键盘右手边（人坐 -X 面朝 +X，右手边是 +Z）
+
+    /* 左桌的 Logitech MX Anywhere 3/3S。它是低矮紧凑的普通鼠标，不是缩小版
+       MX Ergo：前端略窄、后掌托圆，拱顶最高点偏后，中间有一整条独立控制带。 */
+    const mxBodyMat = matte(0x303138, { roughness: 0.49, metalness: 0.03 });
+    const mxSkirtMat = matte(0x202126, { roughness: 0.66 });
+    const mxStripMat = matte(0x24252b, { roughness: 0.54 });
+    const mxPlan = new THREE.CatmullRomCurve3([
+        new THREE.Vector3( 0.050, 0,  0.000),
+        new THREE.Vector3( 0.045, 0,  0.022),
+        new THREE.Vector3( 0.027, 0,  0.031),
+        new THREE.Vector3(-0.010, 0,  0.033),
+        new THREE.Vector3(-0.039, 0,  0.027),
+        new THREE.Vector3(-0.050, 0,  0.014),
+        new THREE.Vector3(-0.052, 0,  0.000),
+        new THREE.Vector3(-0.049, 0, -0.018),
+        new THREE.Vector3(-0.033, 0, -0.029),
+        new THREE.Vector3(-0.004, 0, -0.033),
+        new THREE.Vector3( 0.029, 0, -0.030),
+        new THREE.Vector3( 0.047, 0, -0.018),
+    ], true, 'catmullrom', 0.46).getSpacedPoints(48).slice(0, -1);
+
+    const loftMouse = (plan, levels) => {
+        const seg = plan.length, pos = [], idx = [];
+        for (const [y, sx, sz, dx, dz] of levels) {
+            for (const p of plan) pos.push(p.x * sx + dx, y, p.z * sz + dz);
+        }
+        for (let j = 0; j < levels.length - 1; j++) {
+            const lo = j * seg, hi = (j + 1) * seg;
+            for (let i = 0; i < seg; i++) {
+                const n = (i + 1) % seg;
+                idx.push(lo + i, hi + n, lo + n, lo + i, hi + i, hi + n);
+            }
+        }
+        const bottom = pos.length / 3;
+        pos.push(levels[0][3], levels[0][0], levels[0][4]);
+        const top = pos.length / 3, last = levels.at(-1), topLoop = (levels.length - 1) * seg;
+        pos.push(last[3], last[0], last[4]);
+        for (let i = 0; i < seg; i++) {
+            const n = (i + 1) % seg;
+            idx.push(bottom, i, n, top, topLoop + n, topLoop + i);
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        return geo;
+    };
+
+    const mxAnywhere = (mx, mz) => {
+        const mouse = new THREE.Group();
+        mouse.position.set(mx, TOP + TH, mz);
+        mouse.rotation.y = -0.055;
+        group.add(mouse);
+
+        // 深色下裙与连续拱壳分开，留下实物底缘那圈清楚的水平分模线。
+        solid(loftMouse(mxPlan, [
+            [0.003, 1.00, 1.00, 0, 0],
+            [0.009, 1.01, 1.01, 0, 0],
+            [0.013, 0.98, 0.98, 0, 0],
+        ]), mxSkirtMat, { position: [0, 0, 0], parent: mouse, outline: 0.0035, cast: false });
+        /* 拱壳。实物全高 34.4mm，所以顶面收在 0.0338 —— 原来做到 0.038，
+           再加上浮在外面的滚轮，整只有 52mm，比实物高一半，看着就是颗蛋。
+           中间多插一层，从 0.024 到顶是连续收拢，不再是「圆腰 + 平顶盖」。 */
+        solid(loftMouse(mxPlan, [
+            [0.0100, 0.98, 0.98,  0.000, 0],
+            [0.0170, 0.98, 0.97, -0.001, 0],
+            [0.0240, 0.93, 0.92, -0.004, 0],
+            [0.0290, 0.84, 0.81, -0.008, 0],
+            [0.0325, 0.66, 0.60, -0.012, 0],
+            [0.0338, 0.38, 0.34, -0.015, 0],
+        ]), mxBodyMat, { position: [0, 0, 0], parent: mouse, outline: 0.004, cast: false });
+
+        /* 下面这几件都贴着上面那张曲面放。壳顶是拱的，所以每件的 y 是照着
+           它自己那个 x 处的壳面高度算的 —— 取一个统一的 y 就会像原来那样，
+           后半截陷进去、前半截飞出来。
+
+           实物的中央控制带是**从滚轮一路往后**的一条窄脊，模式键、指示灯、
+           logi 标依次排在带子里，左右两个大按键分列两侧。带子略高出壳面。
+           拱顶从 x=0.004 往后是平的、往前才快速下坡，一根直条没法同时贴合，
+           所以拆成后段（平）+ 前段（顺着坡）两截，接缝处只差 0.2mm。 */
+        const STRIP_Z = 0.017;
+        // 后段：压在平顶上，装指示灯和 logo
+        solid(rb(0.022, 0.0022, STRIP_Z, 0.006, 4), mxStripMat, {
+            position: [-0.003, 0.0334, 0], parent: mouse, outline: 0.0009, cast: false,
+        });
+        // 前段：顺着前坡往下，装模式键，末端接滚轮
+        solid(rb(0.0233, 0.0022, STRIP_Z, 0.006, 4), mxStripMat, {
+            position: [0.0195, 0.0313, 0], rotation: [0, 0, -0.164],
+            parent: mouse, outline: 0.0009, cast: false,
+        });
+
+        /* MagSpeed 金属滚轮（轴沿 Z）。实物是露在槽口外的一整圈滚花轮，
+           所以要露得出来 —— 壳面在 x=0.034 处高 0.0290，这里露 2.2mm。
+           （上一版沉到只剩 1.5mm，反而不像了。）位置也顶到前坡上：实物滚轮
+           前面只剩一道窄唇，放在 0.030 会在鼻子上多出 11mm 机身。
+           轮下垫一块暗面当槽壁。 */
+        const wheelR = 0.0088, wheelW = 0.0076;
+        solid(box(0.017, 0.006, wheelW + 0.0026), matte(0x111216, { roughness: 0.9 }), {
+            position: [0.034, 0.0260, 0], parent: mouse, outline: 0, cast: false,
+        });
+        solid(cyl(wheelR, wheelR, wheelW, 22), matte(0x8f8c85, {
+            roughness: 0.42, metalness: 0.50,
+        }), {
+            position: [0.034, 0.0290 + 0.0022 - wheelR, 0], rotation: [Math.PI / 2, 0, 0],
+            parent: mouse, outline: 0.0012, cast: false,
+        });
+
+        // 带子里的模式切换键 → 指示灯 → logo，从前往后排（和实物一致）
+        solid(rb(0.009, 0.0028, 0.0055, 0.002, 3), matte(0x44454c, { roughness: 0.48 }), {
+            position: [0.017, 0.0340, 0], parent: mouse, outline: 0.0011, cast: false,
+        });
+        solid(cyl(0.0011, 0.0011, 0.0010, 12), matte(0x15161a, { roughness: 0.5 }), {
+            position: [0.004, 0.0349, 0], parent: mouse, outline: 0, cast: false,
+        });
+
+        /* 滚轮**前面**那一小段左右键分模线。带子占了滚轮往后的中线，
+           所以这儿只剩鼻尖这一截；前坡陡，得跟着倾斜。 */
+        solid(box(0.0110, 0.0016, 0.0013), mxSkirtMat, {
+            position: [0.042, 0.02285, 0], rotation: [0, 0, -0.753],
+            parent: mouse, outline: 0, cast: false,
+        });
+
+        // 拇指侧的前进 / 后退双键；面对屏幕时鼠标左侧是 -Z。
+        for (const [x, y] of [[0.004, 0.023], [-0.015, 0.021]]) {
+            solid(rb(0.013, 0.005, 0.0016, 0.0015, 3), mxStripMat, {
+                position: [x, y, -0.0306], parent: mouse, outline: 0.0012, cast: false,
+            });
+        }
+
+        const logoCanvas = document.createElement('canvas');
+        logoCanvas.width = 192; logoCanvas.height = 72;
+        const lc = logoCanvas.getContext('2d');
+        lc.clearRect(0, 0, 192, 72);
+        lc.fillStyle = 'rgba(125,126,132,0.78)';
+        lc.font = '600 45px sans-serif'; lc.textAlign = 'center'; lc.textBaseline = 'middle';
+        lc.fillText('logi', 96, 38);
+        const logoTex = new THREE.CanvasTexture(logoCanvas);
+        logoTex.colorSpace = THREE.SRGBColorSpace;
+        const logo = solid(new THREE.PlaneGeometry(0.017, 0.0064), new THREE.MeshBasicMaterial({
+            map: logoTex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+        }), { position: [-0.008, 0.0348, 0], parent: mouse, outline: 0, cast: false });
+        logo.rotation.x = -Math.PI / 2;
+    };
+
+    // 键盘右沿 z=2.195；这里留 27mm 操作缝，同时离桌边仍有约 22mm。
+    mxAnywhere(3.40, 2.255);
+
+    group.userData.lamps = {
+        ...(group.userData.lamps || {}),
+        screenbar: { pick: [sbarBody, sbarGlow], shade: null, glow: sbarGlowMat },
+    };
 
     /* 两张桌子中间那道缝里那盏灯。实物是一支黄铜悬臂灯，值得照着做：
 
@@ -828,65 +1840,116 @@ function buildDesk(group) {
        原来是「一根杆 + 一根横棍 + 一个小圆锥」，三件几何体，凑近就露怯。 */
     const brass = metal(0xb08d55, 0.32);
     const brassDark = metal(0x8e7040, 0.38);
-    const steel = metal(0xb9b4a9, 0.28);
     const GX = 3.84, GZ = 2.345;   // 杆正好穿过两桌之间那道 7cm 缝
     const PIV = 1.44;
+    // 底座和立杆是拧死在地上的，转不动，留在 group 上
     solid(cyl(0.095, 0.11, 0.026, 18), brass, { position: [GX, 0.013, GZ], parent: group, outline: 0.006, cast: false });
     solid(cyl(0.016, 0.019, PIV - 0.02, 10), brass, {
         position: [GX, (PIV - 0.02) / 2 + 0.02, GZ], parent: group, outline: 0.006,
     });
+
+    /* 滚花枢轴以外的一整条 —— 配重尾巴、伸缩管、灯罩 —— 全挂在 armPivot 上，
+       绕 z 一转就是把灯臂抬起来 / 压下去，跟实物拧松那颗滚花螺母是一回事。
+       所以下面这一串坐标都是**相对枢轴**的，别再往里写绝对的 GX / PIV。 */
+    const armPivot = new THREE.Group();
+    armPivot.position.set(GX, PIV, GZ);
+    group.add(armPivot);
     solid(cyl(0.030, 0.030, 0.038, 18), brassDark, {        // 滚花枢轴
-        position: [GX, PIV, GZ], rotation: [Math.PI / 2, 0, 0], parent: group, outline: 0.005, cast: false,
+        position: [0, 0, 0], rotation: [Math.PI / 2, 0, 0], parent: armPivot, outline: 0.005, cast: false,
     });
     solid(cyl(0.019, 0.019, 0.050, 14), brass, {
-        position: [GX, PIV, GZ], rotation: [Math.PI / 2, 0, 0], parent: group, outline: 0.004, cast: false,
+        position: [0, 0, 0], rotation: [Math.PI / 2, 0, 0], parent: armPivot, outline: 0.004, cast: false,
     });
     solid(cyl(0.0115, 0.0115, 0.235, 12), brass, {          // 配重尾巴
-        position: [GX + 0.118, PIV, GZ], rotation: [0, 0, Math.PI / 2], parent: group, outline: 0.005, cast: false,
+        position: [0.118, 0, 0], rotation: [0, 0, Math.PI / 2], parent: armPivot, outline: 0.005, cast: false,
     });
     solid(cyl(0.0125, 0.0125, 0.020, 12), brass, {          // 尾端圆帽
-        position: [GX + 0.240, PIV, GZ], rotation: [0, 0, Math.PI / 2], parent: group, outline: 0.004, cast: false,
+        position: [0.240, 0, 0], rotation: [0, 0, Math.PI / 2], parent: armPivot, outline: 0.004, cast: false,
     });
     solid(cyl(0.0155, 0.0155, 0.300, 12), brass, {          // 伸缩管（粗）
-        position: [GX - 0.155, PIV, GZ], rotation: [0, 0, Math.PI / 2], parent: group, outline: 0.005, cast: false,
+        position: [-0.155, 0, 0], rotation: [0, 0, Math.PI / 2], parent: armPivot, outline: 0.005, cast: false,
     });
     solid(cyl(0.0175, 0.0175, 0.014, 12), brassDark, {      // 接缝压边
-        position: [GX - 0.300, PIV, GZ], rotation: [0, 0, Math.PI / 2], parent: group, outline: 0.004, cast: false,
+        position: [-0.300, 0, 0], rotation: [0, 0, Math.PI / 2], parent: armPivot, outline: 0.004, cast: false,
     });
     solid(cyl(0.0125, 0.0125, 0.185, 12), brass, {          // 前段（细）
-        position: [GX - 0.398, PIV, GZ], rotation: [0, 0, Math.PI / 2], parent: group, outline: 0.005, cast: false,
-    });
-    solid(new THREE.SphereGeometry(0.019, 14, 10), brassDark, {   // 球形关节
-        position: [GX - 0.492, PIV, GZ], parent: group, outline: 0.004, cast: false,
+        position: [-0.398, 0, 0], rotation: [0, 0, Math.PI / 2], parent: armPivot, outline: 0.005, cast: false,
     });
 
-    /* 灯罩：拉丝钢锥筒，朝左前下方照着左桌。锥筒是开口的，材质要双面，
-       不然从侧下方看进去是空的。 */
+    /* 臂和罩是**侧接**的，不是「罩挂在臂端底下」。
+       实拍看得很清楚：臂管一直伸到罩子旁边，末端一副铰链耳，拧在罩子
+       上部的侧壁上；罩顶那块盖板连同那颗滚花铜帽，明显还在臂的上方。
+       原来把球形关节顶在罩子正中心，罩子就成了吊在杆头的一只灯笼，
+       罩顶和铜帽全被臂挡住 —— 那是「连接位置」错了，不是尺寸错了。
+
+       几何是解出来的：铰链落在罩壁往外让开 15mm 的地方，罩子的轴心
+       因此要往外 50mm、往上 60mm，才能让接点正好落在臂的中心线上。 */
     const SH = 0.205;
+    const HINGE_X = -0.500;                  // 铰链（相对枢轴）
+    solid(cyl(0.018, 0.018, 0.030, 14), brassDark, {        // 臂端那半边铰链耳
+        position: [-0.490, 0, 0], rotation: [Math.PI / 2, 0, 0], parent: armPivot, outline: 0.004, cast: false,
+    });
+
+    const shadeHinge = new THREE.Group();    // 罩子绕这儿转，独立于灯臂
+    shadeHinge.position.set(HINGE_X, 0, 0);
+    armPivot.add(shadeHinge);
+    solid(cyl(0.0105, 0.0105, 0.046, 12), brass, {          // 穿过铰链的调节螺栓
+        position: [0, 0, 0], rotation: [Math.PI / 2, 0, 0], parent: shadeHinge, outline: 0.003, cast: false,
+    });
+    solid(box(0.030, 0.026, 0.013), brass, {                // 拧在罩壁上的托板
+        position: [-0.016, 0.004, 0], parent: shadeHinge, outline: 0.004, cast: false,
+    });
+
+    /* 灯罩：**拉丝黄铜**锥筒，和臂管同色（这里之前记成拉丝钢了，实拍里
+       罩子和臂是一整套黄铜）。朝左前下方照着左桌。锥筒是开口的，材质要
+       双面，不然从侧下方看进去是空的。
+
+       罩子比臂稍亮一档：实物那层是抛得更亮的旋压面，一整套同一个色号
+       反而糊成一根管子，读不出「臂」和「罩」是两件。 */
     const shadeGrp = new THREE.Group();
-    shadeGrp.position.set(GX - 0.522, PIV - 0.012, GZ);
+    shadeGrp.position.set(-0.050, 0.060, 0);
     shadeGrp.rotation.z = -0.34;
-    group.add(shadeGrp);
-    const cone = solid(cyl(0.044, 0.086, SH, 22, 1, true), metal(0xb9b4a9, 0.28), {
+    shadeHinge.add(shadeGrp);
+    const shadeBrass = metal(0xc09a5c, 0.26);
+    const cone = solid(cyl(0.044, 0.086, SH, 22, 1, true), shadeBrass, {
         position: [0, -SH / 2, 0], parent: shadeGrp, outline: 0.007, cast: false,
     });
     cone.material.side = THREE.DoubleSide;
     // 金属罩不发光，「亮着」全靠罩口那圈；关灯就是把那圈灭掉
     const deskGlow = diffuserMaterial();
-    solid(cyl(0.044, 0.044, 0.012, 22), steel, {            // 顶盖
+    const capTop = solid(cyl(0.048, 0.048, 0.012, 22), shadeBrass, {       // 顶盖，比锥口略探出一圈
         position: [0, 0.006, 0], parent: shadeGrp, outline: 0.004, cast: false,
     });
-    solid(cyl(0.011, 0.011, 0.030, 10), brass, {            // 顶上那颗小帽
+    const capKnob = solid(cyl(0.011, 0.011, 0.030, 10), brass, {           // 顶上那颗小帽
         position: [0, 0.028, 0], parent: shadeGrp, outline: 0.004, cast: false,
     });
-    solid(cyl(0.080, 0.080, 0.004, 22), deskGlow, {          // 罩口那圈暖光
+    const mouth = solid(cyl(0.080, 0.080, 0.004, 22), deskGlow, {          // 罩口那圈暖光
         position: [0, -SH + 0.012, 0], parent: shadeGrp, outline: 0, cast: false,
     });
+    /* 罩子能转了，光就不能再写死世界坐标。挂两个空节点在罩子里：
+       罩口一个、罩口正下方 1.2m 一个，聚光灯每帧照着它俩摆位就行。 */
+    const aimAt = new THREE.Object3D();
+    aimAt.position.set(0, -SH + 0.012 - 1.2, 0);
+    shadeGrp.add(aimAt);
+
     group.userData.lamps = {
         ...(group.userData.lamps || {}),
         desk: {
-            pick: [lampGrab(cyl(0.115, 0.115, 0.24, 14), [0, -SH / 2, 0], shadeGrp)],
+            /* 开关灯直接拿罩子本身当命中件 —— 不能再套一个大命中盒，
+               那个盒子会把旁边两个关节的命中盒一起吞掉。 */
+            pick: [cone, capTop, capKnob, mouth],
             shade: null, glow: deskGlow,
+            mouth: mouth, aim: aimAt,
+            joints: [
+                { name: 'arm', node: armPivot, label: '转灯臂',
+                  stops: [-0.28, -0.14, 0, 0.14, 0.28],
+                  pick: [lampGrab(new THREE.SphereGeometry(0.048, 10, 8), [0, 0, 0], armPivot)] },
+                /* 罩子自带 -0.34 的仰角，所以这一档加完正好落在 0 —— 也就是
+                   「垂直朝下照」，再往那边转就该照到窗户上去了，到此为止。 */
+                { name: 'shade', node: shadeHinge, label: '转灯罩',
+                  stops: [-0.34, -0.17, 0, 0.17, 0.34],
+                  pick: [lampGrab(box(0.052, 0.052, 0.056), [0.010, 0, 0], shadeHinge)] },
+            ],
         },
     };
 }
@@ -946,30 +2009,73 @@ function buildLeatherChair(parent, x, z, rot = 0) {
         position: [-0.20, SEAT + 0.035, 0], parent: g, outline: 0.006, cast: false,
     });
 
-    /* 靠背：一整片，往后仰 11°，顶到离地 1.20m。
-       圆角给到 0.09 —— 实物顶部是个大圆角，不是方角。 */
-    const LEAN = 0.20;                           // 弧度，约 11.5°
-    const BH = 0.735;                            // 背板长（沿它自己的轴）
-    const ux = -Math.sin(LEAN), uy = Math.cos(LEAN);   // 「沿背往上」的单位向量
-    const rootX = -0.205, rootY = SEAT + 0.015;        // 背板下端
-    const backCx = rootX + ux * BH / 2, backCy = rootY + uy * BH / 2;
-    const back = solid(rb(0.105, BH, 0.475, 0.090), hide, {
-        position: [backCx, backCy, 0], parent: g, outline: 0.010,
-    });
-    back.rotation.z = LEAN;
-    // 背面下缘那道横缝（两张照片里都很清楚）
-    const seamT = 0.185 / BH;                    // 缝在背板 1/4 高处
-    const seam = solid(rb(0.115, 0.012, 0.455, 0.005), stitch, {
-        position: [rootX + ux * BH * seamT, rootY + uy * BH * seamT, 0],
+    /* 靠背不是一块带圆角的长方体，更没有独立塞进去的腰垫。实物侧视是一条
+       连续 S 曲线：根部厚、腰部向前托，上背逐渐后仰，顶部再收薄。每一行是
+       [高度, 中心X, 半宽Z, 厚度X]，用超椭圆截面缝成封闭皮革壳体。 */
+    const backRows = [
+        [0.465, -0.195, 0.205, 0.120],
+        [0.510, -0.188, 0.226, 0.122],
+        [0.600, -0.190, 0.236, 0.116],
+        [0.710, -0.207, 0.238, 0.106],
+        [0.835, -0.232, 0.236, 0.098],
+        [0.960, -0.260, 0.231, 0.090],
+        [1.080, -0.287, 0.224, 0.083],
+        [1.165, -0.305, 0.212, 0.078],
+        [1.205, -0.311, 0.198, 0.074],
+    ];
+    const ringSeg = 28, backPos = [], backIdx = [];
+    for (const [yy, cx, hz, thick] of backRows) {
+        for (let i = 0; i < ringSeg; i++) {
+            const a = i / ringSeg * Math.PI * 2;
+            const ca = Math.cos(a), sa = Math.sin(a);
+            // n=4 的超椭圆：正背面宽而柔和，侧边连续卷过去，不留方板边。
+            const ex = Math.sign(ca) * Math.sqrt(Math.abs(ca));
+            const ez = Math.sign(sa) * Math.sqrt(Math.abs(sa));
+            backPos.push(cx + thick / 2 * ex, yy, hz * ez);
+        }
+    }
+    for (let row = 0; row < backRows.length - 1; row++) {
+        const lo = row * ringSeg, hi = (row + 1) * ringSeg;
+        for (let i = 0; i < ringSeg; i++) {
+            const n = (i + 1) % ringSeg;
+            backIdx.push(lo + i, hi + i, lo + n, lo + n, hi + i, hi + n);
+        }
+    }
+    const bottom = backPos.length / 3;
+    backPos.push(backRows[0][1], backRows[0][0], 0);
+    const top = backPos.length / 3, lastRow = backRows.at(-1), topLoop = (backRows.length - 1) * ringSeg;
+    backPos.push(lastRow[1], lastRow[0], 0);
+    for (let i = 0; i < ringSeg; i++) {
+        const n = (i + 1) % ringSeg;
+        backIdx.push(bottom, i, n, top, topLoop + n, topLoop + i);
+    }
+    const backGeo = new THREE.BufferGeometry();
+    backGeo.setAttribute('position', new THREE.Float32BufferAttribute(backPos, 3));
+    backGeo.setIndex(backIdx);
+    backGeo.computeVertexNormals();
+    solid(backGeo, hide, { position: [0, 0, 0], parent: g, outline: 0.009, cast: false });
+
+    /* 原图下腰处是一道贴着皮面的缝线，不是一根浅色长方体。正面位置由同一条
+       超椭圆算出，缝线会随靠背横向弧度轻微后退。 */
+    const seamY = 0.625, seamCx = -0.194, seamHalfW = 0.232, seamThick = 0.113;
+    const seamPts = [];
+    for (let i = 0; i <= 24; i++) {
+        const z2 = -seamHalfW * 0.94 + seamHalfW * 1.88 * i / 24;
+        const ratio = Math.min(1, Math.abs(z2) / seamHalfW);
+        const frontCurve = Math.pow(1 - Math.pow(ratio, 4), 0.25);
+        seamPts.push(new THREE.Vector3(seamCx + seamThick / 2 * frontCurve + 0.002, seamY, z2));
+    }
+    solid(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(seamPts), 36, 0.0023, 6, false), stitch, {
         parent: g, outline: 0, cast: false,
     });
-    seam.rotation.z = LEAN;
-    // 腰部往前顶一点：一块薄垫贴在背板正面
-    const lumbar = solid(rb(0.030, 0.26, 0.40, 0.030), hide, {
-        position: [rootX + ux * 0.30 + 0.062, rootY + uy * 0.30, 0],
-        parent: g, outline: 0, cast: false,
-    });
-    lumbar.rotation.z = LEAN;
+
+    // 两侧包边随 S 曲线走，替代原先圆角盒子边缘形成的生硬黑框。
+    for (const sd of [-1, 1]) {
+        const edgePts = backRows.slice(1).map(([yy, cx, hz]) => new THREE.Vector3(cx, yy, sd * hz * 0.998));
+        solid(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edgePts), 40, 0.0020, 6, false), stitch, {
+            parent: g, outline: 0, cast: false,
+        });
+    }
 
     /* 扶手。皮垫前端悬空，靠两根弯管从坐垫下面挑起来 —— 管子是
        CatmullRom 扫出来的，写死几个控制点比拿 Torus 掰姿态清楚得多。 */
@@ -1110,7 +2216,15 @@ function buildSofa(group) {
 
        轮廓拿 Shape + splineThru 过手摆的点画，比拼贝塞尔控制点好调。 */
     const V2 = (x, y) => new THREE.Vector2(x, y);
-    const TX = 1.40, TZ = 3.325;      // 桌面中心（沙发在 -Z、电视柜在 +Z）
+    /* 桌面中心（沙发在 -Z、电视柜在 +Z）。
+
+       z 从 3.325 挪到 3.19：原来茶几前沿在 3.650，离电视柜正面只有 400mm，
+       而柜门宽 542mm —— 门开到设计角度自由边会落在 3.543，直接扎进茶几。
+       实物那几扇门是开得开的，所以错的是茶几的位置不是门。挪 135mm 之后
+       离柜 535mm、离沙发 175mm（茶几本来就是贴着沙发放的），门就让得开了。
+       沙发前沿到电视柜一共只有 1350mm、茶几进深 640mm，两条缝总共 710mm
+       可分 —— 这个屋子就这么大，只能这么分。 */
+    const TX = 1.40, TZ = 3.19;
     /* 注意：Shape 画在 XY 平面，rotateX(-90°) 之后 shape-y 映射到世界 **-Z**。
        所以「凹口朝沙发（-Z）」= 这些点的 y 取**正**。 */
     const bean = new THREE.Shape();
@@ -1150,29 +2264,85 @@ function buildMedia(group) {
     const white = matte(0xd9d6cb, { roughness: 0.5 });
     const mint = matte(0xbfd0c2, { roughness: 0.55 });   // 照片二里电视柜那两扇淡绿门
     const dark = matte(0x1c1c22, { roughness: 0.6 });
+    /* 客厅这几件也能开，和厨房共用 KitchenScene 那一套。 */
+    const cabinets = group.userData.cabinets || (group.userData.cabinets = []);
+    const shelfMat = matte(0xcfcbc0, { roughness: 0.7 });
+    const drawerBox = matte(0xb9b3a6, { roughness: 0.8 });
+
+    /* 开门不能穿茶几。与其拍一个「就开 40°」的死数（茶几一挪又穿回去），
+       不如按当前家具位置算：把门当成从合页伸出去的一条线段，沿开合角
+       一点点扫过去，撞上障碍框的那一刻就停下来、再留 5° 余量。
+       门是绕 y 转的，合页本地点 (-hinge*L, 0, 0) 转 φ 之后：
+         x = hx - hinge*L*cos φ,  z = hz + hinge*L*sin φ */
+    const swingClearOf = (hx, hz, len, hinge, spin, maxSwing, boxes, M = 0.020) => {
+        const hit = (t) => {
+            const phi = spin * t;
+            for (let f = 0.30; f <= 1.0001; f += 0.175) {
+                const L = len * f;
+                const x = hx - hinge * L * Math.cos(phi);
+                const z = hz + hinge * L * Math.sin(phi);
+                for (const b of boxes) {
+                    if (x > b.x0 - M && x < b.x1 + M && z > b.z0 - M && z < b.z1 + M) return true;
+                }
+            }
+            return false;
+        };
+        for (let t = 0.06; t <= maxSwing + 1e-6; t += 0.02) {
+            if (hit(t)) return Math.max(0.20, t - 0.05);
+        }
+        return maxSwing;
+    };
+    /* 那张豆形茶几的包围盒：shape 的 y 映射到世界 -Z，所以
+       y∈[-0.31, 0.33] ⇒ z ∈ [TZ-0.33, TZ+0.31]，x = 1.40 ± 0.58。
+       茶几挪到 3.19 之后这个框已经让开了门，clampSwing 现在返回满角；
+       它留着是**兜底**：以后谁再挪家具，门会自己让，不会闷头穿过去。 */
+    const COFFEE_TABLE = { x0: 0.82, x1: 1.98, z0: 2.86, z1: 3.50 };
 
     /* 电视柜 lx 0.62..2.27, lz 4.05..4.61, 高 0.72 */
     const cX0 = 0.62, cX1 = 2.27, cZ0 = 4.05, cZ1 = 4.61, cH = 0.72;
-    solid(box(cX1 - cX0, cH, cZ1 - cZ0), white, {
-        position: [(cX0 + cX1) / 2, cH / 2, (cZ0 + cZ1) / 2], parent: group, outline: 0.011,
-    });
     /* 门色是「绿—白—绿」。三扇门**铺满整个正面** —— 柜体正面除了 6mm 的
        缝几乎看不到白色柜身。之前每扇只做了 0.42 宽、上下还各留 4.5cm，
        三扇缩在中间，看着像三块贴在柜面上的小板。 */
     const REVEAL = 0.006;
     const dw = (cX1 - cX0 - REVEAL * 4) / 3;
     const dh = cH - REVEAL * 2;
+    /* 里面**不分上下层**：是三个通高的竖格，一扇门正对一格。
+       原来给了一块贯通的横层板（shelves: [0]），门一开看进去就成了上下两层。 */
+    carcass(group, {
+        w: cX1 - cX0, h: cH, d: cZ1 - cZ0, pos: [(cX0 + cX1) / 2, cH / 2, (cZ0 + cZ1) / 2],
+        face: 'z-', mat: white, innerMat: shelfMat, outline: 0.009, shelves: [],
+    });
+    /* 两块竖隔板，落在三扇门之间那两道门缝的正后方 —— 门开了，格子和门是对齐的。
+       板厚跟 carcass 的 t 一致；进深比柜体浅一点，免得和背板、门共面打架。 */
+    const CT = 0.018, divD = (cZ1 - cZ0) - CT - 0.010;
+    for (let i = 1; i <= 2; i++) {
+        solid(box(CT, cH - CT * 2, divD), shelfMat, {
+            position: [cX0 + REVEAL * (i + 0.5) + dw * i, cH / 2, cZ0 + 0.005 + divD / 2],
+            parent: group, outline: 0.005, cast: false,
+        });
+    }
+    /* 三扇门都能开。注意这个柜子**正面朝 -Z**（朝沙发），和厨房那些朝 +Z 的
+       正好相反 —— 所以同样的合页边，转的方向要反过来，这里 spin = -hinge。
+       门后同样垫一块暗面，不然开了里面还是白柜体。 */
     [mint, white, mint].forEach((m, i) => {
         const dx = cX0 + REVEAL + dw / 2 + i * (dw + REVEAL);
-        solid(rb(dw, dh, 0.022, 0.005), m, {
-            position: [dx, cH / 2, cZ0 - 0.012], parent: group, outline: 0.009,
+        // 实物是左边两扇的合页在左、最右那扇在右 —— 不是左右交替
+        const hinge = i < 2 ? -1 : 1;
+        const g = new THREE.Group();
+        g.position.set(dx + hinge * dw / 2, cH / 2, cZ0 - 0.012);
+        group.add(g);
+        const door = solid(rb(dw, dh, 0.022, 0.005), m, {
+            position: [-hinge * dw / 2, 0, 0], parent: g, outline: 0.009,
         });
         // 中间那扇白门里嵌着一块更浅的方框（照片四）
         if (i === 1) {
             solid(box(dw - 0.11, dh - 0.14, 0.006), matte(0xeeece5, { roughness: 0.55 }), {
-                position: [dx, cH / 2, cZ0 - 0.026], parent: group, outline: 0.006, cast: false,
+                position: [-hinge * dw / 2, 0, -0.014], parent: g, outline: 0.006, cast: false,
             });
         }
+        const hx = dx + hinge * dw / 2, hz = cZ0 - 0.012;
+        const swing = swingClearOf(hx, hz, dw, hinge, -hinge, 1.15, [COFFEE_TABLE]);
+        cabinets.push({ kind: 'door', node: g, pick: [door], spin: -hinge, swing });
     });
 
     /* 电视 lx 0.71..2.19, y 0.77..1.63。
@@ -1211,13 +2381,35 @@ function buildMedia(group) {
 
     /* 白色六斗柜（扫描 storage_cabinet_low1_0），上面那台唱机 */
     const dX0 = -0.33, dX1 = 0.13, dZ0 = 2.93, dZ1 = 3.58, dH = 0.74;
-    solid(box(dX1 - dX0, dH, dZ1 - dZ0), white, {
-        position: [(dX0 + dX1) / 2, dH / 2, (dZ0 + dZ1) / 2], parent: group, outline: 0.011,
+    carcass(group, {
+        // 开口朝 +X：w 是沿开口面的宽（这里是 z 向），d 是进深（x 向）
+        w: dZ1 - dZ0, h: dH, d: dX1 - dX0, pos: [(dX0 + dX1) / 2, dH / 2, (dZ0 + dZ1) / 2],
+        face: 'x+', mat: white, innerMat: shelfMat, outline: 0.009,
     });
+    /* 五个抽屉，正面朝 +X，所以是沿 +X 拉出来。抽屉盒挂在同一个 group 上，
+       拉开才有东西看 —— 只滑一块面板出来，就是一块白板浮在空中。 */
+    const dCz = (dZ0 + dZ1) / 2, dFw = dZ1 - dZ0 - 0.06, dFh = dH / 5 - 0.02;
     for (let i = 0; i < 5; i++) {
-        solid(rb(0.021, dH / 5 - 0.02, dZ1 - dZ0 - 0.06, 0.005), white, {
-            position: [dX1 + 0.011, dH / 5 * (i + 0.5), (dZ0 + dZ1) / 2], parent: group, outline: 0.008,
+        const cy = dH / 5 * (i + 0.5);
+        const g = new THREE.Group();
+        g.position.set(0, 0, 0);
+        group.add(g);
+        const front = solid(rb(0.021, dFh, dFw, 0.005), white, {
+            position: [dX1 + 0.011, cy, dCz], parent: g, outline: 0.008,
         });
+        const dd = 0.34, dbh = dFh - 0.018, dbx = dX1 - dd / 2 - 0.014;
+        solid(box(dd, 0.010, dFw - 0.02), drawerBox, {
+            position: [dbx, cy - dbh / 2, dCz], parent: g, outline: 0, cast: false,
+        });
+        for (const sz of [-1, 1]) {
+            solid(box(dd, dbh, 0.010), drawerBox, {
+                position: [dbx, cy, dCz + sz * (dFw / 2 - 0.012)], parent: g, outline: 0, cast: false,
+            });
+        }
+        solid(box(0.010, dbh, dFw - 0.02), drawerBox, {
+            position: [dX1 - dd - 0.014, cy, dCz], parent: g, outline: 0, cast: false,
+        });
+        cabinets.push({ kind: 'drawer', node: g, pick: [front], axis: 'x', dir: 1, travel: 0.28 });
     }
     /* 唱机（Pro-Ject 那种入门带罩的）。之前是「一块白板 + 一个绿盘」，
        凑近就是两块几何体；实物的读数全在细节上：四只脚、亚克力罩、
@@ -1251,12 +2443,20 @@ function buildMedia(group) {
     const platter = new THREE.Group();
     platter.position.set(PL_X, deck, PL_Z);
     group.add(platter);
-    solid(cyl(0.148, 0.148, 0.014, 36), matte(0x63b892, { roughness: 0.34, metalness: 0.10 }), {
-        position: [0, 0.020, 0], parent: platter, outline: 0.005, cast: false,
+    /* 唱盘是**铝盘 + 一块绿绒垫**，不是一整块绿的。这件事非分开做不可：
+       原来唱盘是一张 R148 的纯绿圆片，和 R150 的黑胶几乎同径 —— 空盘时它自己
+       就长得像一张绿唱片，上片那一下就成了「绿胶突然变成黑胶」。
+       绒垫收到 R116、盘沿留出一圈铝，空盘的读数才是「转盘」而不是「唱片」。 */
+    solid(cyl(0.140, 0.136, 0.018, 36), metal(0xa9aeb2, 0.30), {
+        position: [0, 0.018, 0], parent: platter, outline: 0.005, cast: false,
     });
-    // 12 吋黑胶：不放唱片时收起来
+    solid(cyl(0.116, 0.116, 0.0035, 32), matte(0x63b892, { roughness: 0.88 }), {   // 绿绒垫
+        position: [0, 0.0288, 0], parent: platter, outline: 0.003, cast: false,
+    });
+    /* 12 吋黑胶：不放唱片时收起来。收/放不是「显示/隐藏」——
+       那是另一种「突然变了」。见 KitchenScene：从 LP_LIFT 那么高**落**下来。 */
     const lp = new THREE.Group();
-    lp.position.y = 0.028;
+    lp.position.y = 0.0318;                                   // 贴着绒垫面
     lp.visible = false;
     platter.add(lp);
     solid(cyl(0.150, 0.150, 0.0022, 48), matte(0x121215, { roughness: 0.30 }), {
@@ -1267,10 +2467,10 @@ function buildMedia(group) {
         position: [0, 0.0017, 0], parent: lp, outline: 0, cast: false,
     });
     solid(cyl(0.030, 0.030, 0.010, 20), ttChrome, {           // 中心压片
-        position: [0, 0.031, 0], parent: platter, outline: 0.003, cast: false,
+        position: [0, 0.0375, 0], parent: platter, outline: 0.003, cast: false,
     });
     solid(cyl(0.0035, 0.0035, 0.024, 8), ttChrome, {          // 唱盘轴
-        position: [0, 0.038, 0], parent: platter, outline: 0, cast: false,
+        position: [0, 0.042, 0], parent: platter, outline: 0, cast: false,
     });
     for (const dz of [0.055, 0.105]) {                        // 转速 / 电源
         solid(cyl(0.011, 0.011, 0.006, 12), ttDark, {
@@ -1371,6 +2571,7 @@ function buildMedia(group) {
         pickPlay: [ttGrab],
         LID_OPEN: 1.22,
         ARM_REST: -0.60, ARM_OUTER: -0.354, ARM_INNER: 0.070,
+        LP_Y: lp.position.y, LP_LIFT: 0.062,   // 唱片落到盘上 / 拿起来悬在多高
         // 音箱在北墙两侧，声音从那儿出来，不是从唱机出来
         speakers: [[-0.16, 1.07, 2.62], [-0.16, 1.07, 3.88]],
     };
@@ -1895,18 +3096,27 @@ export function buildLivingLights(scene) {
        来补这一块。 */
 
     /* 书桌上那盏悬臂灯。灯具一直在，光倒是一直没给。
-       锥形罩往左前下方歪了 0.34 rad，光就得顺着同一个轴出去 ——
-       罩口解出来在 (3.250, 1.235, 2.345)，方向 (-sin, -cos)。 */
-    const T = 0.34;
+       两个关节都能转之后，罩口的位置就不再是常数了：这里给的只是初始姿态，
+       每一帧由 KitchenScene 照着罩子里那两个空节点（mouth / aim）重摆一次。 */
     const desk = new THREE.SpotLight(0xffdcaa, 2.4, 3.2, 0.62, 0.85, 2);
-    desk.position.set(3.250, 1.230, 2.345);
-    desk.target.position.set(3.250 - Math.sin(T) * 1.2, 1.230 - Math.cos(T) * 1.2, 2.345);
+    desk.position.set(3.226, 1.318, 2.345);
+    desk.target.position.set(3.226 - Math.sin(0.34) * 1.2, 1.318 - Math.cos(0.34) * 1.2, 2.345);
     scene.add(desk, desk.target);
+
+    /* 左桌那根屏幕挂灯。挂灯的全部意义就是**照桌面、不照屏** —— 光洒回
+       屏幕上就成了满屏反光，那正是买它要避免的事。灯口只比屏面靠前 4cm，
+       所以光锥必须又窄又往屋里斜：半角 0.5rad、目标点推到屏前 38cm 的
+       桌面上，锥体的后沿才不会扫回 +X 那侧的屏幕。
+       强度比悬臂灯低一档，它是补光不是主光。 */
+    const screenBar = new THREE.SpotLight(0xffe6c4, 2.0, 2.2, 0.50, 0.85, 2);
+    screenBar.position.set(3.752, 1.345, 1.48);
+    screenBar.target.position.set(3.42, 0.783, 1.48);
+    scene.add(screenBar, screenBar.target);
 
     /* 窗户是一整面 5 米的玻璃，实拍里靠窗那半间屋子是被天光泡着的。
        方向光只能给一个角度，再补一盏很软的面光把窗边整体托起来。 */
     const skyFill = new THREE.HemisphereLight(0xcfd8e8, 0x3a3228, 0.10);
     scene.add(skyFill);
 
-    return { win, arc, floorLamp, desk };
+    return { win, arc, floorLamp, desk, screenBar };
 }

@@ -396,6 +396,30 @@ export function stainless(color = PALETTE.steel, { roughness = 0.62, repeat = [1
     return m;
 }
 
+const whirlpoolLogoTextures = new Map();
+
+/** Whirlpool 官方产品品牌 Logo。素材来自 Whirlpool Corporation Media Hub，
+ * 保留原始黑色字标、金色 Ring of Promise 与注册标记，不再自行描摹。 */
+export function whirlpoolBadge(w = 0.13, h = w * (400 / 1260), variant = 'black') {
+    const key = variant === 'white' ? 'white' : 'black';
+    if (!whirlpoolLogoTextures.has(key)) {
+        const suffix = key === 'white' ? '-white' : '';
+        const tex = new THREE.TextureLoader().load(`/whirlpool-brand-logo${suffix}.png`);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 8;
+        whirlpoolLogoTextures.set(key, tex);
+    }
+    const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({
+            map: whirlpoolLogoTextures.get(key), transparent: true, depthWrite: false, toneMapped: false,
+        }),
+    );
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    return mesh;
+}
+
 /* ---------- 反转外壳描边 ----------
    沿法线外推一圈背面几何，得到粗细稳定的墨线。
    比后期边缘检测可控：每个部件自己一条线，门缝、把手都圈得住。 */
@@ -435,6 +459,38 @@ export function inkOutline(mesh, thickness = 0.012, color = PALETTE.ink) {
     o.userData.isOutline = true;
     mesh.add(o);
     return o;
+}
+
+/** 一个**空心**柜体：五块板围出来、正面留空，可选层板。
+
+    柜子做成一个实心盒子的话，门开了里面还是一整块木头 —— 那是「门开着的
+    柜子」，不是「打开的柜子」。之前是靠在门背后垫一块暗面糊弄，门一开到
+    大角度就露馅。
+
+    face 指开口朝哪：'z+' / 'z-' / 'x+' / 'x-'。内部一律按开口朝 +Z 建，
+    再整体绕 y 转过去 —— 所以 w 永远是**沿开口面的宽**、d 是进深，
+    朝 ±X 的柜子调用时这两个要按世界轴换过来。
+    shelves 是层板中心相对柜体中心的高度。 */
+export function carcass(parent, {
+    w, h, d, pos, face = 'z+', mat, innerMat, t = 0.018, shelves = [], outline = 0.009,
+}) {
+    const g = new THREE.Group();
+    g.position.set(pos[0], pos[1], pos[2]);
+    g.rotation.y = { 'z+': 0, 'x+': Math.PI / 2, 'z-': Math.PI, 'x-': -Math.PI / 2 }[face] || 0;
+    parent.add(g);
+    const box3 = (bw, bh, bd) => new THREE.BoxGeometry(bw, bh, bd);
+    solid(box3(w, h, t), mat, { position: [0, 0, -(d - t) / 2], parent: g, outline });          // 背板
+    for (const sx of [-1, 1]) {
+        solid(box3(t, h, d), mat, { position: [sx * (w - t) / 2, 0, 0], parent: g, outline });  // 两侧
+    }
+    solid(box3(w - 2 * t, t, d), mat, { position: [0, -(h - t) / 2, 0], parent: g, outline });  // 底
+    solid(box3(w - 2 * t, t, d), mat, { position: [0, (h - t) / 2, 0], parent: g, outline });   // 顶
+    for (const sy of shelves) {
+        solid(box3(w - 2 * t - 0.004, 0.016, d - t - 0.014), innerMat || mat, {
+            position: [0, sy, 0.005], parent: g, outline: 0.005, cast: false,
+        });
+    }
+    return g;
 }
 
 /* 建网格的统一入口：默认收发阴影 + 描边 */

@@ -1,11 +1,24 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { matte, metal, stainless, solid } from './materials.js';
+import { matte, metal, stainless, solid, whirlpoolBadge } from './materials.js';
 
 const rb = (w, h, d, r = 0.012, seg = 3) => new RoundedBoxGeometry(w, h, d, seg, r);
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 
 const cyl = (r, h, seg = 20) => new THREE.CylinderGeometry(r, r, h, seg);
+
+/** 扁截面弓形把手：和冰箱把手使用同一种桥式轮廓。局部长度沿 Y、向 +Z 拱起。 */
+function bridgeHandle({ length, bow, width, thickness, segments = 30 }) {
+    const flatten = thickness / width;
+    const curve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(0, -length / 2, 0),
+        new THREE.Vector3(0, 0, (2 * bow) / flatten),
+        new THREE.Vector3(0, length / 2, 0),
+    );
+    const geo = new THREE.TubeGeometry(curve, segments, width / 2, 12, false);
+    geo.scale(1, 1, flatten);
+    return geo;
+}
 
 /**
  * 嵌入式燃气灶（30"）。原点在灶台正面地面中心，正面朝 +z。
@@ -46,29 +59,52 @@ export function buildRange({ W = 0.76, D = 0.66, TOP = 0.92 } = {}) {
 
     /* 烤箱门：厚不锈钢门框 + 黑玻璃，下沿留一条宽带放铭牌 */
     const doorH = DOOR.y1 - DOOR.y0, doorCy = (DOOR.y0 + DOOR.y1) / 2;
+    const ovenPivot = new THREE.Group();
+    ovenPivot.position.set(0, DOOR.y0, frontZ + 0.026);
+    g.add(ovenPivot);
     solid(rb(W, doorH, 0.052, 0.008), steel, {
-        position: [0, doorCy, frontZ + 0.026], parent: g, outline: 0.009,
+        position: [0, doorCy - DOOR.y0, 0], parent: ovenPivot, outline: 0.009,
     });
     const glassW = W - 0.155, glassH = doorH - 0.165;
     // 玻璃比几何中心略偏上，下面那条不锈钢才更宽——和实物一致
     const glassCy = doorCy + 0.028;
     solid(rb(glassW + 0.016, glassH + 0.016, 0.012, 0.006), matte(0x2f343c, { roughness: 0.4, metalness: 0.5 }), {
-        position: [0, glassCy, frontZ + 0.050], parent: g, outline: 0.005, cast: false,
+        position: [0, glassCy - DOOR.y0, 0.024], parent: ovenPivot, outline: 0.005, cast: false,
     });
     solid(rb(glassW, glassH, 0.014, 0.005), glass, {
-        position: [0, glassCy, frontZ + 0.054], parent: g, outline: 0.004, cast: false,
+        position: [0, glassCy - DOOR.y0, 0.028], parent: ovenPivot, outline: 0.004, cast: false,
     });
     // 铭牌
     solid(box(0.115, 0.018, 0.003), matte(0xdfe3e9, { roughness: 0.35, metalness: 0.4 }), {
-        position: [0, DOOR.y0 + 0.042, frontZ + 0.055], parent: g, outline: 0, cast: false,
+        position: [0, 0.042, 0.029], parent: ovenPivot, outline: 0, cast: false,
+    });
+
+    // 开门后可见的搪瓷内胆、后壁和两层烤架。
+    solid(rb(W - 0.075, doorH - 0.055, 0.018, 0.008), enamel, {
+        position: [0, doorCy, frontZ + 0.004], parent: g, outline: 0.006,
+    });
+    for (const sy of [doorCy - 0.105, doorCy + 0.085]) {
+        for (let i = -3; i <= 3; i++) {
+            solid(cyl(0.0035, W - 0.14, 8), steelDim, {
+                position: [0, sy, frontZ + 0.016 + i * 0.003], rotation: [0, 0, Math.PI / 2],
+                parent: g, outline: 0, cast: false,
+            });
+        }
+    }
+    // 门背内衬与观察窗内层，翻平后朝上。
+    solid(rb(W - 0.045, doorH - 0.045, 0.012, 0.007), enamel, {
+        position: [0, doorCy - DOOR.y0, -0.033], parent: ovenPivot, outline: 0.005,
+    });
+    solid(rb(glassW, glassH, 0.006, 0.005), glass, {
+        position: [0, glassCy - DOOR.y0, -0.041], parent: ovenPivot, outline: 0.003, cast: false,
     });
 
     /* 把手：扁平不锈钢宽条，不是圆管 */
-    solid(rb(W - 0.02, 0.048, 0.062, 0.008), steel, {
-        position: [0, HANDLE_Y, frontZ + 0.052], parent: g, outline: 0.008,
+    const ovenHandle = solid(rb(W - 0.02, 0.048, 0.062, 0.008), steel, {
+        position: [0, HANDLE_Y - DOOR.y0, 0.026], parent: ovenPivot, outline: 0.008,
     });
     solid(box(W - 0.06, 0.010, 0.02), matte(0x1a1a22, { roughness: 0.7 }), {
-        position: [0, HANDLE_Y - 0.026, frontZ + 0.062], parent: g, outline: 0, cast: false,
+        position: [0, HANDLE_Y - DOOR.y0 - 0.026, 0.036], parent: ovenPivot, outline: 0, cast: false,
     });
 
     /* 灶面下方的黑色光泽弧面 */
@@ -209,7 +245,10 @@ export function buildRange({ W = 0.76, D = 0.66, TOP = 0.92 } = {}) {
     // 灶架横条上沿：锅就坐在这个高度上（grate() 里 lift = TOP + 0.028、条厚 0.014）
     const grateTop = TOP + 0.035;
 
-    return { group: g, top: TOP, width: W, depth: D, knobs, burners, grateTop };
+    return {
+        group: g, top: TOP, width: W, depth: D, knobs, burners, grateTop,
+        door: { kind: 'oven-door', node: ovenPivot, pick: [ovenHandle], axis: 'x', spin: 1, swing: 1.42 },
+    };
 }
 
 /** 燃气火焰。
@@ -326,35 +365,94 @@ export function buildMicrowave({ W = 0.76, H = 0.43, D = 0.40 } = {}) {
 
     const steel = stainless(0xc4cad2, { roughness: 0.62 });
     const glass = matte(0x181820, { roughness: 0.3, metalness: 0.32 });
+    const enamel = matte(0x35373c, { roughness: 0.72 });
+    const cavityMat = matte(0x70737a, { roughness: 0.68, metalness: 0.14 });
     const frontZ = D;
 
-    solid(box(W, H, D), stainless(0xb6bdc6, { roughness: 0.68 }), {
-        position: [0, H / 2, D / 2], parent: g, outline: 0.010,
+    /* 外壳留出真实开口；顶、底、背与两侧围成箱体。 */
+    const shell = stainless(0xb6bdc6, { roughness: 0.68 });
+    const T = 0.025;
+    solid(rb(W, T, D, 0.005), shell, {
+        position: [0, H - T / 2, D / 2], parent: g, outline: 0.008,
+    });
+    solid(rb(W, T, D, 0.005), shell, {
+        position: [0, T / 2, D / 2], parent: g, outline: 0.008,
+    });
+    solid(rb(T, H - 2 * T, D, 0.005), shell, {
+        position: [-W / 2 + T / 2, H / 2, D / 2], parent: g, outline: 0.008,
+    });
+    solid(rb(T, H - 2 * T, D, 0.005), shell, {
+        position: [W / 2 - T / 2, H / 2, D / 2], parent: g, outline: 0.008,
+    });
+    solid(box(W - 2 * T, H - 2 * T, T), shell, {
+        position: [0, H / 2, T / 2], parent: g, outline: 0.006,
     });
 
     /* 门 */
     const doorW = W * 0.775;
     const doorCx = -W / 2 + doorW / 2 + 0.004;
+    const hingeX = -W / 2 + 0.006;
+    const doorPivot = new THREE.Group();
+    doorPivot.position.set(hingeX, 0, frontZ + 0.006);
+    g.add(doorPivot);
+    const doorRelX = doorCx - hingeX;
     solid(rb(doorW, H - 0.028, 0.032, 0.008), steel, {
-        position: [doorCx, H / 2, frontZ + 0.014], parent: g, outline: 0.008,
+        position: [doorRelX, H / 2, 0.014], parent: doorPivot, outline: 0.008,
     });
     solid(rb(doorW - 0.10, H - 0.13, 0.014, 0.005), matte(0x1b1b23, { roughness: 0.55 }), {
-        position: [doorCx - 0.012, H / 2, frontZ + 0.031], parent: g, outline: 0.005, cast: false,
+        position: [doorRelX - 0.012, H / 2, 0.031], parent: doorPivot, outline: 0.005, cast: false,
     });
     solid(rb(doorW - 0.125, H - 0.155, 0.012, 0.004), glass, {
-        position: [doorCx - 0.012, H / 2, frontZ + 0.034], parent: g, outline: 0.004, cast: false,
+        position: [doorRelX - 0.012, H / 2, 0.034], parent: doorPivot, outline: 0.004, cast: false,
     });
-    // 门把手：竖向，在门的右缘
+    // 门背板和观察窗内层，打开时不露出正面钢壳的背面。
+    solid(rb(doorW - 0.045, H - 0.070, 0.014, 0.006), enamel, {
+        position: [doorRelX, H / 2, -0.013], parent: doorPivot, outline: 0.004,
+    });
+    solid(rb(doorW - 0.130, H - 0.160, 0.007, 0.004), glass, {
+        position: [doorRelX - 0.012, H / 2, -0.022], parent: doorPivot, outline: 0.003, cast: false,
+    });
+    // 门把手：和冰箱一样的扁截面弓形桥，不是笔直圆柱。
     const hx = doorCx + doorW / 2 - 0.028;
-    solid(cyl(0.014, H - 0.13, 14), metal(0xd4dae2, 0.3), {
-        position: [hx, H / 2, frontZ + 0.058], parent: g, outline: 0.005,
+    const handle = solid(bridgeHandle({
+        length: H - 0.125, bow: 0.042, width: 0.034, thickness: 0.011,
+    }), metal(0xd4dae2, 0.3), {
+        position: [hx - hingeX, H / 2, 0.042], parent: doorPivot, outline: 0.005,
     });
-    for (const dy of [(H - 0.20) / 2, -(H - 0.20) / 2]) {
-        solid(cyl(0.011, 0.045, 10), metal(0xd4dae2, 0.3), {
-            position: [hx, H / 2 + dy, frontZ + 0.035], rotation: [Math.PI / 2, 0, 0],
-            parent: g, outline: 0.004,
+
+    /* 搪瓷内胆：开门后有顶/底/侧壁、后壁与玻璃转盘，而不是一张黑贴片。 */
+    const innerX0 = -W / 2 + 0.040;
+    const innerX1 = -W / 2 + doorW - 0.026;
+    const innerW = innerX1 - innerX0;
+    const innerCx = (innerX0 + innerX1) / 2;
+    const innerY0 = 0.048, innerY1 = H - 0.048;
+    const innerD = D - 0.070;
+    solid(box(innerW, innerY1 - innerY0, 0.018), cavityMat, {
+        position: [innerCx, (innerY0 + innerY1) / 2, 0.045], parent: g, outline: 0.004,
+    });
+    for (const sx of [innerX0, innerX1]) {
+        solid(box(0.020, innerY1 - innerY0, innerD), cavityMat, {
+            position: [sx, (innerY0 + innerY1) / 2, 0.045 + innerD / 2], parent: g, outline: 0.004,
         });
     }
+    solid(box(innerW, 0.020, innerD), cavityMat, {
+        position: [innerCx, innerY0, 0.045 + innerD / 2], parent: g, outline: 0.004,
+    });
+    solid(box(innerW, 0.020, innerD), cavityMat, {
+        position: [innerCx, innerY1, 0.045 + innerD / 2], parent: g, outline: 0.004,
+    });
+    const turntable = solid(cyl(Math.min(innerW * 0.40, 0.18), 0.010, 40), matte(0xc7d6d9, {
+        roughness: 0.16, transparent: true, opacity: 0.52,
+    }), {
+        position: [innerCx, innerY0 + 0.017, 0.045 + innerD * 0.52], parent: g, outline: 0.004, cast: false,
+    });
+    turntable.receiveShadow = true;
+    // 右上角暖色内灯，门打开时提供结构层次（不额外加动态光，避免溢出橱柜）。
+    solid(box(0.055, 0.040, 0.004), matte(0xffedc0, {
+        roughness: 0.55, emissive: 0xffd995, emissiveIntensity: 0.65,
+    }), {
+        position: [innerX1 - 0.040, innerY1 - 0.045, 0.058], parent: g, outline: 0.002, cast: false,
+    });
 
     /* 控制面板 */
     const panW = W * 0.195;
@@ -377,6 +475,12 @@ export function buildMicrowave({ W = 0.76, H = 0.43, D = 0.40 } = {}) {
             });
         }
     }
+
+  // The real unit carries a very small Whirlpool mark on the stainless
+  // fascia above the window. Keep it on the door so it follows the hinge.
+  const logo = whirlpoolBadge(0.052);
+  logo.position.set(doorRelX - 0.012, H - 0.040, 0.038);
+  doorPivot.add(logo);
 
     /* 底部排风格栅 + 照明灯 */
     for (let i = 0; i < 9; i++) {
@@ -401,5 +505,8 @@ export function buildMicrowave({ W = 0.76, H = 0.43, D = 0.40 } = {}) {
         });
     }
 
-    return { group: g };
+    return {
+        group: g,
+        door: { kind: 'microwave-door', node: doorPivot, pick: [handle], spin: -1, swing: 1.62 },
+    };
 }

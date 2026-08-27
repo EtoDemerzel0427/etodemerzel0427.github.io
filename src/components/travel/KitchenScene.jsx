@@ -20,6 +20,8 @@ const VIEW_BY_ID = Object.fromEntries(VIEWS.map((v) => [v.id, v]));
 const PIANO_AT = [3.75, 0.78, -0.05];
 /* 走开之后用的视场角：比预设略广一点，自己走的时候看得舒服些 */
 const FREE_FOV = 46, FREE_FOV_NARROW = 54;
+/** 看过开场引导的标记。换了 key 就等于对所有人再弹一次。 */
+const GUIDE_KEY = 'fv-guide-seen-1';
 const HOME_POS = VIEWS[0].pos;
 const HOME_TARGET = VIEWS[0].target;
 
@@ -66,8 +68,24 @@ export default function KitchenScene({ places = [] }) {
     const viewRef = useRef('fridge');
     useEffect(() => { viewRef.current = view; }, [view]);
     /* 列表页盖在上面的时候，键盘和滚轮别把身后的人挪走 */
+    /* 开场引导。桌面端左下角那行提示在 ≤820px 是 display:none 的 ——
+       手机上等于一句说明都没有，所以改成进屋先弹一次，看过就记进 localStorage。
+       左下角常驻一个「玩法 ?」，随时能再叫出来（那个按钮手机上也在）。 */
+    const [guide, setGuide] = useState(false);
+    useEffect(() => {
+        let seen = false;
+        try { seen = window.localStorage.getItem(GUIDE_KEY) === '1'; } catch { seen = false; }
+        if (!seen) setGuide(true);
+    }, []);
+    const closeGuide = useCallback(() => {
+        setGuide(false);
+        // 隐私模式下 localStorage 会抛，弹窗照常关掉就行
+        try { window.localStorage.setItem(GUIDE_KEY, '1'); } catch { /* 忽略 */ }
+    }, []);
+
     const uiRef = useRef(false);
-    useEffect(() => { uiRef.current = listView; }, [listView]);
+    // 弹窗开着的时候别让 WASD / 滚轮在后面推镜头
+    useEffect(() => { uiRef.current = listView || guide; }, [listView, guide]);
     /* 关掉冰箱贴详情，但不像 onSelect 那样顺手把机位收回厨房 */
     const clearActiveRef = useRef(null);
     clearActiveRef.current = () => setActiveSlug(null);
@@ -129,7 +147,43 @@ export default function KitchenScene({ places = [] }) {
                 scene.environment = envRT.texture;
                 scene.environmentIntensity = 0.5;
 
-                const { group: room, range, floor } = buildRoom();
+                const { group: room, range, microwave, floor, cabinets: cabDefs } = buildRoom();
+
+                /* 柜门 / 抽屉 / 垃圾桶盖：点一下开，再点一下关。
+                   三种运动共用一套状态，只是落到不同的属性上 ——
+                   门转 y、抽屉挪 z、桶盖转 x（外加踏板跟着沉）。 */
+                const cabs = (cabDefs || []).map((c) => ({ ...c, open: 0, want: 0 }));
+                const addCabs = (list) => { for (const c of list || []) cabs.push({ ...c, open: 0, want: 0 }); };
+                const APPLIANCE_DOORS = new Set([
+                    'fridge-door', 'freezer-drawer', 'microwave-door',
+                    'oven-door', 'dishwasher-door',
+                ]);
+                const isInside = (o, root) => {
+                    for (let p = o; p; p = p.parent) if (p === root) return true;
+                    return false;
+                };
+                const belongsToPlace = (o) => {
+                    for (let p = o; p; p = p.parent) if (p.userData?.place) return true;
+                    return false;
+                };
+                /* 关着时仍然只能拉把手；打开后，整扇家电门都是“关闭”热区。
+                   冰箱贴特意排除，否则点磁贴会先把门关掉。 */
+                const cabOf = (o) => cabs.find((c) => c.pick.includes(o))
+                    || (!belongsToPlace(o) && cabs.find((c) => c.want > 0.5
+                        && APPLIANCE_DOORS.has(c.kind) && isInside(o, c.node)))
+                    || null;
+                const CAB_LABEL = {
+                    door: ['开柜门', '关柜门'],
+                    drawer: ['拉开抽屉', '推回去'],
+                    lid: ['开垃圾桶', '盖上'],
+                    'fridge-door': ['拉开冰箱门', '关上冰箱门'],
+                    'freezer-drawer': ['拉开冷冻抽屉', '推回冷冻抽屉'],
+                    'microwave-door': ['拉开微波炉门', '关上微波炉门'],
+                    'oven-door': ['拉开烤箱门', '关上烤箱门'],
+                    'dishwasher-door': ['拉开洗碗机门', '关上洗碗机门'],
+                };
+                if (microwave?.door) addCabs([microwave.door]);
+                if (range?.door) addCabs([range.door]);
                 scene.add(room);
 
                 /* 灶台开火：点旋钮点火，再点熄火 */
@@ -146,6 +200,7 @@ export default function KitchenScene({ places = [] }) {
                 // 客厅：和厨房同一个局部坐标系，往 +Z / +X 长出去
                 const { group: living } = buildLiving();
                 scene.add(living);
+                addCabs(living.userData.cabinets);
                 const livingLights = buildLivingLights(scene);
 
                 /* 三盏落地灯都能开关：点灯罩就行。
@@ -157,6 +212,7 @@ export default function KitchenScene({ places = [] }) {
                     ['arc', livingLights.arc],
                     ['floor', livingLights.floorLamp],
                     ['desk', livingLights.desk],
+                    ['screenbar', livingLights.screenBar],
                 ].map(([name, light]) => {
                     const d = lampDefs[name];
                     if (!d || !light) return null;
@@ -168,10 +224,30 @@ export default function KitchenScene({ places = [] }) {
                         baseShade: d.shade ? d.shade.emissiveIntensity : 0,
                         glow: d.glow,
                         baseGlow: d.glow ? d.glow.emissiveIntensity : 0,
+                        // 悬臂灯的罩子会动，光源每帧跟着罩口走（见 frame）
+                        mouth: d.mouth || null,
+                        aim: d.aim || null,
+                        joints: d.joints || [],
                         on: true,
                     };
                 }).filter(Boolean);
                 const lampOf = (o) => lamps.find((l) => l.pick.includes(o)) || null;
+
+                /* 悬臂灯那两个关节（立杆上的滚花枢轴 / 罩子那副铰链）。
+                   点一下转一格、转到头掉头 —— 和龙头出水口一个套路：
+                   离散几档比拖拽好点，也不会和拖视角抢手指。 */
+                const joints = lamps.flatMap((l) => l.joints).map((j) => ({
+                    ...j,
+                    idx: Math.max(0, j.stops.indexOf(0)),
+                    dir: 1,
+                    angle: 0,
+                }));
+                const jointOf = (o) => joints.find((j) => j.pick.includes(o)) || null;
+                function turnJoint(j) {
+                    const next = j.idx + j.dir;
+                    if (next < 0 || next >= j.stops.length) j.dir = -j.dir;
+                    j.idx += j.dir;
+                }
                 function toggleLamp(l) {
                     l.on = !l.on;
                     l.light.intensity = l.on ? l.baseIntensity : 0;
@@ -226,6 +302,7 @@ export default function KitchenScene({ places = [] }) {
                 const tt = living.userData.turntable;
                 let lidOpen = false, spinning = false;
                 let lidAngle = 0, armAngle = tt.ARM_REST, armLift = 0, armTrack = 0;
+                let lpDrop = 0;                 // 0 = 唱片悬在盘上方，1 = 落到盘上
                 function toggleLid() { lidOpen = !lidOpen; }
                 function togglePlay() {
                     spinning = !spinning;
@@ -233,20 +310,34 @@ export default function KitchenScene({ places = [] }) {
                         lidOpen = true;              // 放唱片总得先掀盖
                         armTrack = 0;
                         tt.lp.visible = true;
+                        tt.lp.position.y = tt.LP_Y + tt.LP_LIFT * (1 - lpDrop);
                         audio.startRecord(tt.speakers);
                     } else {
                         audio.stopRecord();
                     }
                 }
 
-                const { group: fridge, doorPlane } = buildFridge();
-                // 嵌在柜龛里，所以正对前方；三维感靠机位角度，不靠转冰箱
-                fridge.position.set(-0.14, 0, -1.53);
+                const { group: fridge, doorPlane, doors: fridgeDoors } = buildFridge();
+                // 嵌在柜龛里，所以正对前方；三维感靠机位角度，不靠转冰箱。
+                // 不是居中：实拍里冰箱贴着左边那堵墙（缝只有 1cm），
+                // 龛口 0.95 减冰箱 0.89 剩下的余量基本都在右边。
+                fridge.position.set(-0.16, 0, -1.53);
                 scene.add(fridge);
 
                 const textureLoader = new THREE.TextureLoader();
                 const { group: magnetGroup, meshes: magnets } = buildMagnets(places, doorPlane, textureLoader);
                 fridge.add(magnetGroup);
+
+                /* 冰箱贴真正挂到左右门上。门轴以外缘为原点，而磁贴坐标原本以
+                   整台冰箱为原点，所以换父节点时扣除门轴偏移并同步 home。 */
+                for (const m of magnets) {
+                    const door = m.position.x < 0 ? fridgeDoors[0] : fridgeDoors[1];
+                    door.node.add(m);
+                    m.position.x -= door.node.position.x;
+                    m.position.z -= door.node.position.z;
+                    m.userData.home.copy(m.position);
+                }
+                addCabs(fridgeDoors);
 
                 /* ---------- 后期 ---------- */
                 const composer = new EffectComposer(renderer);
@@ -378,7 +469,8 @@ export default function KitchenScene({ places = [] }) {
                 const pickSet = new Set([
                     ...magnets, ...range.knobs, ...faucet.pickSpout, ...faucet.pickLever,
                     ...pianoKeys, ...power.pick, ...tt.pickCover, ...tt.pickPlay,
-                    ...lamps.flatMap((l) => l.pick),
+                    ...lamps.flatMap((l) => l.pick), ...joints.flatMap((j) => j.pick),
+                    ...cabs.flatMap((c) => c.pick),
                 ]);
                 const pickList = [...pickSet];
                 /** 撞到的这块几何属于哪个可交互件（大棱镜那枚磁贴是一堆零件拼的，
@@ -422,6 +514,11 @@ export default function KitchenScene({ places = [] }) {
                     const exact = probe(v);
                     const direct = exact && interactiveOf(exact.object);
                     if (direct) return { kind: 'interactive', hit: exact, object: direct };
+                    // 门板不常驻 pickSet：这样关闭时点门板不会误开；只有已经
+                    // 打开的家电门，才把实际命中的任意子网格当作关闭按钮。
+                    if (exact && cabOf(exact.object)) {
+                        return { kind: 'interactive', hit: exact, object: exact.object };
+                    }
                     const near = stickyPick(v);
                     if (near) return { kind: 'interactive', hit: near, object: interactiveOf(near.object) };
                     if (!exact) return { kind: 'none' };
@@ -482,10 +579,18 @@ export default function KitchenScene({ places = [] }) {
                 const leavePreset = () => { if (viewRef.current) setView(null); };
 
                 let dragging = false, dragAmount = 0, lastX = 0, lastY = 0, downAt = 0;
+                /* 鼠标和手指的方向习惯是**反的**，这不是口味问题：
+                     · 鼠标按住拖 = 转头，往右拖就往右看（屋子往左滑）
+                     · 手指按住划 = 把屋子拖着走，手指往右划屋子跟着往右，
+                       视线于是往**左**转
+                   Street View、地图、一切全景看房都是后者。手机上照鼠标那套做，
+                   划哪边都跟手感相反 —— 所以触摸/触控笔时把两个轴一起取反。 */
+                let dragSign = 1;
 
                 function onPointerDown(e) {
                     if (e.button !== 0 && e.pointerType === 'mouse') return;
                     dragging = true; dragAmount = 0; downAt = performance.now();
+                    dragSign = (e.pointerType === 'touch' || e.pointerType === 'pen') ? -1 : 1;
                     lastX = e.clientX; lastY = e.clientY;
                     try { canvas.setPointerCapture(e.pointerId); } catch { /* 不支持就算了 */ }
                     canvas.classList.add('is-dragging');
@@ -499,8 +604,8 @@ export default function KitchenScene({ places = [] }) {
                     /* 0.0062 rad/px：触控板上一次能舒服划出去 400px 左右，
                        正好转 140°。原来是 0.0042，一次划完还差得远，
                        想转到身后要反复抬手重来 —— 这就是「右转转不过去」。 */
-                    want.yaw -= dx * TURN_PER_PX;
-                    want.pitch = clampPitch(want.pitch - dy * TURN_PER_PX * 0.72);
+                    want.yaw -= dx * TURN_PER_PX * dragSign;
+                    want.pitch = clampPitch(want.pitch - dy * TURN_PER_PX * 0.72 * dragSign);
                     if (dragAmount > 7) leavePreset();
                 }
                 function onPointerUp(e) {
@@ -527,6 +632,10 @@ export default function KitchenScene({ places = [] }) {
                         }
                         if (faucet.pickLever.includes(o)) { waterOn = !waterOn; return; }
                         if (faucet.pickSpout.includes(o)) { swivelSpout(); return; }
+                        const cab = cabOf(o);
+                        if (cab) { cab.want = cab.want > 0.5 ? 0 : 1; return; }
+                        const joint = jointOf(o);
+                        if (joint) { turnJoint(joint); return; }
                         const lamp = lampOf(o);
                         if (lamp) { toggleLamp(lamp); return; }
                         if (power.pick.includes(o)) { togglePiano(); return; }
@@ -657,6 +766,13 @@ export default function KitchenScene({ places = [] }) {
                         } else if (hovered && power.pick.includes(hovered)) {
                             setHover({ slug: 'power', place: pianoOn ? '关掉电钢琴' : '开电钢琴' });
                         }
+                        else if (hovered && cabOf(hovered)) {
+                            const c = cabOf(hovered);
+                            setHover({ slug: 'cab', place: CAB_LABEL[c.kind][c.want > 0.5 ? 1 : 0] });
+                        }
+                        else if (hovered && jointOf(hovered)) {
+                            setHover({ slug: `joint-${jointOf(hovered).name}`, place: jointOf(hovered).label });
+                        }
                         else if (hovered && lampOf(hovered)) {
                             setHover({ slug: 'lamp', place: lampOf(hovered).on ? '关灯' : '开灯' });
                         }
@@ -709,7 +825,7 @@ export default function KitchenScene({ places = [] }) {
                             wasFocused = true;
                         }
                         focused.getWorldPosition(tmpV);
-                        fridge.getWorldQuaternion(tmpQ);
+                        focused.getWorldQuaternion(tmpQ);
                         const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(tmpQ);
                         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(tmpQ);
                         const narrow = camera.aspect < 1;
@@ -848,6 +964,36 @@ export default function KitchenScene({ places = [] }) {
                         scr.emissiveIntensity += ((pianoOn ? 1.1 : 0) - scr.emissiveIntensity) * k;
                     }
 
+                    /* 柜门 / 抽屉 / 桶盖。缓动到位就不再写属性，免得每帧都在
+                       给几十个 group 赋值。 */
+                    for (const c of cabs) {
+                        if (Math.abs(c.want - c.open) < 1e-4) continue;
+                        c.open += (c.want - c.open) * (1 - Math.exp(-7 * dt));
+                        if (c.kind === 'drawer' || c.kind === 'freezer-drawer') {
+                            c.node.position[c.axis] = c.dir * c.travel * c.open;
+                        }
+                        else if (c.kind === 'lid') c.node.rotation.x = -c.swing * c.open;
+                        else if (c.axis === 'x') c.node.rotation.x = c.spin * c.swing * c.open;
+                        else c.node.rotation.y = c.spin * c.swing * c.open;
+                        if (c.extra) c.extra.rotation.x = c.extraTilt * c.open;
+                    }
+
+                    /* 悬臂灯：两个关节各自缓到当前那一档；罩子一动，聚光灯就得
+                       跟着罩口重新摆位 —— 光源写死在世界坐标里的话，转完罩子
+                       朝着东、光还照在原地。 */
+                    for (const j of joints) {
+                        const wantA = j.stops[j.idx];
+                        if (Math.abs(wantA - j.angle) > 1e-4) {
+                            j.angle += (wantA - j.angle) * (1 - Math.exp(-8 * dt));
+                            j.node.rotation.z = j.angle;
+                        }
+                    }
+                    for (const l of lamps) {
+                        if (!l.mouth || !l.aim) continue;
+                        l.mouth.getWorldPosition(l.light.position);
+                        l.aim.getWorldPosition(l.light.target.position);
+                    }
+
                     /* 唱机：掀盖 / 唱盘 33⅓ 转 / 唱臂落针再慢慢往内圈走 */
                     {
                         const wantLid = lidOpen ? tt.LID_OPEN : 0;
@@ -867,7 +1013,14 @@ export default function KitchenScene({ places = [] }) {
                         armAngle += (wantArm - armAngle) * (1 - Math.exp(-3.2 * dt));
                         tt.arm.rotation.y = armAngle;
                         tt.arm.rotation.z = armLift;
-                        if (!spinning && !moving && tt.lp.visible && armLift < 0.005) tt.lp.visible = false;
+
+                        /* 上片 / 收片是「落下去」和「拿起来」，不是显示/隐藏。
+                           一闪就出现的唱片和绿绒垫连在一起看，就是「绿胶变黑胶」。 */
+                        lpDrop += ((spinning ? 1 : 0) - lpDrop) * (1 - Math.exp(-5.5 * dt));
+                        tt.lp.position.y = tt.LP_Y + tt.LP_LIFT * (1 - lpDrop);
+                        if (!spinning && !moving && tt.lp.visible && armLift < 0.005 && lpDrop < 0.02) {
+                            tt.lp.visible = false;
+                        }
                     }
 
                     /* 耳朵跟着相机走：钢琴在窗边、音箱在北墙，走过去才听得清 */
@@ -995,12 +1148,13 @@ export default function KitchenScene({ places = [] }) {
     useEffect(() => {
         const onKey = (e) => {
             if (e.key !== 'Escape') return;
-            if (listView) setListView(false);
+            if (guide) closeGuide();
+            else if (listView) setListView(false);
             else if (activeSlug) setActiveSlug(null);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [activeSlug, listView]);
+    }, [activeSlug, listView, guide, closeGuide]);
 
     return (
         <div className="fv-root">
@@ -1054,13 +1208,70 @@ export default function KitchenScene({ places = [] }) {
                 <button className="fv-btn" onClick={() => setListView(true)}>列表 ☰</button>
             </div>
             <div className="fv-hud fv-hud--bl">
+                <button className="fv-btn fv-btn--mini" onClick={() => setGuide(true)}>玩法 ?</button>
                 <span className="fv-hint">
                     {coarse ? '拖动转视角 · 点哪儿走哪儿' : 'WASD 走动 · 拖动或 ← → 转视角 · 点哪儿走哪儿'}
                     {view === 'fridge'
-                        ? ` · ${places.length} 枚冰箱贴，点开看详情 · 旋钮点火、龙头能转能放水`
-                        : ' · 钢琴开电源就能弹 · 唱机能掀盖、能放唱片 · 灯罩点一下开关灯'}
+                        ? ` · ${places.length} 枚冰箱贴，点开看详情 · 家电点把手开门 · 旋钮点火、龙头能转能放水`
+                        : ' · 钢琴开电源就能弹 · 唱机能掀盖、能放唱片 · 灯罩点一下开关灯 · 柜门抽屉垃圾桶都点得开'}
                 </span>
             </div>
+
+            {guide && (
+                <div className="fv-guide" role="dialog" aria-modal="true"
+                     aria-label="怎么玩" onClick={closeGuide}>
+                    {/* 点面板本身不该关掉，所以这儿把冒泡掐了 */}
+                    <div className="fv-guide__panel" onClick={(e) => e.stopPropagation()}>
+                        {/* 借 fv-panel__close 的样子，但定位要自己来 ——
+                            那个类在 ≤820px 有 top:-22px（给底部抽屉式详情面板的），
+                            照搬会让 ✕ 翘到弹窗外面压住右上角的按钮。 */}
+                        <button className="fv-panel__close fv-guide__close"
+                                onClick={closeGuide} aria-label="关闭">✕</button>
+                        <div className="fv-guide__head">
+                            <div className="fv-guide__title">怎么玩</div>
+                            <div className="fv-guide__sub">
+                                一间照着实测尺寸复刻的公寓。屋里的东西大多能上手。
+                            </div>
+                        </div>
+                        <div className="fv-guide__body">
+                            <section>
+                                <h4>走动</h4>
+                                <ul>
+                                    {coarse ? (
+                                        <li><b>拖动</b>转视角，<b>点地板</b>就走过去</li>
+                                    ) : (
+                                        <li><b>W A S D</b> 走动，<b>拖动</b>或 <b>← →</b> 转视角，<b>点地板</b>就走过去</li>
+                                    )}
+                                    <li>右上角四个按钮直接跳到<b>厨房 / 客厅 / 窗边 / 影音角</b></li>
+                                </ul>
+                            </section>
+                            <section>
+                                <h4>冰箱贴</h4>
+                                <ul>
+                                    <li>冰箱门上 <b>{places.length} 枚</b>磁贴，点开看是从哪儿带回来的</li>
+                                    <li>不想转的话，<b>列表 ☰</b> 是纯文字版</li>
+                                </ul>
+                            </section>
+                            <section>
+                                <h4>能上手的东西</h4>
+                                <ul>
+                                    <li><b>柜门 / 抽屉 / 垃圾桶盖</b> —— 点一下开，再点一下关</li>
+                                    <li><b>冰箱 · 烤箱 · 微波炉 · 洗碗机</b> —— 点把手开门</li>
+                                    <li><b>灶台旋钮</b> —— 点一下点火，再点一下熄火</li>
+                                    <li><b>水龙头</b> —— 能转向，也能放水</li>
+                                    <li><b>电钢琴</b> —— 先开电源，然后就能弹</li>
+                                    <li><b>唱机</b> —— 能掀盖、能放唱片</li>
+                                    <li><b>灯罩</b> —— 点一下开灯关灯</li>
+                                </ul>
+                            </section>
+                        </div>
+                        <div className="fv-guide__foot">
+                            <button className="fv-btn" onClick={closeGuide}>进屋 →</button>
+                            <span className="fv-guide__note">左下角「玩法 ?」随时能再看</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {listView && (
                 <div className="fv-list">
