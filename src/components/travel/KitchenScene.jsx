@@ -86,6 +86,11 @@ export default function KitchenScene({ places = [] }) {
     const uiRef = useRef(false);
     // 弹窗开着的时候别让 WASD / 滚轮在后面推镜头
     useEffect(() => { uiRef.current = listView || guide; }, [listView, guide]);
+    /* 纯文本列表是不透明铺满的（overlay.css 里 .fv-list：inset 0 + 实底色），
+       盖着的时候屋子一个像素都露不出来 —— 那就别画，也别拾取。
+       开场引导只是块小面板，屋子还看得见，不算。 */
+    const coveredRef = useRef(false);
+    useEffect(() => { coveredRef.current = listView; }, [listView]);
     /* 关掉冰箱贴详情，但不像 onSelect 那样顺手把机位收回厨房 */
     const clearActiveRef = useRef(null);
     clearActiveRef.current = () => setActiveSlug(null);
@@ -126,10 +131,28 @@ export default function KitchenScene({ places = [] }) {
                 if (!canvas) return;
 
                 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+                /* 内部分辨率的档位。这间屋子的开销是**按像素算**的：同一台机器上只把
+                   内部画布从 2× 降到 1×，帧时间掉到三分之一，而绘制调用一个没少 ——
+                   瓶颈在每个像素要过的那段着色器（二十盏灯 + 五道后期），不在屋里
+                   摆了多少东西。所以跑不动的机器该省的是像素，不是内容：家具、灯光、
+                   漫画滤镜一样不减，只把画布铺得稀一点。
+                   网点和颗粒是按 CSS 像素算的（见 resize 里的 uResolution），降档
+                   不会让网点跟着变粗，掉的只是边缘那一点锐度 —— 而边缘后面还压着
+                   SMAA 和色阶量化，本来就不靠分辨率撑。 */
+                const MAX_DPR = Math.min(window.devicePixelRatio || 1, 2);
+                const DPR_STEPS = [...new Set([MAX_DPR, 1.5, 1.25, 1].filter((d) => d <= MAX_DPR))];
+                let dprIdx = 0;
+                let dpr = DPR_STEPS[0];
                 renderer.setPixelRatio(dpr);
                 renderer.shadowMap.enabled = true;
                 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                /* 投影贴图不每帧重画。两盏带影的方向光各 2048²，一帧要把 331 个投影体
+                   各画一遍 —— 全场一千两百多次绘制调用里有一半花在这上面。可屋里绝大
+                   多数时候是静的：投影相机按整屋框死（fitShadowCamera），走动和转头都
+                   不改投影，只有柜门、磁贴、唱盘这些真动起来的东西才需要重画。
+                   下面 markShadows() 负责在那几处缓动里点名。 */
+                renderer.shadowMap.autoUpdate = false;
                 renderer.toneMapping = THREE.ACESFilmicToneMapping;
                 renderer.toneMappingExposure = 0.64;
 
@@ -186,6 +209,27 @@ export default function KitchenScene({ places = [] }) {
                 if (range?.door) addCabs([range.door]);
                 scene.add(room);
 
+                /* 四个炉头各带一盏点光，负责把火焰周围的灶架和台面染上一圈蓝 ——
+                   没有它，火焰就只是贴在灶台上的一张图，而不是在烧。
+
+                   问题是它们平时是灭的，可 three 把**灯的数量编进着色器**：一盏
+                   intensity 0、照射半径只有 40cm 的点光，照样要在屏幕上每一个像素里
+                   算一遍衰减。实测这四盏占掉整帧三成的时间（16.6ms → 11.4ms），
+                   而绝大多数人从进屋到离开根本没拧过灶。
+
+                   所以平时干脆不让它们待在场景里，点火才挂上去。四盏一起进出 ——
+                   一盏一盏加的话点光数量会走 2→3→4→5→6 五种，每种都是一套新着色器。 */
+                const burnerLights = range.burners.map((b) => ({ light: b.light, host: b.light.parent }));
+                let burnerLightsIn = true;
+                function setBurnerLights(want) {
+                    if (want === burnerLightsIn) return;
+                    burnerLightsIn = want;
+                    for (const { light, host } of burnerLights) {
+                        if (want) host.add(light); else host.remove(light);
+                    }
+                }
+                setBurnerLights(false);
+
                 /* 灶台开火：点旋钮点火，再点熄火 */
                 const knobAngle = range.knobs.map(() => 0);
                 function toggleBurner(i) {
@@ -194,6 +238,8 @@ export default function KitchenScene({ places = [] }) {
                     b.flame.visible = on;
                     b.light.intensity = on ? 0.018 : 0;
                     knobAngle[i] = on ? -Math.PI * 0.55 : 0;
+                    // 还有一个炉头在烧，四盏就都留着；全灭了才一起撤走
+                    setBurnerLights(range.burners.some((x) => x.flame.visible));
                 }
                 buildLights(scene);
 
@@ -415,7 +461,11 @@ export default function KitchenScene({ places = [] }) {
                     if (!w || !h) return;
                     renderer.setSize(w, h, false);
                     composer.setSize(w, h);
-                    bloom.setSize(w, h);
+                    /* 辉光走半分辨率。它本来就是一团糊的（strength 0.12、radius 0.5），
+                       少一半采样点看不出来，而它是整条后期链里第二贵的一道。
+                       这行必须排在 composer.setSize 之后 —— composer 会按自己的
+                       分辨率把每道 pass 重设一遍，写在前面会被盖掉。 */
+                    bloom.setSize(Math.max(1, Math.round(w / 2)), Math.max(1, Math.round(h / 2)));
                     comic.uniforms.uResolution.value.set(w, h);
                     camera.aspect = w / h;
                     camera.updateProjectionMatrix();   // fov 每帧按当前机位设，见下面 frame()
@@ -425,6 +475,46 @@ export default function KitchenScene({ places = [] }) {
                 // 视口变化不总会触发 window resize（面板拖拽、旋转屏），盯住画布本身更可靠
                 const ro = new ResizeObserver(resize);
                 ro.observe(canvas);
+
+                /* 掉帧就往下降一档（见 DPR_STEPS）。
+                   开头 2.5 秒不算数 —— 着色器编译、贴图上传、字体全挤在那儿，
+                   拿那几帧判机器卡不卡是在冤枉它。之后每 1.2 秒看一次中位帧时。
+
+                   窗口按**时间**算而不是按帧数算，这一点是有讲究的：按帧数的话，
+                   越卡的机器攒满一窗越慢 —— 8fps 那台要等半分钟才等来第一次降档，
+                   而它恰恰是最需要马上降的那一台。按时间就跟帧率无关，谁都是
+                   五秒内见分晓。
+
+                   第一档要连着两窗都差才降（一次 GC、一次切标签页不该把画质带下去）；
+                   已经降过一次说明这台机器确实吃力，后面就不再犹豫。
+                   只降不升：跑得动的机器从头到尾都是满分辨率，这段逻辑一次都不触发。 */
+                const PERF_WARMUP_MS = 2500, PERF_WINDOW_MS = 1200;
+                const PERF_MIN_SAMPLES = 5, PERF_BAD_MS = 27;   // 27ms ≈ 37fps
+                let perfStart = 0, perfWindowEnd = 0, perfBad = 0;
+                const perfBuf = [];
+                function samplePerf(now, ms) {
+                    if (!perfStart) {
+                        perfStart = now;
+                        perfWindowEnd = now + PERF_WARMUP_MS + PERF_WINDOW_MS;
+                        return;
+                    }
+                    if (now < perfStart + PERF_WARMUP_MS || dprIdx >= DPR_STEPS.length - 1) return;
+                    if (ms < 1000) perfBuf.push(ms);    // 切回标签页那一下能有好几秒，不算
+                    // 时间到了、样本也够了才结一窗 —— 极慢的机器一窗攒不到几帧，等它攒够
+                    if (now < perfWindowEnd || perfBuf.length < PERF_MIN_SAMPLES) return;
+                    perfWindowEnd = now + PERF_WINDOW_MS;
+                    perfBuf.sort((a, b) => a - b);
+                    const p50 = perfBuf[perfBuf.length >> 1];
+                    perfBuf.length = 0;
+                    perfBad = p50 > PERF_BAD_MS ? perfBad + 1 : 0;
+                    if (perfBad < (dprIdx === 0 ? 2 : 1)) return;
+                    perfBad = 0;
+                    dprIdx += 1;
+                    dpr = DPR_STEPS[dprIdx];
+                    renderer.setPixelRatio(dpr);
+                    composer.setPixelRatio(dpr);
+                    resize();
+                }
 
                 let hovered = null;
                 /* 上一帧的拾取结果 + 当时的鼠标/镜头状态，没动就不重算 */
@@ -622,6 +712,10 @@ export default function KitchenScene({ places = [] }) {
                 }
 
                 function handleClick(e) {
+                    /* 点下去多半会有东西动起来（门、旋钮、唱盘…）。各处缓动自己会
+                       markShadows()，这里再补一手：万一将来加了件没登记的活动零件，
+                       至少点它的那一下投影是对的。 */
+                    markShadows();
                     const r = resolve(toNdc(e, clickNdc));
 
                     if (r.kind === 'interactive') {
@@ -719,23 +813,50 @@ export default function KitchenScene({ places = [] }) {
                 const clock = new THREE.Clock();
                 let raf = 0;
 
+                /* 这一帧有没有东西动过 —— 动了才重画投影贴图（见 shadowMap.autoUpdate）。
+                   置 2 而不是 1：缓动是写完最后一帧属性才停的，多留一帧收尾。 */
+                let shadowDirty = 2;
+                const markShadows = () => { shadowDirty = 2; };
+                /* 悬停拾取最快每 22ms 算一次（≈45Hz）。一次 resolve 要把射线过一遍
+                   1108 个网格，2ms 的纯 JS —— 慢机器上更贵，而地面光标和悬停提示
+                   在 45Hz 和 120Hz 之间没人分得出来。点击不走这条路（handleClick 自己
+                   现算一次），所以点得准不准不受影响。 */
+                const PROBE_MIN_MS = 22;
+                let lastProbeAt = 0;
+
+                /* 磁贴的投影是拿贴图的 alpha 裁出来的（见 magnets.js 里那个 alphaTest），
+                   所以贴图到货的那一刻投影得重画一次 —— 不然先画出来的是一块方方正正
+                   的影子，永远等不到自己变成磁贴的形状。
+                   这是「几何没动、投影却该变」的一类：投影贴图平时不刷新，这种时刻
+                   只能自己点名。 */
+                const loadManager = THREE.DefaultLoadingManager;
+                const prevOnProgress = loadManager.onProgress;
+                loadManager.onProgress = (...a) => { markShadows(); prevOnProgress?.(...a); };
+
                 function frame() {
                     raf = requestAnimationFrame(frame);
-                    const dt = Math.min(clock.getDelta(), 0.05);
+                    const raw = clock.getDelta();
+                    const dt = Math.min(raw, 0.05);
                     const t = clock.getElapsedTime();
+                    const now = performance.now();
+                    samplePerf(now, raw * 1000);
+                    if (shadowDirty > 0) { renderer.shadowMap.needsUpdate = true; shadowDirty -= 1; }
 
                     /* 指着什么 + 会走到哪 —— 同一次 resolve 决定，所以地面光标
                        画的就是点下去真正会落到的点，不会「看着指沙发、点了跑别处」。
-                       射线要过 586 个网格，鼠标和镜头都没动就沿用上一帧的结果。 */
-                    if (!dragging && ndc.x > -5) {
-                        const moved = Math.abs(ndc.x - lastProbe.nx) > 1e-4
+                       射线要过全屋一千一百多个网格（约 2ms 纯 JS），鼠标和镜头都没动
+                       就沿用上一帧的结果，动了也最多每 22ms 重算一次。 */
+                    if (!dragging && !coveredRef.current && ndc.x > -5) {
+                        const moved = now - lastProbeAt >= PROBE_MIN_MS && (
+                            Math.abs(ndc.x - lastProbe.nx) > 1e-4
                             || Math.abs(ndc.y - lastProbe.ny) > 1e-4
                             || Math.abs(camPos.x - lastProbe.cx) > 1e-3
                             || Math.abs(camPos.z - lastProbe.cz) > 1e-3
                             || Math.abs(aim.yaw - lastProbe.yaw) > 3e-4
                             || Math.abs(aim.pitch - lastProbe.pitch) > 3e-4
-                            || activeRef.current !== lastProbe.active;
+                            || activeRef.current !== lastProbe.active);
                         if (moved) {
+                            lastProbeAt = now;
                             lastProbe.nx = ndc.x; lastProbe.ny = ndc.y;
                             lastProbe.cx = camPos.x; lastProbe.cz = camPos.z;
                             lastProbe.yaw = aim.yaw; lastProbe.pitch = aim.pitch;
@@ -927,10 +1048,14 @@ export default function KitchenScene({ places = [] }) {
                         const isActive = m.userData.place.slug === slug;
                         const lift = isActive ? 0.028 : isHover ? 0.014 : 0;
                         const target = m.userData.home.z + lift;
-                        m.position.z += (target - m.position.z) * (1 - Math.exp(-9 * dt));
                         const s = m.userData.baseScale * (isActive ? 1.06 : isHover ? 1.04 : 1);
+                        // 到位就别写了：四十来枚磁贴全是投影体，每帧都动等于每帧重画投影
+                        if (Math.abs(target - m.position.z) < 1e-5
+                            && Math.abs(s - m.scale.x) < 1e-6) continue;
+                        m.position.z += (target - m.position.z) * (1 - Math.exp(-9 * dt));
                         m.scale.x += (s - m.scale.x) * (1 - Math.exp(-9 * dt));
                         m.scale.y = m.scale.z = m.scale.x;
+                        markShadows();
                     }
 
                     /* 钢琴：按下的键沉 7mm，到点自己弹回来。
@@ -968,6 +1093,7 @@ export default function KitchenScene({ places = [] }) {
                        给几十个 group 赋值。 */
                     for (const c of cabs) {
                         if (Math.abs(c.want - c.open) < 1e-4) continue;
+                        markShadows();
                         c.open += (c.want - c.open) * (1 - Math.exp(-7 * dt));
                         if (c.kind === 'drawer' || c.kind === 'freezer-drawer') {
                             c.node.position[c.axis] = c.dir * c.travel * c.open;
@@ -986,6 +1112,7 @@ export default function KitchenScene({ places = [] }) {
                         if (Math.abs(wantA - j.angle) > 1e-4) {
                             j.angle += (wantA - j.angle) * (1 - Math.exp(-8 * dt));
                             j.node.rotation.z = j.angle;
+                            markShadows();
                         }
                     }
                     for (const l of lamps) {
@@ -1021,6 +1148,13 @@ export default function KitchenScene({ places = [] }) {
                         if (!spinning && !moving && tt.lp.visible && armLift < 0.005 && lpDrop < 0.02) {
                             tt.lp.visible = false;
                         }
+                        /* 盘和唱片是绕自己轴心转的圆盘 —— 转归转，这一帧和下一帧的
+                           投影一模一样，没必要为它每帧重画两张 2048² 的投影贴图。
+                           真会改投影的只有三样：掀盖、抬臂、上下片。 */
+                        if (moving || Math.abs(wantLid - lidAngle) > 1e-4
+                            || Math.abs((spinning ? 1 : 0) - lpDrop) > 1e-3) {
+                            markShadows();
+                        }
                     }
 
                     /* 耳朵跟着相机走：钢琴在窗边、音箱在北墙，走过去才听得清 */
@@ -1032,6 +1166,7 @@ export default function KitchenScene({ places = [] }) {
                     /* 火焰：每根火舌用不同相位错开缩放，配合灯光轻微闪烁 */
                     range.burners.forEach((b, i) => {
                         const knob = range.knobs[i].userData.knob.group;
+                        if (Math.abs(knobAngle[i] - knob.rotation.y) > 1e-4) markShadows();
                         knob.rotation.y += (knobAngle[i] - knob.rotation.y) * (1 - Math.exp(-12 * dt));
                         if (!b.flame.visible) return;
                         b.flame.userData.uniforms.uTime.value = t;
@@ -1041,8 +1176,10 @@ export default function KitchenScene({ places = [] }) {
                     /* 水龙头：转到位 / 扳手柄 / 出水 */
                     {
                         const f = faucet;
-                        f.spout.rotation.y += (f.SWIVEL_STOPS[swivelIdx] - f.spout.rotation.y) * (1 - Math.exp(-7 * dt));
                         const wantLever = waterOn ? f.LEVER_ON : f.LEVER_OFF;
+                        if (Math.abs(f.SWIVEL_STOPS[swivelIdx] - f.spout.rotation.y) > 1e-4
+                            || Math.abs(wantLever - f.lever.rotation.x) > 1e-4) markShadows();
+                        f.spout.rotation.y += (f.SWIVEL_STOPS[swivelIdx] - f.spout.rotation.y) * (1 - Math.exp(-7 * dt));
                         f.lever.rotation.x += (wantLever - f.lever.rotation.x) * (1 - Math.exp(-11 * dt));
 
                         f.waterAnchor.visible = waterOn;
@@ -1067,14 +1204,33 @@ export default function KitchenScene({ places = [] }) {
                     // 颗粒按 12fps 步进，动态是「二格一拍」而不是每帧都抖
                     comic.uniforms.uTime.value = Math.floor(t * 12) / 12;
 
+                    // 列表盖着的时候屋子看不见（见 coveredRef），画了也是白画
+                    if (coveredRef.current) return;
                     composer.render();
                 }
+
+                /* 着色器是第一次用到才编译的：三十来个程序、每个都要过十几盏灯，
+                   慢机器上全挤在进屋第一帧，于是「进来 → 僵住半秒 → 才开始动」。
+                   先编完再揭幕 —— 有 KHR_parallel_shader_compile 的浏览器还能并行编。
+                   代价是加载动画多转一会儿，换掉的是开门那一下的卡顿，这笔划算。
+
+                   两种灯光配置各编一遍：点火那一下点光会从 2 盏变 6 盏，而灯的数量
+                   是编进着色器的，等于要把全部材质重编一次。不预热的话，第一次拧开
+                   灶就会僵一下。先编「有炉火」那套、再编默认那套，两个变体都进缓存，
+                   之后来回切就是白拿；末尾停在默认配置上。 */
+                setBurnerLights(true);
+                try { await renderer.compileAsync(scene, camera); } catch { /* 编不了就照常走 */ }
+                setBurnerLights(false);
+                try { await renderer.compileAsync(scene, camera); } catch { /* 同上 */ }
+                if (disposed) return;
+
                 frame();
 
                 if (!disposed) setReady(true);
 
                 worldRef.current = { camera, canvas, magnets, THREE, raycaster, ndc, range, scene,
                     camPos, aim, want, solids, resolve, walkable, snapToWalkable, findPath, keys,
+                    renderer, composer, bloom, comic,
                     /* 调试用：把人直接放到某处朝某处看。
                        光改 camPos 不行 —— 预设机位那套还在把镜头往回拉。 */
                     teleport: (px, py, pz, tx, ty, tz) => {
@@ -1097,6 +1253,7 @@ export default function KitchenScene({ places = [] }) {
 
                 cleanup = () => {
                     cancelAnimationFrame(raf);
+                    loadManager.onProgress = prevOnProgress;   // 这是个全局单例，别留着
                     audio.disposeAudio();
                     ro.disconnect();
                     window.removeEventListener('resize', resize);
