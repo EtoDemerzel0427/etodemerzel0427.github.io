@@ -22,6 +22,8 @@ const PIANO_AT = [3.75, 0.78, -0.05];
 const FREE_FOV = 46, FREE_FOV_NARROW = 54;
 /** 自己上传的那份谱子存在这个键下。换 key 就等于把所有人的清一次。 */
 const ABC_KEY = 'fv-abc-1';
+/** 「点亮琴键」的开关。 */
+const GLOW_KEY = 'fv-keyglow-1';
 
 const mmss = (t) => {
     const n = Math.max(0, Math.floor(t));
@@ -104,8 +106,9 @@ export default function KitchenScene({ places = [], things = [] }) {
     const [uploadErr, setUploadErr] = useState('');
     /* 速度倍率。练琴用的：写死在谱面上的速度对着练是没法练的。 */
     const [rate, setRate] = useState(1);
-    /* 弹到的琴键点不点亮。**不记**，每次进屋都是关的 —— 这是「我正在对着谱子
-       练」时才开的东西，不是一项长期偏好；屋子平时不该有个会发粉光的钢琴。 */
+    /* 弹到的琴键点不点亮。**第一次进屋是关的**，之后跟着上次的选择走 ——
+       屋子对头一回来的人不该有个会发粉光的钢琴；但自己开过一次就说明是在
+       对着谱子练，别每次都要再点一遍。 */
     const [keyGlow, setKeyGlow] = useState(false);
     const baseTempoRef = useRef(0);
 
@@ -119,8 +122,13 @@ export default function KitchenScene({ places = [], things = [] }) {
         }).catch(() => { /* 拿不到就还是原来那份 */ });
     }, []);
 
+    // 只在开场读一次：没存过就是 false，也就是头一回进屋的那个默认
+    useEffect(() => {
+        try { setKeyGlow(window.localStorage.getItem(GLOW_KEY) === '1'); } catch { /* 隐私模式读不到 */ }
+    }, []);
     useEffect(() => {
         worldRef.current?.setKeyGlow(keyGlow);
+        try { window.localStorage.setItem(GLOW_KEY, keyGlow ? '1' : '0'); } catch { /* 存不下就只这一次有效 */ }
     }, [keyGlow, ready]);
 
     const abc = userAbc || sheetThing?.abc || '';
