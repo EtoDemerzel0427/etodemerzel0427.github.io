@@ -3011,6 +3011,29 @@ function buildPiano(group) {
     const panel = matte(0x141419, { roughness: 0.42 });
     const ivory = matte(0xf1eee5, { roughness: 0.34 });
     const ebony = matte(0x16161c, { roughness: 0.30 });
+    /* 「点亮琴键」那个开关用的另一套材质。键按下去只沉 7mm，站远一点、或者
+       快句里一闪而过的时候确实看不清 —— 学琴的时候得看得见弹的是哪个键。
+
+       用**换材质**而不是改颜色：88 个键共用这两个材质，直接改 color 会一起变。
+       粉色跟谱面上高亮那一下同一支（overlay.css 的 --pink），一眼能对上是同
+       一个音。 */
+    /* 白键和黑键要分开配，两头的做法是反的：
+
+         · 白键**染色**，不换色。整块刷成满饱和的粉，出来是一个「粉色的键」，
+           那是把键换掉了，不是把键标出来。所以拿象牙白往粉里调 55%，读起来
+           还是白键，只是被标了一下。自发光给 0 —— 白键本来就朝着光、面积
+           又是黑键的两倍多，再加自发光只会更烫。
+         · 黑键反过来。底色是 0x16161c，染色染不动，只能实打实上色再补自发光
+           才浮得起来。
+
+       粉是谱面上高亮那一支（overlay.css 的 --pink），同一个音一眼能对上。 */
+    const litKey = (base, color, glow) => {
+        const m = base.clone();
+        m.color = new THREE.Color(color);
+        m.emissive = new THREE.Color(0xff2e88);
+        m.emissiveIntensity = glow;
+        return m;
+    };
     const rubber = matte(0x0f0f13, { roughness: 0.85 });
 
     const X = 3.75;                      // 琴身中心（背面离窗墙内表面 0.055）
@@ -3143,6 +3166,13 @@ function buildPiano(group) {
         }
     }
     group.userData.pianoKeys = keys;
+    // 白键 / 黑键各一对：常态和点亮。KitchenScene 每帧按需换上去。
+    group.userData.pianoKeyMats = {
+        white: ivory, black: ebony,
+        // 0xf98ab5 = 象牙白 0xf1eee5 往 0xff2e88 里调 55%
+        whiteLit: litKey(ivory, 0xf98ab5, 0),
+        blackLit: litKey(ebony, 0xff2e88, 1.05),
+    };
     /* 电钢琴 —— 不开电源不响。KitchenScene 接这三样：命中盒、指示灯、小屏。 */
     group.userData.pianoPower = { pick: [powerGrab], btn: powerBtn, led: powerLed, screen };
 

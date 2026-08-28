@@ -104,6 +104,9 @@ export default function KitchenScene({ places = [], things = [] }) {
     const [uploadErr, setUploadErr] = useState('');
     /* 速度倍率。练琴用的：写死在谱面上的速度对着练是没法练的。 */
     const [rate, setRate] = useState(1);
+    /* 弹到的琴键点不点亮。**不记**，每次进屋都是关的 —— 这是「我正在对着谱子
+       练」时才开的东西，不是一项长期偏好；屋子平时不该有个会发粉光的钢琴。 */
+    const [keyGlow, setKeyGlow] = useState(false);
     const baseTempoRef = useRef(0);
 
     useEffect(() => {
@@ -115,6 +118,10 @@ export default function KitchenScene({ places = [], things = [] }) {
             setUserAbc(saved);
         }).catch(() => { /* 拿不到就还是原来那份 */ });
     }, []);
+
+    useEffect(() => {
+        worldRef.current?.setKeyGlow(keyGlow);
+    }, [keyGlow, ready]);
 
     const abc = userAbc || sheetThing?.abc || '';
     const title = userMeta?.title || sheetThing?.title || '';
@@ -663,6 +670,8 @@ export default function KitchenScene({ places = [], things = [] }) {
                 /* 钢琴：点一个键，响一声 + 键往下沉。
                    living.js 早就把 88 个键连 midi 一起挂出来了，这里只管接。 */
                 const pianoKeys = living.userData.pianoKeys || [];
+                const keyMats = living.userData.pianoKeyMats || null;
+                let keyGlow = false;        // 「点亮琴键」开关，默认关
                 const power = living.userData.pianoPower;
                 const pressed = new Map();      // key mesh -> 松手的时刻
                 let pianoOn = false;            // 电钢琴，开机才响
@@ -1616,6 +1625,15 @@ export default function KitchenScene({ places = [], things = [] }) {
                         if (Math.abs(want - cur) > 1e-5) {
                             m.position.y = cur + (want - cur) * (1 - Math.exp(-26 * dt));
                         }
+                        /* 开了「点亮琴键」就给按下的那几个换上发光材质。
+                           换引用、不改颜色 —— 88 个键共用同一个材质。 */
+                        if (keyMats) {
+                            const black = m.userData.black;
+                            const mat = keyGlow && down
+                                ? (black ? keyMats.blackLit : keyMats.whiteLit)
+                                : (black ? keyMats.black : keyMats.white);
+                            if (m.material !== mat) m.material = mat;
+                        }
                     }
 
                     /* 电源指示。关机时**不是灭的，是慢慢呼吸**的待机红灯 ——
@@ -1778,6 +1796,8 @@ export default function KitchenScene({ places = [], things = [] }) {
                     setSheetTexture: (tex) => sheet?.setTexture(tex),
                     /** 面板开着 = 纸拿在手上 */
                     holdSheet: (on) => { sheetHeld = !!on; },
+                    /** 弹到的琴键点不点亮。关掉那一下由渲染循环把材质换回去。 */
+                    setKeyGlow: (on) => { keyGlow = !!on; },
                     /* 架上谱架 / 从谱架拿下来。往琴那边去要跟镜头，往回不用 ——
                        从谱架下来是回到手上，纸是朝人这边来的。 */
                     putSheetOnRest: (on) => {
@@ -1853,6 +1873,8 @@ export default function KitchenScene({ places = [], things = [] }) {
                             });
                         }
                     });
+                    // 点亮那套材质可能从头到尾没挂到网格上，上面那趟 traverse 扫不到
+                    if (keyMats) { keyMats.whiteLit.dispose(); keyMats.blackLit.dispose(); }
                     renderer.dispose();
                 };
             } catch (err) {
@@ -2001,6 +2023,12 @@ export default function KitchenScene({ places = [], things = [] }) {
                                     onClick={() => changeRate(r)}
                                 >{r === 1 ? '原速' : `${r}×`}</button>
                             ))}
+                            <button
+                                className={`fv-chip fv-chip--wide${keyGlow ? ' is-on' : ''}`}
+                                aria-pressed={keyGlow}
+                                onClick={() => setKeyGlow((v) => !v)}
+                                title="弹到哪个键就点亮哪个，看谱的时候好跟"
+                            >点亮琴键</button>
                         </div>
                         <div className="fv-sheet__tools">
                             {onRest ? (
