@@ -551,3 +551,273 @@
 /* ✕ 钉在弹窗自己的角上。放在文件末尾是为了压过上面那条
    @media .fv-panel__close { top: -22px }（那条是给底部抽屉面板的）。 */
 .fv-guide__close { top: -8px; right: -8px; }
+
+/* ---------- 谱子 ----------
+   和详情面板同一套（米色纸 + 墨线框 + 硬投影），但摆在**左边**、也更宽：
+   五线谱是横着长的，420px 的右侧面板一行谱要挤成两行。 */
+
+.fv-sheet {
+    position: absolute;
+    left: 4vw;
+    top: 50%;
+    width: min(560px, 88vw);
+    max-height: 80vh;
+    transform: translateY(-50%) translateX(-40px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 320ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    background: var(--cream);
+    border: 7px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 14px 16px 0 rgba(21, 15, 44, 0.55);
+    display: flex;
+    flex-direction: column;
+    z-index: 21;
+}
+
+.fv-sheet.is-open {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+    pointer-events: auto;
+}
+
+.fv-sheet__close { right: -14px; top: -14px; }
+
+/* 谱面比面板高，中间这段是唯一该让出去的 —— 不写死的话 flex 会把
+   标题条和底下那排按钮一起压扁。 */
+.fv-sheet > .fv-panel__head,
+.fv-sheet__foot { flex: 0 0 auto; }
+
+.fv-sheet__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 6px;
+}
+
+/* 谱子还拿在手上的时候，面板收窄，谱面那块整个收起来 —— 那张纸就在画面右边，
+   面板只管说明和按钮。架上谱架之后（.has-score）才铺开。 */
+.fv-sheet:not(.has-score) { width: min(360px, 84vw); }
+.fv-sheet:not(.has-score) .fv-sheet__score { display: none; }
+
+.fv-sheet__note {
+    margin: 0;
+    padding: 0 20px 14px;
+    font-size: 15px;
+    color: var(--ink-soft);
+    opacity: 0.7;
+}
+
+/* 谱面。abcjs 画的是 SVG，底色透明，压在米色纸上正好。 */
+.fv-sheet__paper {
+    padding: 0 14px 10px;
+}
+.fv-sheet__paper svg { max-width: 100%; height: auto; }
+
+/* 正在响的那一下。选中色和屋里那套霓虹粉是同一支。 */
+.fv-sheet__paper .fv-note-on,
+.fv-sheet__paper .fv-note-on path,
+.fv-sheet__paper .fv-note-on ellipse,
+.fv-sheet__paper .fv-note-on line {
+    fill: var(--pink);
+    stroke: var(--pink);
+}
+
+.fv-sheet__foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px 12px;
+    border-top: 5px solid var(--ink);
+    background: rgba(21, 15, 44, 0.06);
+    flex-wrap: wrap;
+}
+
+.fv-sheet__btns { display: flex; gap: 8px; }
+
+/* 排谱那几秒、以及弹着的时候不能收回抽屉 —— 按钮得看得出来按不动，
+   不然点了没反应读作坏了。全站只有这儿有禁用态，所以就近写在这里。 */
+.fv-sheet__foot .fv-btn:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+    box-shadow: 2px 2px 0 var(--ink);
+    transform: translate(2px, 2px);
+}
+
+/* 能拖的进度条：点哪儿从哪儿弹。 */
+.fv-sheet__prog {
+    flex: 1 1 90px;
+    min-width: 80px;
+    height: 10px;
+    border: 3px solid var(--ink);
+    background: var(--cream);
+    cursor: pointer;
+    position: relative;
+}
+/* 条只有 10px 高，照这个高度点是点不准的。命中区上下各撑出去一截 ——
+   伪元素的点击照样算在条上，量宽度也还是量的可见那一条。 */
+.fv-sheet__prog::after {
+    content: '';
+    position: absolute;
+    inset: -11px 0;
+}
+.fv-sheet__prog:focus-visible {
+    outline: 3px solid var(--cyan);
+    outline-offset: 3px;
+}
+.fv-sheet__prog span {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--pink);
+}
+
+.fv-sheet__clock {
+    font-size: 14px;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.8;
+}
+
+/* 面板收起来之后，屋里还在响 —— 底下留一条能叫停的横幅。
+   bottom 要让开左下角那行操作提示（.fv-hud--bl 在 20px，那行有两行高的余地），
+   压在上面虽然盖得住，但读起来是两条字挤在一起。 */
+.fv-playing {
+    position: absolute;
+    left: 50%;
+    bottom: 62px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px 8px;
+    background: var(--cream);
+    color: var(--ink);
+    border: 5px solid var(--ink);
+    box-shadow: 8px 9px 0 rgba(21, 15, 44, 0.5);
+    font-size: 15px;
+    white-space: nowrap;
+    z-index: 22;
+}
+
+.fv-playing__dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--pink);
+    animation: fv-beat 1.6s ease-in-out infinite;
+}
+
+/* 停下来的时候不闪，换成一个静的空心点 */
+.fv-playing__dot.is-held {
+    animation: none;
+    background: transparent;
+    box-shadow: inset 0 0 0 3px var(--ink);
+}
+
+@keyframes fv-beat {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.35; transform: scale(0.7); }
+}
+
+@media (max-width: 820px) {
+    .fv-sheet {
+        left: 0; right: 0; top: auto; bottom: 0;
+        width: 100%; max-height: 72vh;
+        transform: translateY(30px);
+        border-width: 6px 0 0;
+        border-radius: 0;
+    }
+    .fv-sheet.is-open { transform: translateY(0); }
+    .fv-sheet__close { right: 8px; top: -22px; }
+    .fv-playing { bottom: auto; top: 64px; font-size: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fv-sheet { transition-duration: 1ms !important; }
+    .fv-playing__dot { animation: none; }
+}
+
+/* ---------- 速度 / 换谱 ---------- */
+
+.fv-sheet__tools {
+    flex: 1 0 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-top: 2px;
+}
+
+.fv-sheet__label {
+    font-size: 14px;
+    color: var(--ink-soft);
+    opacity: 0.75;
+    margin-right: 2px;
+}
+
+/* 小一号的按钮。fv-btn 那套（Bangers + 5px 边框 + 硬投影）在这一排会喧宾夺主，
+   这排是设置不是操作。 */
+.fv-chip {
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1;
+    padding: 5px 9px 6px;
+    background: var(--cream);
+    color: var(--ink-soft);
+    border: 2px solid var(--ink);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+}
+.fv-chip:hover:not(:disabled) { background: var(--yellow); }
+.fv-chip:disabled { opacity: 0.42; cursor: not-allowed; }
+.fv-chip.is-on {
+    background: var(--ink);
+    color: var(--cream);
+}
+.fv-chip--wide { margin-left: auto; }
+.fv-chip:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+/* ---------- 换谱弹窗 ---------- */
+
+.fv-upload { max-width: min(640px, 92vw); }
+
+.fv-upload__text {
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    padding: 10px 12px;
+    color: var(--ink);
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 2px;
+    /* 谱子是一行一行的，折行会把小节读乱 */
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: auto;
+}
+.fv-upload__text:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+.fv-upload__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+/* 文件框本体藏起来，点的是外面那个 label */
+.fv-upload__row input[type="file"] {
+    position: absolute;
+    width: 1px; height: 1px;
+    opacity: 0; pointer-events: none;
+}
+.fv-upload__row .fv-chip--wide { margin-left: 0; }
+
+.fv-upload__err {
+    font-size: 14px;
+    color: var(--pink);
+}

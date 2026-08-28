@@ -20,6 +20,17 @@ const VIEW_BY_ID = Object.fromEntries(VIEWS.map((v) => [v.id, v]));
 const PIANO_AT = [3.75, 0.78, -0.05];
 /* 走开之后用的视场角：比预设略广一点，自己走的时候看得舒服些 */
 const FREE_FOV = 46, FREE_FOV_NARROW = 54;
+/** 自己上传的那份谱子存在这个键下。换 key 就等于把所有人的清一次。 */
+const ABC_KEY = 'fv-abc-1';
+
+const mmss = (t) => {
+    const n = Math.max(0, Math.floor(t));
+    return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+};
+
+/** 举在眼前那张谱子的页宽（米）。living.js 的 SHEET_W —— 两边都是 A4，
+ *  这儿只拿它反推「离眼睛多远才占到画面的那么宽」。 */
+const SHEET_PAGE_W = 0.210;
 /** 看过开场引导的标记。换了 key 就等于对所有人再弹一次。 */
 const GUIDE_KEY = 'fv-guide-seen-1';
 const HOME_POS = VIEWS[0].pos;
@@ -42,8 +53,8 @@ function magnetMeta(item) {
     return item.country;
 }
 
-/** @param {{ places?: Array<Record<string, any>> }} props */
-export default function KitchenScene({ places = [] }) {
+/** @param {{ places?: Array<Record<string, any>>, things?: Array<Record<string, any>> }} props */
+export default function KitchenScene({ places = [], things = [] }) {
     const canvasRef = useRef(null);
     const worldRef = useRef(null);
     const [ready, setReady] = useState(false);
@@ -61,6 +72,337 @@ export default function KitchenScene({ places = [] }) {
         () => places.find((p) => p.slug === activeSlug) || null,
         [places, activeSlug],
     );
+
+    /* ---------- 谱子 ----------
+       抽屉里那张。现在只有一份，所以直接取第一件 sheet；以后多起来了
+       再让 3D 那边按 slug 认人。 */
+    const sheetThing = useMemo(
+        () => things.find((t) => t.kind === 'sheet' && t.sheet?.abc) || null,
+        [things],
+    );
+    const [sheetOpen, setSheetOpen] = useState(false);   // 面板开着
+    const [sheetFound, setSheetFound] = useState(false); // 翻出来过
+    const [onRest, setOnRest] = useState(false);         // 已经架在谱架上
+    const [playing, setPlaying] = useState(false);
+    /* 没在弹的时候停在第几秒。只在停下/回到开头/弹完的时候更新一次 ——
+       播放中的进度是直接写 DOM 的，不走 state（每帧 setState 会把整个组件
+       连着那张 canvas 一起重调）。按钮上写「接着弹」还是「让它弹一遍」看它。 */
+    const [holdAt, setHoldAt] = useState(0);
+    const holdAtRef = useRef(0);
+    holdAtRef.current = holdAt;
+    /* 换速度时算好的新位置。停下那一下的清理会照 recital 报的秒数写 holdAt，
+       会把这个值盖掉 —— 所以放在 ref 里让清理优先用它。 */
+    const rescaleRef = useRef(null);
+    const [scoreState, setScoreState] = useState('idle');// idle | loading | ready | failed
+
+    /* 自己带来的谱子。存 localStorage，下次进屋还在 —— 拿这间屋子当练琴的
+       台子的话，每次都要重新贴一遍 ABC 是不能忍的。 */
+    const [userAbc, setUserAbc] = useState(null);
+    const [userMeta, setUserMeta] = useState(null);      // { title, composer }
+    const [uploadOpen, setUploadOpen] = useState(false);
+    const [uploadText, setUploadText] = useState('');
+    const [uploadErr, setUploadErr] = useState('');
+    /* 速度倍率。练琴用的：写死在谱面上的速度对着练是没法练的。 */
+    const [rate, setRate] = useState(1);
+    const baseTempoRef = useRef(0);
+
+    useEffect(() => {
+        let saved = null;
+        try { saved = window.localStorage.getItem(ABC_KEY); } catch { /* 隐私模式读不到 */ }
+        if (!saved) return;
+        import('./kitchen/recital.js').then(({ abcMeta }) => {
+            setUserMeta(abcMeta(saved));
+            setUserAbc(saved);
+        }).catch(() => { /* 拿不到就还是原来那份 */ });
+    }, []);
+
+    const abc = userAbc || sheetThing?.abc || '';
+    const title = userMeta?.title || sheetThing?.title || '';
+    const subtitle = userMeta ? (userMeta.composer || '你带来的谱子') : sheetThing?.subtitle;
+    const spot = userAbc ? '你自己上传的' : sheetThing?.spot;
+    const paperRef = useRef(null);      // 面板里画五线谱的地方
+    const scoreRef = useRef(null);      // { tune, notes, duration }
+    const timerRef = useRef(null);      // abcjs.TimingCallbacks
+    const abcjsRef = useRef(null);
+    const visualRef = useRef(null);     // renderAbc 出来的 tune，高亮要用它
+    /* 进度条走 DOM 不走 state：每帧 setState 会把整个组件（连着那张 canvas
+       的 vdom）重调一遍，而屋子本身正吃着一帧 16ms 的预算。 */
+    const barRef = useRef(null);
+    const clockRef = useRef(null);
+
+    /* 3D 那边点到谱子时调这个。用 ref 是因为场景那个 effect 只跑一次，
+       闭包里拿不到后来的 setState。 */
+    const openSheetRef = useRef(null);
+    openSheetRef.current = () => {
+        setActiveSlug(null);
+        setSheetFound(true);
+        setSheetOpen((v) => !v);
+    };
+    const closeSheetRef = useRef(null);
+    closeSheetRef.current = () => setSheetOpen(false);
+
+    /* 纸在手上 ⟺ 面板开着**且**它还没架到琴上。
+
+       这一条同时定了面板长什么样：拿在手里的时候，谱子就是手上那张纸，面板
+       只留说明和几个按钮（再在面板里画一遍五线谱是把同一样东西说两遍，而且
+       两个都得挤在一屏里，谁也看不清）；一旦架上谱架，纸归了钢琴，面板才把
+       完整谱面接过来，好跟着弹到哪儿高亮到哪儿。 */
+    const inHand = sheetOpen && !onRest;
+    useEffect(() => {
+        worldRef.current?.holdSheet(inHand);
+    }, [inHand, ready]);
+
+    /* 进度条和读秒。停下之后还得停在原地（不是归零），所以画这一下要能被
+       播放循环之外的地方调到 —— 暂停、拖进度、回到开头都要重画。 */
+    const totalRef = useRef(1);
+    const paint = useCallback((t) => {
+        const total = totalRef.current;
+        if (barRef.current) {
+            barRef.current.style.width = `${Math.max(0, Math.min(1, t / total)) * 100}%`;
+        }
+        if (clockRef.current) clockRef.current.textContent = `${mmss(t)} / ${mmss(total)}`;
+    }, []);
+
+    /* 翻开谱子那一下才去拉 abcjs（一百多 KB）+ 排一遍谱。换谱子、换速度都
+       从这儿重来。
+
+       同一份谱子只排一次，靠 ref 记「上次排的是哪一份、什么速度」，而不是把
+       scoreState 写进依赖 —— 写进去的话第一句 setScoreState('loading') 就会让
+       这个 effect 重跑一遍，清理函数顺手把**它自己**那次还在飞的加载标成作废，
+       面板于是永远停在「正在排谱」。 */
+    const builtRef = useRef({ abc: '', rate: 0 });
+    const aliveRef = useRef(true);
+    useEffect(() => () => { aliveRef.current = false; }, []);
+
+    useEffect(() => {
+        if (!sheetOpen || !abc) return;
+        const was = builtRef.current;
+        if (was.abc === abc && was.rate === rate) return;
+        const fresh = was.abc !== abc;          // 换了谱子，还是只换了速度
+        builtRef.current = { abc, rate };
+        setScoreState('loading');
+        (async () => {
+            try {
+                const { loadAbcjs, buildScore, sheetTexture } = await import('./kitchen/recital.js');
+                const abcjs = await loadAbcjs();
+                if (!aliveRef.current) return;
+                abcjsRef.current = abcjs;
+
+                /* 倍率是乘在**谱面自己的速度**上的，所以原速要先量一遍。
+                   直接拿 qpm 当绝对值填的话，换一份谱子速度就全乱了。 */
+                if (fresh || !baseTempoRef.current) {
+                    baseTempoRef.current = buildScore(abcjs, abc).tempo;
+                }
+                const qpm = rate === 1 ? undefined : baseTempoRef.current * rate;
+                scoreRef.current = buildScore(abcjs, abc, qpm);
+                totalRef.current = scoreRef.current.duration || 1;
+                setScoreState('ready');
+                paint(holdAtRef.current);
+
+                if (!fresh) return;              // 只是换了速度，纸上印的还是那一页
+                // 纸上的印面：同一份谱子真排一遍，画到 canvas 上当贴图
+                const tex = await sheetTexture(abcjs, abc);
+                if (!aliveRef.current) { tex?.dispose?.(); return; }
+                if (tex) worldRef.current?.setSheetTexture(tex);
+            } catch (e) {
+                builtRef.current = { abc: '', rate: 0 };   // 关掉再打开还能再试
+                if (aliveRef.current) setScoreState('failed');
+            }
+        })();
+    }, [sheetOpen, abc, rate, paint]);
+
+    /* 面板里的五线谱。排一次就留着 —— 面板关掉只是移出视野，曲子还在弹，
+       回来还得接着高亮。换谱子才重排；换速度不用，音符一个没动。 */
+    useEffect(() => {
+        if (scoreState !== 'ready' || !paperRef.current || !abcjsRef.current) return;
+        const paper = paperRef.current;
+        paper.innerHTML = '';
+        const [visual] = abcjsRef.current.renderAbc(paper, abc, {
+            add_classes: true,
+            responsive: 'resize',
+            staffwidth: 560,
+            scale: 0.86,
+            paddingtop: 4, paddingbottom: 10, paddingleft: 4, paddingright: 4,
+            foregroundColor: '#150f2c',
+        });
+        visualRef.current = visual;
+    }, [scoreState, abc]);
+
+    /* 弹的时候：进度条 + 谱面上跟着走的高亮。
+       高亮用 abcjs 的 TimingCallbacks，但**时钟以音频为准** —— 它自己那套是
+       performance.now，四分钟下来会和采样播放对不上，所以每隔几秒拿音频时钟
+       把它拨回去一次。 */
+    useEffect(() => {
+        if (!playing) return undefined;
+        const paper = paperRef.current;
+        const clear = () => paper?.querySelectorAll('.fv-note-on')
+            .forEach((el) => el.classList.remove('fv-note-on'));
+
+        const scroller = paper?.closest('.fv-sheet__scroll');
+        /* 谱面跟着走。整首曲子在面板里有二十来行，不卷的话高亮十几秒之后
+           就跑到看不见的地方去了。只在它**快出画**的时候卷一次 —— 每个音都
+           卷等于谱子一直在抖。 */
+        const follow = (el) => {
+            if (!el || !scroller) return;
+            const a = el.getBoundingClientRect(), b = scroller.getBoundingClientRect();
+            if (a.top >= b.top + 24 && a.bottom <= b.bottom - 24) return;
+            scroller.scrollTop += (a.top - b.top) - b.height * 0.34;
+        };
+
+        if (!timerRef.current && abcjsRef.current && visualRef.current) {
+            timerRef.current = new abcjsRef.current.TimingCallbacks(visualRef.current, {
+                // 调过速之后，谱面上的高亮也得按新速度走
+                qpm: scoreRef.current?.tempo,
+                eventCallback: (ev) => {
+                    clear();
+                    if (!ev?.elements) return;
+                    let first = null;
+                    for (const group of ev.elements) {
+                        for (const el of [group].flat(Infinity)) {
+                            if (!el?.classList) continue;
+                            el.classList.add('fv-note-on');
+                            first = first || el;
+                        }
+                    }
+                    follow(first);
+                },
+            });
+        }
+
+        let raf = 0, started = false, lastSync = -1e9;
+        const tick = () => {
+            raf = requestAnimationFrame(tick);
+            const t = worldRef.current?.sheetPos?.() ?? 0;
+            paint(t);
+            const timer = timerRef.current;
+            if (!timer) return;
+            if (!started) {
+                if (t < 0) return;                  // 起手前那半秒，谱面先别动
+                started = true; lastSync = t;
+                timer.setProgress(t, 'seconds');
+                timer.start();
+            } else if (t - lastSync > 4) {
+                lastSync = t;
+                timer.setProgress(t, 'seconds');    // 拨回音频时钟
+            }
+        };
+        raf = requestAnimationFrame(tick);
+        return () => {
+            cancelAnimationFrame(raf);
+            timerRef.current?.stop?.();
+            timerRef.current = null;
+            clear();
+            /* 最后再画一次：停在哪儿就显示到哪儿。归零是不对的 —— 暂停之后
+               进度条空着、但按「继续」是从中间接上，两下对不上。
+               暂停、弹完、卸载都走这儿，所以停在哪儿只在这一处记。 */
+            const at = rescaleRef.current ?? worldRef.current?.sheetPos?.() ?? 0;
+            rescaleRef.current = null;
+            paint(at);
+            setHoldAt(at);
+        };
+    }, [playing, paint]);
+
+    const putOnRest = useCallback((on) => {
+        worldRef.current?.putSheetOnRest(on);
+        setOnRest(on);
+        if (!on) { setPlaying(false); setHoldAt(0); paint(0); }
+    }, [paint]);
+
+    /* 收回抽屉：面板一并关掉。纸从手上飞回抽屉，镜头跟过去看它落下 ——
+       所以这是「收起来」，不是「拿下来」，两个按钮各管一段。 */
+    const stowSheet = useCallback(() => {
+        worldRef.current?.stowSheet();
+        setOnRest(false);
+        setPlaying(false); setHoldAt(0); paint(0);
+        setSheetOpen(false);
+    }, [paint]);
+
+    /** from 留空 = 从停下的地方接着弹 */
+    const playSheet = useCallback((from) => {
+        if (!scoreRef.current) return;
+        if (!onRest) { worldRef.current?.putSheetOnRest(true); setOnRest(true); }
+        /* 位置显式传进去，不靠 recital 自己记：换速度会连谱带 recital 一起
+           重建，它内部那个「停在第几秒」就没了。 */
+        worldRef.current?.playSheet(scoreRef.current, from ?? holdAt);
+    }, [onRest, holdAt]);
+
+    const pauseSheet = useCallback(() => {
+        // 进度条和 holdAt 都由 playing 那个 effect 的清理照当前位置写，这儿不用管
+        worldRef.current?.pauseSheet();
+    }, []);
+
+    const rewindSheet = useCallback(() => {
+        worldRef.current?.rewindSheet();
+        setPlaying(false);
+        setHoldAt(0);
+        paint(0);
+    }, [paint]);
+
+    /* 换速度。练琴用的：写死在谱面上的那个速度对着练是没法练的。
+
+       位置要跟着换算 —— 停在「第 23 秒」这件事在半速下指的是另一个小节，
+       照搬秒数会跳到别处去。 */
+    const changeRate = useCallback((r) => {
+        if (r === rate) return;
+        const at = Math.max(0, worldRef.current?.sheetPos?.() ?? 0);
+        // 秒数要换算：停在「第 5 秒」这件事，半速下指的是另一个小节
+        const scaled = at * (rate / r);
+        rescaleRef.current = scaled;
+        worldRef.current?.pauseSheet();
+        setPlaying(false);
+        setHoldAt(scaled);
+        setRate(r);
+    }, [rate]);
+
+    /** 换上一份自己的谱子。解不开就不换，把话说在弹窗里。 */
+    const applyAbc = useCallback((text) => {
+        const next = String(text || '').trim();
+        if (!next) { setUploadErr('先贴一段 ABC 进来'); return; }
+        (async () => {
+            try {
+                const { loadAbcjs, buildScore, abcMeta } = await import('./kitchen/recital.js');
+                const abcjs = await loadAbcjs();
+                buildScore(abcjs, next);          // 解不开、或者一个音都没有，在这儿就抛了
+                worldRef.current?.rewindSheet();
+                setPlaying(false); setHoldAt(0); setRate(1);
+                setUserMeta(abcMeta(next));
+                setUserAbc(next);
+                try { window.localStorage.setItem(ABC_KEY, next); } catch { /* 存不下就只这一次有效 */ }
+                setUploadErr(''); setUploadOpen(false);
+            } catch (e) {
+                setUploadErr(e?.message || '这段 ABC 解不开');
+            }
+        })();
+    }, []);
+
+    /** 换回屋里原来那份 */
+    const clearAbc = useCallback(() => {
+        worldRef.current?.rewindSheet();
+        setPlaying(false); setHoldAt(0); setRate(1);
+        setUserAbc(null); setUserMeta(null);
+        try { window.localStorage.removeItem(ABC_KEY); } catch { /* 忽略 */ }
+        setUploadErr(''); setUploadOpen(false);
+    }, []);
+
+    /* 进度条能拖。四分五十秒的曲子只能从头听，等于听不了中段。
+       拖到哪儿就从哪儿弹 —— 拖了还得自己按一下播放是多余的一步。 */
+    const seekTo = useCallback((frac) => {
+        if (!scoreRef.current) return;
+        playSheet(Math.max(0, Math.min(1, frac)) * totalRef.current);
+    }, [playSheet]);
+
+    const seekFromPointer = useCallback((e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        if (r.width > 0) seekTo((e.clientX - r.left) / r.width);
+    }, [seekTo]);
+
+    const seekByKey = useCallback((e) => {
+        const step = e.key === 'ArrowLeft' ? -10 : e.key === 'ArrowRight' ? 10 : 0;
+        if (!step) return;
+        e.preventDefault();
+        const now = worldRef.current?.sheetPos?.() ?? 0;
+        seekTo((Math.max(0, now) + step) / totalRef.current);
+    }, [seekTo]);
 
     /* 选中状态和当前机位都要给渲染循环读，用 ref 免得重建场景 */
     const activeRef = useRef(null);
@@ -117,6 +459,7 @@ export default function KitchenScene({ places = [] }) {
                 const { buildLiving, buildLivingLights } = await import('./kitchen/living.js');
                 const { findPath, snapToWalkable, slide, walkable } = await import('./kitchen/nav.js');
                 const audio = await import('./kitchen/audio.js');
+                const { createRecital } = await import('./kitchen/recital.js');
                 const { buildFridge } = await import('./kitchen/fridge.js');
                 const { buildMagnets } = await import('./kitchen/magnets.js');
 
@@ -344,6 +687,113 @@ export default function KitchenScene({ places = [] }) {
                     if (pianoOn) audio.preloadPiano();
                 }
 
+                /* ---------- 谱子 / 自动演奏 ----------
+                   谱子在唱机底下那个五斗柜最上层的抽屉里（living.js buildSheetMusic）。
+                   点它开面板；放上谱架之后，这台琴能照着谱子自己弹一遍 —— 走的是
+                   和你手点琴键完全同一条路：同一套采样、同一个 pressed 表、同一个
+                   PannerNode，所以听感和「有人坐在那儿弹」是一致的。 */
+                const sheet = living.userData.sheet || null;
+                const sheetCab = sheet ? cabs.find((c) => c.node === sheet.drawerNode) : null;
+                const keyByMidi = new Map(pianoKeys.map((m) => [m.userData.midi, m]));
+                let recital = null;
+                let sheetOnRest = false;
+                let sheetHeld = false;      // 面板开着 = 纸在手上
+                let heldT = 0;              // 0 = 在原处，1 = 举在眼前
+                const homePos = new THREE.Vector3(), homeQuat = new THREE.Quaternion();
+                const handPos = new THREE.Vector3(), handQuat = new THREE.Quaternion();
+                const homeScale = new THREE.Vector3();
+                /* 举着的时候不要正对着脸拍平 —— 歪一点点才有厚度。
+                   页面在画面右边，所以往画面中心侧一点。 */
+                const HAND_TILT = new THREE.Quaternion()
+                    .setFromEuler(new THREE.Euler(0.035, 0.085, -0.012));
+
+                /* 让它弹的时候把镜头带到琴前。走过去是不行的 —— 从影音角到窗边
+                   要绕大半间屋子，寻路走完曲子都过了半分钟了，而且一路低头看地板
+                   （walkTo 是到位之前就把朝向定死的）。所以走预设机位那条路：
+                   直接滑过去，不做碰撞，一秒到位。 */
+                /* 纸换地方的时候镜头跟过去 —— 不跟的话，你按下「放上谱架」，画面
+                   里什么都没变，纸凭空消失在另一间屋角。两处都走预设机位那条路：
+                   直接滑过去、不做碰撞，一秒到位。
+                   视高在函数里补（EYE 在下面才声明）。 */
+                const PIANO_SEAT = [2.55, 0.95], PIANO_LOOK = [3.70, 0.85, -0.10];
+                /* 站远一点、看高一点：贴到一米以内低头 43° 看柜子，画面里只剩
+                   一块柜面。1.7m 外压 28°，五斗柜连同上面那台唱机正好在框里。
+                   （沙发在 z 1.78–2.70，这个位置绕开了。） */
+                const DRESSER_SEAT = [1.75, 3.25], DRESSER_LOOK = [0.05, 0.66, 3.25];
+
+                function glideTo(seat, look) {
+                    snapTo.set(seat[0], EYE, seat[1]);
+                    snapping = true;
+                    walkPath = null;
+                    const a = aimAt(snapTo, ...look);
+                    faceTo(a.yaw, a.pitch);
+                    leavePreset();
+                }
+                /** 已经站在跟前了就别折腾镜头 —— 人自己走过来看的，不该被拽一下。 */
+                const near = (x, z, r) => Math.hypot(camPos.x - x, camPos.z - z) < r;
+                function goToPiano() {
+                    if (near(PIANO_AT[0], PIANO_AT[2], 2.2)) return;
+                    glideTo(PIANO_SEAT, PIANO_LOOK);
+                }
+                function goToDresser() {
+                    if (near(DRESSER_LOOK[0], DRESSER_LOOK[2], 1.9)) return;
+                    glideTo(DRESSER_SEAT, DRESSER_LOOK);
+                }
+
+                /* 采样没下完的时候按「停」，那会儿 recital 还没建出来 ——
+                   光把它置空拦不住，等下载一好还是会开弹。所以另记一个意图。 */
+                let wantPlay = false;
+                let score = null;           // React 那边解好的谱，第一次播放时交过来
+
+                function ensureRecital() {
+                    if (recital || !score) return recital;
+                    recital = createRecital(score, {
+                        at: PIANO_AT,
+                        onNote: (midi, dur) => {
+                            const mesh = keyByMidi.get(midi);
+                            if (!mesh) return;
+                            /* 键沉下去的时长照谱面走，但压一个上限：这谱子里有
+                               四拍的长音，键在那儿按住三秒看着是卡住了，不是在弹。 */
+                            pressed.set(mesh, performance.now() + Math.min(dur * 1000, 420) + 90);
+                        },
+                        onEnd: () => { wantPlay = false; setPlaying(false); },
+                    });
+                    return recital;
+                }
+
+                /** 从 from 秒起弹（留空 = 从停下的地方接着）。 */
+                function playSheetFrom(nextScore, from) {
+                    if (nextScore && nextScore !== score) { score = nextScore; recital = null; }
+                    if (!score) return;
+                    // 自动演奏之前先替人把电源打开 —— 谁弹琴之前不开机
+                    if (!pianoOn) togglePiano();
+                    if (!wantPlay) goToPiano();     // 已经在弹的时候拖进度，别再拽一次镜头
+                    wantPlay = true;
+                    setPlaying(true);
+                    /* 采样要 700KB。没开过电源的话这会儿才开始下，playPianoNote
+                       在下完之前是直接吞掉的 —— 不等它，开头一整句就没了。 */
+                    const ready = audio.preloadPiano();
+                    const go = () => {
+                        if (disposed || !wantPlay) return;
+                        ensureRecital()?.play(from);
+                    };
+                    if (ready?.then) ready.then(go); else go();
+                }
+
+                /** 停在当前位置，接着还能续上。 */
+                function pauseSheet() {
+                    wantPlay = false;
+                    recital?.pause();
+                    setPlaying(false);
+                }
+                /** 回到开头。 */
+                function rewindSheet() {
+                    wantPlay = false;
+                    recital?.pause();
+                    recital?.reset();
+                    setPlaying(false);
+                }
+
                 /* 唱机：掀盖 / 上唱片放音。角度和转速都在 living.js 里解好了。 */
                 const tt = living.userData.turntable;
                 let lidOpen = false, spinning = false;
@@ -559,6 +1009,7 @@ export default function KitchenScene({ places = [] }) {
                 const pickSet = new Set([
                     ...magnets, ...range.knobs, ...faucet.pickSpout, ...faucet.pickLever,
                     ...pianoKeys, ...power.pick, ...tt.pickCover, ...tt.pickPlay,
+                    ...(sheet?.pick || []),
                     ...lamps.flatMap((l) => l.pick), ...joints.flatMap((j) => j.pick),
                     ...cabs.flatMap((c) => c.pick),
                 ]);
@@ -572,9 +1023,19 @@ export default function KitchenScene({ places = [] }) {
 
                 const stickyNdc = new THREE.Vector2();   // stickyPick 自己的暂存
                 const clickNdc = new THREE.Vector2();    // 点击那一下的屏幕坐标
+                /* three 的射线**不跳过隐藏的东西** —— Mesh.raycast 压根不看 visible。
+                   屋里现在有藏起来的件（谱架上那张谱子在放上去之前是隐藏的），
+                   不滤一道的话，它在原地照样挡射线、照样点得开。 */
+                const shown = (o) => {
+                    for (let n = o; n; n = n.parent) if (!n.visible) return false;
+                    return true;
+                };
                 const probe = (v, list = solids) => {
                     raycaster.setFromCamera(v, camera);
-                    return raycaster.intersectObjects(list, false)[0] || null;
+                    for (const hit of raycaster.intersectObjects(list, false)) {
+                        if (shown(hit.object)) return hit;
+                    }
+                    return null;
                 };
 
                 /* 差几个像素也算点到：龙头杆在两米外只有三五像素宽，边角上的冰箱贴
@@ -735,6 +1196,12 @@ export default function KitchenScene({ places = [] }) {
                         if (power.pick.includes(o)) { togglePiano(); return; }
                         if (tt.pickCover.includes(o)) { toggleLid(); return; }
                         if (tt.pickPlay.includes(o)) { togglePlay(); return; }
+                        if (sheet && sheet.pick.includes(o)) {
+                            // 举着的时候点它 = 放回去；在原处点它 = 拿起来
+                            if (sheet.held.visible) closeSheetRef.current?.();
+                            else openSheetRef.current?.();
+                            return;
+                        }
                         if (o.userData.midi !== undefined) { hitKey(o); return; }
                         if (o.userData.place) onSelect(o.userData.place.slug);
                         return;
@@ -882,6 +1349,13 @@ export default function KitchenScene({ places = [] }) {
                         canvas.classList.toggle('is-pointing', !!hovered);
                         const d = hovered?.userData;
                         if (d?.place) setHover({ slug: d.place.slug, place: d.place.place });
+                        else if (hovered && sheet?.pick.includes(hovered)) {
+                            setHover({
+                                slug: 'sheet',
+                                place: sheet.held.visible ? '放回去'
+                                    : sheetOnRest ? '谱架上那张谱子' : '一叠谱子',
+                            });
+                        }
                         else if (d?.note) {
                             setHover({ slug: `key-${d.midi}`, place: pianoOn ? d.note : '琴没开 · 按低音那头的电源' });
                         } else if (hovered && power.pick.includes(hovered)) {
@@ -1058,6 +1532,76 @@ export default function KitchenScene({ places = [] }) {
                         markShadows();
                     }
 
+                    /* 自动演奏：这一帧该响的音排给 WebAudio、该沉的键塞进 pressed。
+                       放在键盘缓动**之前**，这一帧按下去的键当帧就沉。 */
+                    recital?.tick();
+
+                    /* 谱子在哪儿。三份纸轮流出场：
+                         · 抽屉里那份 —— 还得等抽屉真拉开，关着的时候它整个埋在
+                           柜体里，露出来就穿帮
+                         · 谱架上那份 —— 放上去之后
+                         · 手上那份 —— 面板开着的时候，从前两份的位姿插值到眼前
+
+                       手上那份不是「另一张纸」，是同一张被拿起来了，所以原处那份
+                       同时要收掉；heldT 走到两头才切，中途两边都不显示，只有飞着
+                       的那张。 */
+                    if (sheet) {
+                        const wantHeld = sheetHeld ? 1 : 0;
+                        if (Math.abs(heldT - wantHeld) > 1e-4) {
+                            heldT += (wantHeld - heldT) * (1 - Math.exp(-7.5 * dt));
+                            if (Math.abs(heldT - wantHeld) < 1e-4) heldT = wantHeld;
+                            markShadows();
+                        }
+
+                        const atHome = heldT < 0.002;
+                        const inDrawer = atHome && !sheetOnRest && (sheetCab ? sheetCab.open > 0.06 : true);
+                        const atRest = atHome && sheetOnRest;
+                        if (sheet.inDrawer.visible !== inDrawer) {
+                            sheet.inDrawer.visible = inDrawer;
+                            sheet.grab.visible = inDrawer;
+                        }
+                        if (sheet.onRest.visible !== atRest) {
+                            sheet.onRest.visible = atRest;
+                            sheet.restGrab.visible = atRest;
+                        }
+                        sheet.held.visible = !atHome;
+
+                        if (!atHome) {
+                            // 原处那份的世界位姿（抽屉会滑、谱架是斜的，所以每帧取）
+                            const home = sheetOnRest ? sheet.onRest : sheet.inDrawer;
+                            home.updateWorldMatrix(true, false);
+                            home.matrixWorld.decompose(homePos, homeQuat, homeScale);
+
+                            /* 举在眼前那个位姿。想要的是**画面上**的构图，所以先定
+                               「占多宽、摆在哪一格」，再反推该离眼睛多远 —— 换视场角、
+                               换屏幕比例，纸在画面里的位置和大小都不变。
+
+                               让开面板：宽屏面板贴在左边，纸就往右让；窄屏面板是从
+                               底下抽上来的那种，纸往上让。分界线跟 overlay.css 里
+                               那条 820px 一致，看的是**窗口宽度**不是画面比例 ——
+                               又高又窄的窗口比例小于 1，但面板还铺在左边。 */
+                            const half = Math.tan((camera.fov * Math.PI / 180) / 2);
+                            const wide = canvas.clientWidth > 820;
+                            const fracW = wide ? 0.30 : 0.62;      // 纸占画面宽度的几成
+                            const ndcX = wide ? 0.42 : 0;          // 摆在横向哪一格
+                            const ndcY = wide ? 0 : 0.30;
+                            const dist = SHEET_PAGE_W / (fracW * 2 * half * camera.aspect);
+                            const visH = 2 * dist * half;
+                            tmpV.set(ndcX * visH * camera.aspect / 2, ndcY * visH / 2, -dist)
+                                .applyMatrix4(camera.matrixWorld);
+                            handPos.copy(tmpV);
+                            camera.getWorldQuaternion(handQuat);
+                            handQuat.multiply(HAND_TILT);
+
+                            // 缓入缓出：直着插值的话，起手和落回都是硬邦邦的等速
+                            const e = heldT * heldT * (3 - 2 * heldT);
+                            sheet.held.position.lerpVectors(homePos, handPos, e);
+                            sheet.held.quaternion.slerpQuaternions(homeQuat, handQuat, e);
+                            // 中途往上拱一点，读作「飘出来」而不是「从抽屉面板里穿过去」
+                            sheet.held.position.y += Math.sin(Math.PI * e) * 0.10;
+                        }
+                    }
+
                     /* 钢琴：按下的键沉 7mm，到点自己弹回来。
                        真琴键前端下沉约 10mm，这里取小一点 —— 键只有 13mm 厚，
                        沉太多会穿到键床下面去。 */
@@ -1228,7 +1772,36 @@ export default function KitchenScene({ places = [] }) {
 
                 if (!disposed) setReady(true);
 
-                worldRef.current = { camera, canvas, magnets, THREE, raycaster, ndc, range, scene,
+                worldRef.current = {
+                    /* ---- 谱子那一摊，给 React 那边调 ---- */
+                    hasSheet: !!sheet,
+                    setSheetTexture: (tex) => sheet?.setTexture(tex),
+                    /** 面板开着 = 纸拿在手上 */
+                    holdSheet: (on) => { sheetHeld = !!on; },
+                    /* 架上谱架 / 从谱架拿下来。往琴那边去要跟镜头，往回不用 ——
+                       从谱架下来是回到手上，纸是朝人这边来的。 */
+                    putSheetOnRest: (on) => {
+                        sheetOnRest = !!on;
+                        if (on) goToPiano();
+                        else rewindSheet();
+                    },
+                    /** 收回抽屉。镜头跟过去，顺手把抽屉拉开 —— 不然飞到那儿
+                     *  只看见一个关着的柜子，纸凭空没了。 */
+                    stowSheet: () => {
+                        sheetOnRest = false;
+                        rewindSheet();
+                        if (sheetCab) sheetCab.want = 1;
+                        goToDresser();
+                    },
+                    playSheet: (s, from) => playSheetFrom(s, from),
+                    pauseSheet,
+                    rewindSheet,
+                    /** 弹到第几秒。停下之后停在那儿不动，起手那一小段是负的。 */
+                    sheetPos: () => recital?.position ?? 0,
+                    /* 调试用：不用在屋里把那张纸点中就能开面板 */
+                    openSheet: () => openSheetRef.current?.(),
+
+                    camera, canvas, magnets, THREE, raycaster, ndc, range, scene,
                     camPos, aim, want, solids, resolve, walkable, snapToWalkable, findPath, keys,
                     renderer, composer, bloom, comic,
                     /* 调试用：把人直接放到某处朝某处看。
@@ -1253,6 +1826,9 @@ export default function KitchenScene({ places = [] }) {
 
                 cleanup = () => {
                     cancelAnimationFrame(raf);
+                    /* 排音那个定时器不归 rAF 管，得单独停 —— 留着的话它会在
+                       页面走了之后继续跑，还会把刚关掉的 AudioContext 重新建起来。 */
+                    recital?.pause();
                     loadManager.onProgress = prevOnProgress;   // 这是个全局单例，别留着
                     audio.disposeAudio();
                     ro.disconnect();
@@ -1308,10 +1884,11 @@ export default function KitchenScene({ places = [] }) {
             if (guide) closeGuide();
             else if (listView) setListView(false);
             else if (activeSlug) setActiveSlug(null);
+            else if (sheetOpen) setSheetOpen(false);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [activeSlug, listView, guide, closeGuide]);
+    }, [activeSlug, listView, guide, sheetOpen, closeGuide]);
 
     return (
         <div className="fv-root">
@@ -1347,6 +1924,171 @@ export default function KitchenScene({ places = [] }) {
                 )}
             </aside>
 
+            {/* 谱子。翻出来之后就一直挂着不卸 —— 面板关掉只是移出视野，曲子还在
+                弹，谱面上的高亮也还得接着走。 */}
+            {sheetThing && sheetFound && (
+                <aside
+                    className={`fv-sheet${sheetOpen ? ' is-open' : ''}${onRest ? ' has-score' : ''}`}
+                    aria-hidden={!sheetOpen}
+                >
+                    <button className="fv-panel__close fv-sheet__close"
+                            onClick={() => setSheetOpen(false)} aria-label="关闭">✕</button>
+                    <div className="fv-panel__head">
+                        <div className="fv-panel__place">{title}</div>
+                        <div className="fv-panel__sub">
+                            {subtitle ? `${subtitle} · ` : ''}{spot}
+                        </div>
+                    </div>
+                    <div className="fv-sheet__scroll">
+                        {!userAbc && (
+                            <div className="fv-panel__body">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{sheetThing.body || ''}</ReactMarkdown>
+                            </div>
+                        )}
+                        {scoreState !== 'ready' ? (
+                            <p className="fv-sheet__note">
+                                {scoreState === 'failed' ? '这份谱子没排出来 —— 关掉再点一次试试。' : '正在排谱…'}
+                            </p>
+                        ) : !onRest && (
+                            <p className="fv-sheet__note">谱面在你手上。放上谱架，这台琴就能照着弹。</p>
+                        )}
+                        {/* 手上拿着的时候把谱面收起来、但不卸载 —— 卸了每次都要重排
+                            一遍八十七小节，高亮那套绑定也得重接。收在外面这层上：
+                            abcjs 的 responsive:'resize' 会往 paper 上写行内 display，
+                            压不过它。
+                            renderAbc 会把 paper 的 innerHTML 整个换掉，别往里放
+                            React 的孩子。 */}
+                        <div className="fv-sheet__score">
+                            <div className="fv-sheet__paper" ref={paperRef} />
+                        </div>
+                    </div>
+                    {/* 底下三段：先是「弹不弹」，再是弹到哪儿，最后才是设置。
+                        谱子放哪儿归到设置那一排 —— 那是「它住哪」，不是操作。 */}
+                    <div className="fv-sheet__foot">
+                        <div className="fv-sheet__btns">
+                            <button className="fv-btn" disabled={scoreState !== 'ready'}
+                                    onClick={() => (playing ? pauseSheet() : playSheet())}>
+                                {playing ? '停一下 ⏸' : holdAt > 0.5 ? '接着弹 ▶' : '让它弹一遍 ▶'}
+                            </button>
+                            {/* 停在半路才有「从头」可按 —— 本来就在开头的话它是个死键 */}
+                            {holdAt > 0.5 && (
+                                <button className="fv-btn fv-btn--mini" onClick={rewindSheet}
+                                        title="回到开头">从头 ↺</button>
+                            )}
+                        </div>
+                        <div
+                            className="fv-sheet__prog"
+                            role="slider"
+                            tabIndex={scoreState === 'ready' ? 0 : -1}
+                            aria-label="播放进度"
+                            aria-valuemin={0}
+                            aria-valuemax={Math.round(totalRef.current)}
+                            aria-valuenow={Math.round(holdAt)}
+                            onClick={scoreState === 'ready' ? seekFromPointer : undefined}
+                            onKeyDown={scoreState === 'ready' ? seekByKey : undefined}
+                        >
+                            <span ref={barRef} />
+                        </div>
+                        <span className="fv-sheet__clock" ref={clockRef}>0:00</span>
+
+                        <div className="fv-sheet__tools">
+                            <span className="fv-sheet__label">速度</span>
+                            {[0.5, 0.75, 1, 1.25].map((r) => (
+                                <button
+                                    key={r}
+                                    className={`fv-chip${rate === r ? ' is-on' : ''}`}
+                                    aria-pressed={rate === r}
+                                    onClick={() => changeRate(r)}
+                                >{r === 1 ? '原速' : `${r}×`}</button>
+                            ))}
+                        </div>
+                        <div className="fv-sheet__tools">
+                            {onRest ? (
+                                <button className="fv-chip" disabled={playing}
+                                        onClick={() => putOnRest(false)}>拿下来</button>
+                            ) : (
+                                <>
+                                    <button className="fv-chip" disabled={scoreState !== 'ready'}
+                                            onClick={() => putOnRest(true)}>放上谱架</button>
+                                    <button className="fv-chip" onClick={stowSheet}>收回抽屉</button>
+                                </>
+                            )}
+                            <button className="fv-chip fv-chip--wide"
+                                    onClick={() => { setUploadText(userAbc || ''); setUploadErr(''); setUploadOpen(true); }}>
+                                换一份谱 ⇪
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+            )}
+
+            {uploadOpen && (
+                <div className="fv-guide" role="dialog" aria-modal="true"
+                     aria-label="换一份谱子" onClick={() => setUploadOpen(false)}>
+                    <div className="fv-guide__panel fv-upload" onClick={(e) => e.stopPropagation()}>
+                        <button className="fv-panel__close fv-guide__close"
+                                onClick={() => setUploadOpen(false)} aria-label="关闭">✕</button>
+                        <div className="fv-guide__head">
+                            <div className="fv-guide__title">换一份谱子</div>
+                            <div className="fv-guide__sub">
+                                贴一段 <b>ABC 记谱</b>进来，或者拖一个 .abc 文件。这台琴就照着它弹。
+                                谱子只存在你自己的浏览器里，不上传到任何地方。
+                            </div>
+                        </div>
+                        <div className="fv-guide__body">
+                            <textarea
+                                className="fv-upload__text"
+                                value={uploadText}
+                                spellCheck={false}
+                                onChange={(e) => { setUploadText(e.target.value); setUploadErr(''); }}
+                                placeholder={'X:1\nT:曲名\nM:4/4\nQ:1/4=72\nL:1/8\nK:C\nCDEF GABc |'}
+                            />
+                            <div className="fv-upload__row">
+                                <label className="fv-chip fv-chip--wide">
+                                    选个文件…
+                                    <input
+                                        type="file"
+                                        accept=".abc,.txt,text/plain"
+                                        onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            e.target.value = '';
+                                            if (!f) return;
+                                            f.text().then((t) => { setUploadText(t); setUploadErr(''); })
+                                                .catch(() => setUploadErr('这个文件读不出来'));
+                                        }}
+                                    />
+                                </label>
+                                {uploadErr && <span className="fv-upload__err">{uploadErr}</span>}
+                            </div>
+                        </div>
+                        <div className="fv-guide__foot">
+                            <button className="fv-btn" onClick={() => applyAbc(uploadText)}>用这份 →</button>
+                            {userAbc && (
+                                <button className="fv-btn fv-btn--mini" onClick={clearAbc}>
+                                    换回《{sheetThing.title}》
+                                </button>
+                            )}
+                            <span className="fv-guide__note">ABC 记谱怎么写：abcnotation.com</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 面板关掉之后还能把它叫停、再接上。停下之后这条**不收** ——
+                收了的话屏幕上就一个入口都没有了，只剩去屋里把那张纸再点一次。 */}
+            {sheetThing && !sheetOpen && (playing || holdAt > 0.5) && (
+                <div className="fv-playing">
+                    <span className={`fv-playing__dot${playing ? '' : ' is-held'}`} />
+                    {playing ? `正在弹《${title}》` : `《${title}》停在 ${mmss(holdAt)}`}
+                    {playing ? (
+                        <button className="fv-btn fv-btn--mini" onClick={pauseSheet}>停一下</button>
+                    ) : (
+                        <button className="fv-btn fv-btn--mini" onClick={() => playSheet()}>接着弹</button>
+                    )}
+                    <button className="fv-btn fv-btn--mini" onClick={() => setSheetOpen(true)}>看谱</button>
+                </div>
+            )}
+
             <div className="fv-hud fv-hud--tl">
                 <a className="fv-btn" href="/">← 回主页</a>
                 <span className="fv-title">I LIVE HERE</span>
@@ -1370,7 +2112,7 @@ export default function KitchenScene({ places = [] }) {
                     {coarse ? '拖动转视角 · 点哪儿走哪儿' : 'WASD 走动 · 拖动或 ← → 转视角 · 点哪儿走哪儿'}
                     {view === 'fridge'
                         ? ` · ${places.length} 枚冰箱贴，点开看详情 · 家电点把手开门 · 旋钮点火、龙头能转能放水`
-                        : ' · 钢琴开电源就能弹 · 唱机能掀盖、能放唱片 · 灯罩点一下开关灯 · 柜门抽屉垃圾桶都点得开'}
+                        : ' · 钢琴开电源就能弹 · 唱机能掀盖、能放唱片 · 灯罩点一下开关灯 · 柜门抽屉垃圾桶都点得开，抽屉里有东西'}
                 </span>
             </div>
 
@@ -1419,6 +2161,7 @@ export default function KitchenScene({ places = [] }) {
                                     <li><b>电钢琴</b> —— 先开电源，然后就能弹</li>
                                     <li><b>唱机</b> —— 能掀盖、能放唱片</li>
                                     <li><b>灯罩</b> —— 点一下开灯关灯</li>
+                                    <li><b>抽屉</b> —— 不只是能拉开，里头有东西</li>
                                 </ul>
                             </section>
                         </div>

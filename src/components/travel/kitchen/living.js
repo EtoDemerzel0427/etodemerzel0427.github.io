@@ -4,6 +4,7 @@ import {
     PALETTE, artworkMaterial, carcass, inkOutline, matte, metal, shadeGradient, solid, woodFor,
 } from './materials.js';
 import { fitShadowCamera } from './room.js';
+import { SHEET_BLEED } from './recital.js';
 
 /* ============================================================================
    客厅。和 room.js 共用同一个局部坐标系。
@@ -2258,7 +2259,7 @@ function buildSofa(group) {
     }
 }
 
-/* ---------- 影音那一头：电视 + 电视柜 + 抽屉柜 + 唱机 + 音箱 + 边几 ---------- */
+/* ---------- 影音那一头：电视 + 电视柜 + 抽屉柜 + 唱机 + 音箱 + 边几 + PS5 ---------- */
 
 function buildMedia(group) {
     const white = matte(0xd9d6cb, { roughness: 0.5 });
@@ -2410,6 +2411,8 @@ function buildMedia(group) {
             position: [dX1 - dd - 0.014, cy, dCz], parent: g, outline: 0, cast: false,
         });
         cabinets.push({ kind: 'drawer', node: g, pick: [front], axis: 'x', dir: 1, travel: 0.28 });
+        // 最上面那一格：谱子收在这儿（buildSheetMusic 往里摆）
+        if (i === 4) group.userData.sheetDrawer = { node: g, x: dbx, y: cy - dbh / 2 + 0.005, z: dCz };
     }
     /* 唱机（Pro-Ject 那种入门带罩的）。之前是「一块白板 + 一个绿盘」，
        凑近就是两块几何体；实物的读数全在细节上：四只脚、亚克力罩、
@@ -2640,6 +2643,163 @@ function buildMedia(group) {
             solid(box(0.035, tH, 0.035), white, { position: [lx, tH / 2, lz], parent: group, outline: 0.006 });
         }
     }
+
+    /* PS5（光驱版），竖放在边几和白斗柜之间。
+
+       实拍里它并不是收在边几下面：边几右前腿挡在主机前面一点，主机本体在
+       桌腿与旁边的白斗柜之间。场景里这两件家具沿 Z 留着 32cm，正好容下主机
+       26cm 的进深，再各留约 3cm。宽面朝 +X，正对「影音角」机位，白色双壳、
+       黑色中框和下半部的光驱鼓包都能读出来。 */
+    const PS_X = 0.180, PS_Z = 3.740;
+    const PS_H = 0.390;
+    const ps = new THREE.Group();
+    ps.position.set(PS_X, 0.016, PS_Z);
+    // 只留很轻的偏角；转得太多会把 92mm 的薄机身看成厚重的方盒。
+    ps.rotation.y = -0.07;
+    group.add(ps);
+
+    const psBlack = matte(0x17191e, { roughness: 0.42, metalness: 0.08 });
+    const psWhite = matte(0xe9e9e5, { roughness: 0.38 });
+    const psBlue = matte(0x71d9ff, {
+        roughness: 0.25, emissive: 0x39bfff, emissiveIntensity: 1.35,
+    });
+
+    // 竖放底座：实物是前后较长的黑色椭圆盘，不是圆脚。
+    const psBase = solid(cyl(0.096, 0.096, 0.014, 28), psBlack, {
+        position: [0, -0.009, 0], parent: ps, outline: 0.005, cast: false,
+    });
+    psBase.scale.set(0.67, 1, 1);
+
+    /* 黑色中芯不是圆角盒子：从侧面看，顶部缩进白色翼板之间，前后两条边
+       也各自有一点内收。用独立轮廓挤出，顶端才会出现 PS5 那个深色「峡谷」。 */
+    const coreShape = new THREE.Shape();
+    coreShape.moveTo(-0.096, 0.014);
+    coreShape.quadraticCurveTo(-0.108, 0.150, -0.101, 0.310);
+    coreShape.lineTo(-0.090, 0.354);
+    coreShape.quadraticCurveTo(-0.078, 0.372, -0.059, 0.374);
+    coreShape.lineTo(0.088, 0.368);
+    coreShape.lineTo(0.102, 0.337);
+    coreShape.lineTo(0.099, 0.028);
+    coreShape.lineTo(0.076, 0.012);
+    coreShape.closePath();
+    const coreGeo = new THREE.ExtrudeGeometry(coreShape, {
+        depth: 0.058, bevelEnabled: true, bevelThickness: 0.001,
+        bevelSize: 0.001, bevelSegments: 1, curveSegments: 10,
+    });
+    coreGeo.translate(0, 0, -0.029);
+    coreGeo.rotateY(Math.PI / 2);        // shape-x → 世界 -Z，挤出方向 → 世界 X
+    solid(coreGeo, psBlack, { parent: ps, outline: 0.006 });
+
+    /* 两片白壳既不是平行板，也不是圆角矩形。它们在腰部贴近黑芯、越到顶部
+       越向外翻，底部又轻微张开；侧面轮廓则是底窄顶长的刀片形。每片壳先按
+       YZ 轮廓挤出，再逐顶点弯曲 X，才会同时拥有准确剪影和真正的双曲面。 */
+    const shellShape = new THREE.Shape();
+    shellShape.moveTo(-0.094, 0.008);
+    shellShape.lineTo(-0.112, 0.046);
+    shellShape.quadraticCurveTo(-0.120, 0.150, -0.116, 0.282);
+    shellShape.quadraticCurveTo(-0.114, 0.365, -0.084, PS_H);
+    shellShape.lineTo(0.139, 0.382);
+    shellShape.quadraticCurveTo(0.132, 0.268, 0.128, 0.070);
+    shellShape.lineTo(0.125, 0.027);
+    shellShape.lineTo(0.091, 0.007);
+    shellShape.closePath();
+
+    const makeShell = (sx) => {
+        const geo = new THREE.ExtrudeGeometry(shellShape, {
+            depth: 0.006, bevelEnabled: false, curveSegments: 12,
+        });
+        geo.translate(0, 0, -0.003);
+        geo.rotateY(Math.PI / 2);
+        const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            const y = pos.getY(i);
+            const z = pos.getZ(i);
+            const yn = Math.max(0, Math.min(1, y / PS_H));
+            // 常规机身控制在约 92mm 内；顶部只做克制的外翻，板边保持刀锋感。
+            const topFlare = 0.001 + 0.0075 * Math.pow(yn, 3.4);
+            const bottomFlare = 0.0025 * Math.pow(1 - yn, 3.0);
+            const edgeCurl = 0.001 * Math.pow(Math.min(1, Math.abs(z) / 0.13), 2.2);
+            /* 光驱不另贴一块「蛋」：只把 +X 这片壳的前下半部连续顶出去。
+               两个平方项控制鼓包的中心与衰减，边缘不会产生可见接缝。 */
+            const drive = sx > 0
+                ? 0.0105 * Math.exp(-Math.pow((y - 0.125) / 0.105, 2) - Math.pow((z + 0.030) / 0.090, 2))
+                : 0;
+            pos.setX(i, pos.getX(i) + sx * (0.0305 + topFlare + bottomFlare + edgeCurl) + drive);
+        }
+        pos.needsUpdate = true;
+        geo.computeVertexNormals();
+        return geo;
+    };
+    for (const sx of [-1, 1]) {
+        solid(makeShell(sx), psWhite, { parent: ps, outline: 0.005 });
+    }
+
+    // 光驱竖槽在前缘的白色鼓包上；上方黑芯里依次是 USB-C 与 USB-A。
+    solid(rb(0.004, 0.118, 0.004, 0.0015, 1), psBlack, {
+        position: [0.047, 0.132, -0.116], parent: ps, outline: 0, cast: false,
+    });
+    solid(rb(0.013, 0.005, 0.003, 0.0015, 1), metal(0x555b64, 0.35), {
+        position: [0, 0.238, -0.109], parent: ps, outline: 0, cast: false,
+    });
+    solid(rb(0.014, 0.008, 0.003, 0.0015, 1), metal(0x555b64, 0.35), {
+        position: [0, 0.210, -0.109], parent: ps, outline: 0, cast: false,
+    });
+
+    // 顶部进风口：一排横跨黑芯的短鳍片，近看能解释两片翼板之间为什么是空的。
+    for (let i = 0; i < 7; i++) {
+        solid(box(0.054, 0.003, 0.009), matte(0x24272d, { roughness: 0.66 }), {
+            position: [0, 0.365 + i * 0.0015, -0.064 + i * 0.021],
+            rotation: [0.08, 0, 0], parent: ps, outline: 0, cast: false,
+        });
+    }
+
+    /* 蓝灯不在白壳表面竖着划一道线，而是贴着黑芯与两片壳的内缘，从顶部
+       沿前角往下收。Tube 比直盒子多不了多少面，但近景轮廓完全不同。 */
+    for (const sx of [-1, 1]) {
+        const ledPath = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(sx * 0.034, 0.371, 0.078),
+            new THREE.Vector3(sx * 0.035, 0.374, 0.005),
+            new THREE.Vector3(sx * 0.034, 0.359, -0.075),
+            new THREE.Vector3(sx * 0.032, 0.304, -0.103),
+        ]);
+        solid(new THREE.TubeGeometry(ledPath, 18, 0.0015, 5, false), psBlue, {
+            parent: ps, outline: 0, cast: false,
+        });
+    }
+
+    // 电源 / 出仓键在正面最下方，做成嵌在黑芯里的两颗小银点。
+    for (const y of [0.060, 0.081]) {
+        solid(cyl(0.0032, 0.0032, 0.0022, 12), metal(0x777c83, 0.35), {
+            position: [0, y, -0.108], rotation: [Math.PI / 2, 0, 0],
+            parent: ps, outline: 0, cast: false,
+        });
+    }
+
+    // 使用 Sony 的真实联合图形矢量路径，而不是用字体拼出「PS」两个字母。
+    // 场景按需渲染，异步 SVG 载入完成后不一定恰好有下一帧；在创建时直接绘制
+    // 同一条路径，既保留正确标形，也保证首帧就能看见。
+    const logoCanvas = document.createElement('canvas');
+    logoCanvas.width = 256; logoCanvas.height = 200;
+    const logoCtx = logoCanvas.getContext('2d');
+    logoCtx.scale(1.25, 1.25);
+    logoCtx.fillStyle = '#30343b';
+    logoCtx.fill(new Path2D('m 197.23914,117.96194 c -3.8677,4.8796 -13.34356,8.36053 -13.34356,8.36053 0,0 -70.49109,25.31994 -70.49109,25.31994 0,0 0,-18.67289 0,-18.67289 0,0 51.87665,-18.48401 51.87665,-18.48401 5.887,-2.10924 6.79096,-5.09097 2.00581,-6.65604 -4.77616,-1.56957 -13.42451,-1.11983 -19.31601,0.99841 0,0 -34.56645,12.17426 -34.56645,12.17426 0,0 0,-19.37898 0,-19.37898 0,0 1.99232,-0.6746 1.99232,-0.6746 0,0 9.98856,-3.534896 24.03371,-5.09097 14.04515,-1.547081 31.24291,0.211374 44.74389,5.32933 15.21445,4.80764 16.92793,11.89543 13.06473,16.77502 z M 120.11451,86.165853 c 0,0 0,-47.752601 0,-47.752601 0,-5.608163 -1.03439,-10.771093 -6.29626,-12.232725 -4.0296,-1.290734 -6.53012,2.45104 -6.53012,8.054706 0,0 0,119.583887 0,119.583887 0,0 -32.250314,-10.23591 -32.250314,-10.23591 0,0 0,-142.58321 0,-142.58321 13.712343,2.54549 33.689454,8.56291 44.429074,12.18326 27.31226,9.376917 36.57225,21.047482 36.57225,47.343343 0,25.630256 -15.82159,35.344478 -35.92463,25.63925 z M 15.862004,131.01768 C 0.24279269,126.6193 -2.3566614,117.45375 4.7626047,112.17389 c 6.5795883,-4.8751 17.7689333,-8.54492 17.7689333,-8.54492 0,0 46.241498,-16.442224 46.241498,-16.442224 0,0 0,18.744854 0,18.744854 0,0 -33.275709,11.90892 -33.275709,11.90892 -5.878004,2.10924 -6.781967,5.09547 -2.005807,6.66054 4.780657,1.56506 13.433512,1.11983 19.320511,-0.99391 0,0 15.961005,-5.79256 15.961005,-5.79256 0,0 0,16.77053 0,16.77053 -1.011893,0.17989 -2.140724,0.35978 -3.184104,0.53518 -15.965505,2.60845 -32.969893,1.5201 -49.726928,-4.00262 z'));
+    const logoTex = new THREE.CanvasTexture(logoCanvas);
+    logoTex.colorSpace = THREE.SRGBColorSpace;
+    logoTex.anisotropy = 4;
+    const logoMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.021, 0.0163),
+        new THREE.MeshBasicMaterial({
+            map: logoTex, transparent: true, alphaTest: 0.08, depthWrite: false,
+            polygonOffset: true, polygonOffsetFactor: -4, toneMapped: false,
+            side: THREE.DoubleSide,
+        }),
+    );
+    logoMesh.position.set(0.0445, 0.307, 0.052);
+    logoMesh.rotation.y = Math.PI / 2;
+    logoMesh.renderOrder = 4;
+    logoMesh.castShadow = logoMesh.receiveShadow = false;
+    ps.add(logoMesh);
 }
 
 /* ---------- 落地灯两盏（扫描里没有，但它们是这屋子夜里的光源） ---------- */
@@ -3011,6 +3171,7 @@ function buildPiano(group) {
         position: [3.868, 0.905, CZ], parent: group, outline: 0.007, cast: false,
     });
     rest.rotation.z = -0.22;           // 顶端往窗那边仰
+    group.userData.pianoRest = rest;   // 谱子立在它前面，见 buildSheetMusic
     // 谱架底下那道搁谱的小台阶
     solid(rb(0.030, 0.014, 0.60, 0.005, 1), panel, {
         position: [3.845, BED_Y + 0.049, CZ], parent: group, outline: 0.005, cast: false,
@@ -3043,6 +3204,144 @@ function buildPiano(group) {
 
 /* ---------- 组装 ---------- */
 
+/* ---------- 谱子 ----------
+   同一张纸做两份：一份摊在唱机底下那个五斗柜最上层的抽屉里（拉开才看得见），
+   一份立在钢琴的谱架上（放上去之前藏着）。不做「同一块几何飞过去」是因为它要
+   跨两个父节点 —— 抽屉会整体滑出来、谱架是斜着的 —— 两份各自摆正，比中间那段
+   补间可靠得多。切换只是 visible 的事。
+
+   印面单独一块平面：BoxGeometry 六个面共用一套 UV，直接贴上去连纸边那 3mm
+   都会印上谱子。平面的 UV 没有歧义，而且能精确控制哪一面朝人。 */
+const SHEET_W = 0.210, SHEET_H = 0.297, SHEET_T = 0.0025;   // A4
+/* 印面那块平面要比纸大一圈：纸的**外形**（不齐的边、手画的墨线）是画在贴图
+   里的，画布四周留了一圈透明，放大之后中间那块正好是 A4。见 recital.js。 */
+const FACE_W = SHEET_W * SHEET_BLEED.x, FACE_H = SHEET_H * SHEET_BLEED.y;
+
+function buildSheetMusic(group) {
+    const slot = group.userData.sheetDrawer;
+    const rest = group.userData.pianoRest;
+    if (!slot || !rest) return;
+
+    const paper = matte(0xefe8da, { roughness: 0.93, noise: 1 });
+    /* 印面。贴图是运行时才生成的（abcjs 排好版再画到 canvas 上），在那之前
+       这就是一张空白纸 —— 不是一个洞，也不该是块色卡。 */
+    /* transparent 必须开：贴图四周那圈是透明的（纸的外形画在图里），不开的话
+       alpha 被忽略，那一圈会当成 RGB 全 0 画出来 —— 纸就套上一圈黑框。 */
+    const print = new THREE.MeshStandardMaterial({
+        color: 0xf5f0e4, roughness: 0.95, transparent: true,
+    });
+
+    /* ---- 抽屉里那一份 ---- */
+    const { node: drawerNode, x: dx, y: dy, z: dz } = slot;
+    // 底下垫两张歪着的空白纸，一张纸孤零零躺在抽屉里读起来像掉进去的
+    for (const [ox, oz, rot] of [[0.012, -0.008, 0.055], [-0.009, 0.011, -0.038]]) {
+        const s = solid(box(SHEET_H, SHEET_T, SHEET_W), paper, {
+            position: [dx + ox, dy + SHEET_T / 2, dz + oz], parent: drawerNode,
+            outline: 0.004, cast: false,
+        });
+        s.rotation.y = rot;
+    }
+    const inDrawer = solid(box(SHEET_H, SHEET_T, SHEET_W), paper, {
+        position: [dx, dy + SHEET_T * 1.6, dz], parent: drawerNode, outline: 0, cast: false,
+    });
+    inDrawer.rotation.y = 0.021;
+    {
+        /* 朝上、页首朝 +X（抽屉是往 +X 拉出来的，人站在 -X 这头往里看，
+           页首自然该在远端）。两次 geometry 级的旋转：
+             rotateX(-90°) → 法线朝 +Y，u→+X、v→-Z
+             rotateY(-90°) → u→+Z、v→+X                                   */
+        const g = new THREE.PlaneGeometry(FACE_W, FACE_H);
+        g.rotateX(-Math.PI / 2);
+        g.rotateY(-Math.PI / 2);
+        solid(g, print, {
+            position: [0, SHEET_T / 2 + 0.0004, 0], parent: inDrawer, outline: 0, cast: false,
+        });
+    }
+    /* 命中盒：纸只有 2.5mm 厚，正对着看是一条线；抽屉拉开之后从上方点它，
+       没有这个盒子基本点不中。 */
+    const grab = new THREE.Mesh(
+        box(SHEET_H + 0.03, 0.075, SHEET_W + 0.03),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+    );
+    grab.position.set(dx, dy + 0.038, dz);
+    grab.castShadow = grab.receiveShadow = false;
+    grab.userData.pickProxy = true;
+    drawerNode.add(grab);
+
+    /* ---- 谱架上那一份 ----
+       挂成 rest 的子节点，斜度就跟着谱架走，不用自己算。谱架的局部坐标：
+       挤出方向是 +X（板占 x ∈ [0, 0.012]），宽在 Z、高在 Y，中心在世界 0.905，
+       板高 0.26 → 下沿正好落在那道搁谱的小台阶上。 */
+    const onRest = solid(box(SHEET_T, SHEET_H, SHEET_W), paper, {
+        // 下沿贴着板的下沿：-0.13 + 0.297/2
+        position: [-SHEET_T / 2 - 0.001, 0.019, 0], parent: rest, outline: 0, cast: false,
+    });
+    {
+        // 法线朝 -X（人在房间那头），u→+Z、v→+Y
+        const g = new THREE.PlaneGeometry(FACE_W, FACE_H);
+        g.rotateY(-Math.PI / 2);
+        solid(g, print, {
+            position: [-SHEET_T / 2 - 0.0004, 0, 0], parent: onRest, outline: 0, cast: false,
+        });
+    }
+    const restGrab = new THREE.Mesh(
+        box(0.06, SHEET_H, SHEET_W),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+    );
+    restGrab.position.set(-0.03, 0.019, 0);
+    restGrab.castShadow = restGrab.receiveShadow = false;
+    restGrab.userData.pickProxy = true;
+    rest.add(restGrab);
+
+    onRest.visible = false;
+    restGrab.visible = false;
+
+    /* ---- 手上那一份 ----
+       点开之后从抽屉（或谱架）飘起来，停在眼前 —— 解谜游戏里「拿起来看」
+       那一下。位姿由 KitchenScene 每帧算（要跟着相机走），这儿只把件建出来。
+
+       三件事和屋里别的东西不一样：
+
+         · depthTest 关掉。举在脸前的东西离相机 0.5m，而人能贴到离墙 0.24m
+           的地方 —— 不关的话纸会插进墙里，读作穿模而不是「举在手上」。
+         · **不受光**。这是这儿唯一一件不参与屋里光照的东西，故意的：白纸的
+           反照率本来就接近 1，站在亮处举起来会直接顶到纯白，谱线跟着一起
+           被推过去，整张纸糊成一块白板（试过配自发光的标准材质，就是这个
+           下场，而且还把泛光带得整个画面发灰）。不受光既保证在哪儿都读得清，
+           也正好是「这张纸现在归你看了」的信号。漫画滤镜是后期，照样吃得到。
+         · 不做纸本身的厚度，只有一张平面 + 背后一圈墨色的边。正对着看，
+           那 2.5mm 的侧面一个像素都占不到，白建。 */
+    const heldPage = new THREE.MeshBasicMaterial({
+        color: 0xf5f0e4, depthTest: false, transparent: true,
+    });
+
+    const held = new THREE.Group();
+    held.visible = false;
+    group.add(held);
+    const heldFace = new THREE.Mesh(new THREE.PlaneGeometry(FACE_W, FACE_H), heldPage);
+    heldFace.renderOrder = 901;
+    heldFace.castShadow = heldFace.receiveShadow = false;
+    held.add(heldFace);
+
+    /* 三份纸的显隐由 KitchenScene 每帧定：抽屉那份还要看抽屉拉开没有，
+       手上那份是从别的两份之间插值出来的，所以这儿只把件交出去，
+       不在两处各写一半。 */
+    group.userData.sheet = {
+        inDrawer, onRest, grab, restGrab, print, drawerNode,
+        held, heldFace,
+        pick: [inDrawer, grab, onRest, restGrab, heldFace],
+        /** abcjs 排好版之后把印面换成真正的谱子 */
+        setTexture(tex) {
+            print.map = tex;
+            print.color.setHex(0xffffff);
+            print.needsUpdate = true;
+            heldPage.map = tex;
+            heldPage.color.setHex(0xffffff);      // 有图之后底色会把图染色，收回白
+            heldPage.needsUpdate = true;
+        },
+    };
+}
+
 export function buildLiving() {
     const group = new THREE.Group();
     buildShell(group);
@@ -3056,6 +3355,7 @@ export function buildLiving() {
     buildMedia(group);
     buildLamps(group);
     buildPiano(group);
+    buildSheetMusic(group);
     return { group };
 }
 
