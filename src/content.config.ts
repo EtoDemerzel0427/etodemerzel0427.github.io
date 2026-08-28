@@ -55,4 +55,27 @@ const travel = defineCollection({
     }),
 });
 
-export const collections = { posts, travel };
+/* 屋里能翻出来的东西。一件一个 md，正文就是面板里那段话。
+   sheet 那一支额外挂一份 ABC 记谱（src/data/sheets/*.abc），
+   找到之后能放上谱架，让屋里那台电钢琴照着弹。 */
+const things = defineCollection({
+    loader: glob({
+        pattern: '**/[^_]*.md',
+        base: './src/content/things',
+    }),
+    schema: z.object({
+        title: z.string(),
+        subtitle: z.string().optional(),
+        kind: z.enum(['sheet']).default('sheet'),
+        // 藏在哪儿。面板和列表页都拿它当副标题，改了这行别忘了也改 3D 里的位置。
+        spot: z.string(),
+        sheet: z.object({
+            // src/data/sheets/ 下的文件名，不带扩展名
+            abc: z.string(),
+            source: z.string().optional(),
+        }).optional(),
+        draft: z.boolean().optional(),
+    }),
+});
+
+export const collections = { posts, travel, things };

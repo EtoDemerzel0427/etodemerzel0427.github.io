@@ -15,6 +15,20 @@ const places = entries
         ...e.data,
     }));
 
+/* 屋里能翻出来的东西。谱子那一支要连 ABC 源码一起送进去 ——
+   记谱本身放在 src/data/sheets/ 下的纯文本文件里，改谱不用碰组件。 */
+const abcFiles = import.meta.glob('../../data/sheets/*.abc', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const abcOf = (name: string) => abcFiles[`../../data/sheets/${name}.abc`] ?? '';
+
+const things = (await getCollection('things') as CollectionEntry<'things'>[])
+    .filter((e: CollectionEntry<'things'>) => !e.data.draft)
+    .map((e) => ({
+        slug: e.id,
+        body: e.body ?? '',
+        ...e.data,
+        abc: e.data.sheet ? abcOf(e.data.sheet.abc) : '',
+    }));
+
 const title = '住在这儿 | Weiran Verse';
 const description = `一间照着实测尺寸复刻的公寓。冰箱门上贴着 ${places.length} 枚旅行纪念、朋友赠礼与收藏磁贴。`;
 ---
@@ -49,6 +63,6 @@ const description = `一间照着实测尺寸复刻的公寓。冰箱门上贴�
     </style>
 </head>
 <body>
-    <KitchenScene client:only="react" places={places} />
+    <KitchenScene client:only="react" places={places} things={things} />
 </body>
 </html>

@@ -11,6 +11,14 @@ const items = await Promise.all(
         .map(async (e) => ({ data: e.data, Content: (await render(e)).Content })),
 );
 
+/* 屋里能翻出来的东西。三维那页要拉开抽屉才看得见，纯文本版直接列出来 ——
+   这页本来就是给爬虫和不想转的人看的。 */
+const thingEntries = (await getCollection('things') as CollectionEntry<'things'>[])
+    .filter((e: CollectionEntry<'things'>) => !e.data.draft);
+const things = await Promise.all(
+    thingEntries.map(async (e) => ({ data: e.data, Content: (await render(e)).Content })),
+);
+
 const magnetMeta = (data: CollectionEntry<'travel'>['data']) => {
     if (data.kind === 'gift') return `${data.country} · 朋友赠送 · 未到访`;
     if (data.kind === 'fandom') return '收藏 · 非旅行地点';
@@ -70,6 +78,13 @@ const magnetMeta = (data: CollectionEntry<'travel'>['data']) => {
             color: #150f2c;
         }
         .meta { font-size: 14px; opacity: 0.75; margin-bottom: 10px; }
+        .things { margin-top: 44px; }
+        .things__h {
+            font-family: 'Bangers', cursive;
+            font-size: 30px; letter-spacing: 0.05em;
+            margin: 0 0 16px;
+            text-shadow: 2px 2px 0 #150f2c, 4px 4px 0 #35e2ff;
+        }
         article p { line-height: 1.75; margin: 0 0 12px; }
         article blockquote {
             margin: 14px 0 0; padding: 8px 12px;
@@ -95,6 +110,24 @@ const magnetMeta = (data: CollectionEntry<'travel'>['data']) => {
                 <it.Content />
             </article>
         ))}
+
+        {things.length > 0 && (
+            <section class="things">
+                <h2 class="things__h">屋里翻得出来的东西</h2>
+                {things.map((t) => (
+                    <article>
+                        <h2>{t.data.title} <small>{t.data.subtitle}</small></h2>
+                        <div class="meta">
+                            {t.data.spot}
+                            {t.data.sheet?.source ? (
+                                <> · <a class="link" href={t.data.sheet.source} rel="noopener">谱子原稿</a></>
+                            ) : null}
+                        </div>
+                        <t.Content />
+                    </article>
+                ))}
+            </section>
+        )}
 
         <!-- 房间那页用到的第三方素材，署名放这儿（纯文本版是这站的永久链接） -->
         <footer class="credits">

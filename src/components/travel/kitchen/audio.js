@@ -105,7 +105,17 @@ function nearestSample(midi) {
     return best;
 }
 
-export function playPianoNote(midi, velocity = 0.85, at = [3.75, 0.78, 0.0]) {
+/** 现在的音频时钟。自动演奏要按它排，不能按 rAF —— 差 16ms 在十六分音符上听得出来。 */
+export function audioNow() {
+    const c = ensureAudio();
+    return c ? c.currentTime : 0;
+}
+
+/* 还在响的音。自动演奏要能中途叫停，见 stopPianoVoices()。 */
+const voices = new Set();
+
+/** @param when 绝对的 AudioContext 时刻。留空 = 立刻（点琴键那条路）。 */
+export function playPianoNote(midi, velocity = 0.85, at = [3.75, 0.78, 0.0], when = 0) {
     const c = ensureAudio();
     if (!c) return;
     if (!pianoBuffers) { preloadPiano(); return; }        // 第一下正好在下载，吞掉
@@ -116,7 +126,7 @@ export function playPianoNote(midi, velocity = 0.85, at = [3.75, 0.78, 0.0]) {
     const buf = pianoBuffers.get(src);
     if (!buf) return;
 
-    const t = c.currentTime + 0.001;
+    const t = Math.max(c.currentTime + 0.001, when || 0);
     const v = Math.max(0.05, Math.min(1, velocity));
 
     const node = c.createBufferSource();
@@ -134,6 +144,28 @@ export function playPianoNote(midi, velocity = 0.85, at = [3.75, 0.78, 0.0]) {
 
     node.connect(lp).connect(g).connect(pianoBus);
     node.start(t);
+
+    /* 自动演奏要能中途叫停。采样是一按到底、没有 note-off 的（对慢板来说
+       约等于一直踩着延音踏板，是对的），但点「停」之后还响五六秒就不对了。
+       所以每个音都登记一下，stopPianoVoices() 统一淡出。 */
+    const voice = { node, gain: g };
+    voices.add(voice);
+    node.onended = () => voices.delete(voice);
+}
+
+/** 把还在响的音全部淡出掉。停止自动演奏时用。 */
+export function stopPianoVoices(fade = 0.35) {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    for (const v of voices) {
+        try {
+            v.gain.gain.cancelScheduledValues(t);
+            v.gain.gain.setValueAtTime(Math.max(v.gain.gain.value, 0.0001), t);
+            v.gain.gain.exponentialRampToValueAtTime(0.0001, t + fade);
+            v.node.stop(t + fade + 0.02);
+        } catch { /* 已经停了 */ }
+    }
+    voices.clear();
 }
 
 /* ---------- 唱机 ----------
@@ -234,5 +266,6 @@ export function isRecordPlaying() {
 
 export function disposeAudio() {
     stopRecord();
+    stopPianoVoices(0.05);
     if (ctx) { ctx.close(); ctx = null; master = null; pianoBus = null; }
 }
