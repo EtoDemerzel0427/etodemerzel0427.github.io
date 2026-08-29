@@ -43,6 +43,11 @@ const WALL_H = CEIL + 0.6;        // 和 room.js 一致，天花板之上还留�
 /* 北墙上那两排唱片。cover 是 public/travel/covers/ 下的文件名，
    tint 是图还没到（或者干脆没这张图）时顶着的底色 —— 取封面的主色，
    这样即使贴图缺席，那面墙的色彩关系也还在。
+   track / preview 是这张唱片能放的那一首：iTunes 那段 30 秒试听，Apple 自己
+   的 CDN，响应头开了 CORS，所以能直接进屋里那条 WebAudio 链。抓法见
+   scripts/fetch-preview.mjs；链接偶尔轮换，不响了就重跑一次，取不到就只剩
+   底噪，不报错。
+
    换唱片只要改这张表 + 丢一张 600px 见方的封面进去。
    表里从左到右，和站在屋里看到的顺序一致。
    封面用 scripts/fetch-cover.mjs 抓：
@@ -50,16 +55,30 @@ const WALL_H = CEIL + 0.6;        // 和 room.js 一致，天花板之上还留�
        node scripts/fetch-cover.mjs "Kanye West" "ye"
 */
 const TOP_ROW = [
-    { name: 'Adele — 21', cover: 'adele-21.jpg', tint: 0x6b5a4e },
-    { name: 'The Weeknd — After Hours', cover: 'the-weeknd-after-hours.jpg', tint: 0x6e3524 },
-    { name: 'Daniel Caesar — NEVER ENOUGH', cover: 'daniel-caesar-never-enough.jpg', tint: 0x191a6b },
+    { name: 'Adele — 21', cover: 'adele-21.jpg', tint: 0x6b5a4e,
+      track: 'Someone Like You',
+      preview: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/08/22/2e/08222e25-43f5-20e6-a442-b8127ac83368/mzaf_1689070223363740216.plus.aac.p.m4a' },
+    { name: 'The Weeknd — After Hours', cover: 'the-weeknd-after-hours.jpg', tint: 0x6e3524,
+      track: 'Blinding Lights',
+      preview: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/0c/c5/03/0cc503b5-9299-b207-a13c-ba5358733c56/mzaf_18217607061023109918.plus.aac.p.m4a' },
+    { name: 'Daniel Caesar — NEVER ENOUGH', cover: 'daniel-caesar-never-enough.jpg', tint: 0x191a6b,
+      track: 'Always',
+      preview: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/29/94/e4/2994e49b-8613-f5bb-8533-7cf13de92630/mzaf_12958362463531140094.plus.aac.p.m4a' },
 ];
 const BOTTOM_ROW = [
     // 数字版封面是蓝的，实物那张是绿调压片；封面图已经按实物调过色相
-    { name: 'Miles Davis — Miles (Prestige 7014)', cover: 'miles-davis-miles.jpg', tint: 0x2f7a4a },
-    { name: 'The Weeknd — Starboy', cover: 'the-weeknd-starboy.jpg', tint: 0xb8412a },
-    { name: 'Kanye West — ye', cover: 'kanye-west-ye.jpg', tint: 0x6f7d86 },
-    { name: 'RADWIMPS — 君の名は。', cover: 'radwimps-your-name.jpg', tint: 0x2c4a6e },
+    { name: 'Miles Davis — Miles (Prestige 7014)', cover: 'miles-davis-miles.jpg', tint: 0x2f7a4a,
+      track: 'Just Squeeze Me (But Don\'t Tease Me)',
+      preview: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/33/29/af/3329af22-1e98-a3a2-ea62-a1043e8eef73/mzaf_11671602263205962886.plus.aac.p.m4a' },
+    { name: 'The Weeknd — Starboy', cover: 'the-weeknd-starboy.jpg', tint: 0xb8412a,
+      track: 'Starboy (feat. Daft Punk)',
+      preview: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/11/71/d6/1171d6ad-3c96-e027-2af6-58028426588c/mzaf_15137631797407745471.plus.aac.p.m4a' },
+    { name: 'Kanye West — ye', cover: 'kanye-west-ye.jpg', tint: 0x6f7d86,
+      track: 'Ghost Town (feat. PARTYNEXTDOOR)',
+      preview: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/44/4e/f1/444ef1f6-7655-3942-1751-7696cb55e27e/mzaf_6604609548483025737.plus.aac.p.m4a' },
+    { name: 'RADWIMPS — 君の名は。', cover: 'radwimps-your-name.jpg', tint: 0x2c4a6e,
+      track: 'Zenzenzense - Movie Ver.',
+      preview: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/f8/fd/9f/f8fd9f88-67e8-ce12-f44d-1b4fe421f1f9/mzaf_5313510550820503304.plus.aac.p.m4a' },
 ];
 
 const rb = (w, h, d, r = 0.014, seg = 3) => new RoundedBoxGeometry(w, h, d, seg, r);
@@ -509,6 +528,7 @@ function buildShell(group) {
     ];
     // 封套侧面 / 背面：牛皮纸板，只有正面(+X，朝屋里)是封面
     const sleeveSide = matte(0xb9b2a6, { roughness: 0.92 });
+    const records = group.userData.records || (group.userData.records = []);
     for (const { y, covers } of rows) {
         const span = PITCH * covers.length + 0.02;
         solid(box(0.07, 0.016, span), trimMat, {
@@ -520,10 +540,21 @@ function buildShell(group) {
             const z = ROW_Z - (i - (covers.length - 1) / 2) * PITCH;
             const art = artworkMaterial(c.cover && `/travel/covers/${c.cover}`, c.tint);
             // BoxGeometry 的六个面：[+X, -X, +Y, -Y, +Z, -Z]，封面挂在 +X
-            solid(box(0.012, SLEEVE, SLEEVE),
+            const sleeve = solid(box(0.012, SLEEVE, SLEEVE),
                 [art, sleeveSide, sleeveSide, sleeveSide, sleeveSide, sleeveSide], {
                     position: [NORTH_X + 0.024, y, z], parent: group, outline: 0.005, cast: false,
                 });
+            /* 点它就把这张放上唱机。封套只有 12mm 厚，正面看是一条线，
+               所以另给一个厚一点的命中盒（和冰箱贴、谱子一个路子）。 */
+            const grab = new THREE.Mesh(
+                box(0.09, SLEEVE + 0.02, SLEEVE + 0.02),
+                new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+            );
+            grab.position.set(NORTH_X + 0.06, y, z);
+            grab.castShadow = grab.receiveShadow = false;
+            grab.userData.pickProxy = true;
+            group.add(grab);
+            records.push({ data: c, sleeve, grab, home: sleeve.position.clone() });
         });
     }
 }
@@ -2465,10 +2496,12 @@ function buildMedia(group) {
     solid(cyl(0.150, 0.150, 0.0022, 48), matte(0x121215, { roughness: 0.30 }), {
         position: [0, 0, 0], parent: lp, outline: 0.003, cast: false,
     });
-    // 盘上这张就是唱机在放的那张（Frank Ocean《Blonde》/ Pink + White）
-    solid(cyl(0.0505, 0.0505, 0.0009, 32), artworkMaterial('/travel/covers/frank-ocean-blonde.jpg', 0xbfc6c9), {
-        position: [0, 0.0017, 0], parent: lp, outline: 0, cast: false,
-    });
+    /* 中心标签。默认是唱机自带的那张（Frank Ocean《Blonde》），从墙上取一张
+       放上来的时候换成那张的封面 —— 转盘上贴的得是正在放的那张。 */
+    const lpLabel = solid(cyl(0.0505, 0.0505, 0.0009, 32),
+        artworkMaterial('/travel/covers/frank-ocean-blonde.jpg', 0xbfc6c9), {
+            position: [0, 0.0017, 0], parent: lp, outline: 0, cast: false,
+        });
     solid(cyl(0.030, 0.030, 0.010, 20), ttChrome, {           // 中心压片
         position: [0, 0.0375, 0], parent: platter, outline: 0.003, cast: false,
     });
@@ -2569,7 +2602,12 @@ function buildMedia(group) {
     group.add(ttGrab);
 
     group.userData.turntable = {
-        platter, lp, arm, cover, coverPivot,
+        platter, lp, arm, cover, coverPivot, lpLabel,
+        /** 换掉盘上那张的中心标签。传空 = 换回唱机自带的那张。 */
+        setLabel(coverFile) {
+            const url = coverFile ? `/travel/covers/${coverFile}` : '/travel/covers/frank-ocean-blonde.jpg';
+            lpLabel.material = artworkMaterial(url, 0xbfc6c9);
+        },
         pickCover: [coverGrab],
         pickPlay: [ttGrab],
         LID_OPEN: 1.22,

@@ -817,18 +817,45 @@ export default function KitchenScene({ places = [], things = [] }) {
                 let lidAngle = 0, armAngle = tt.ARM_REST, armLift = 0, armTrack = 0;
                 let lpDrop = 0;                 // 0 = 唱片悬在盘上方，1 = 落到盘上
                 function toggleLid() { lidOpen = !lidOpen; }
-                function togglePlay() {
-                    spinning = !spinning;
-                    if (spinning) {
-                        lidOpen = true;              // 放唱片总得先掀盖
-                        armTrack = 0;
-                        tt.lp.visible = true;
-                        tt.lp.position.y = tt.LP_Y + tt.LP_LIFT * (1 - lpDrop);
-                        audio.startRecord(tt.speakers);
-                    } else {
-                        audio.stopRecord();
-                    }
+
+                /* 墙上那七张。点封套 = 把那张抽出来放上唱机；再点一次 = 收回去。
+                   放的是 iTunes 那段 30 秒试听（表在 living.js 顶上）。 */
+                const records = living.userData.records || [];
+                let onDeck = null;          // 盘上现在是哪张，null = 唱机自带那张
+
+                /** 一面放完。黑胶不循环 —— 抬臂、归位、盘停下来，片留在盘上。 */
+                function sideEnded() {
+                    spinning = false;
+                    audio.stopRecord();
                 }
+
+                function spinUp(url) {
+                    lidOpen = true;              // 放唱片总得先掀盖
+                    armTrack = 0;
+                    tt.lp.visible = true;
+                    tt.lp.position.y = tt.LP_Y + tt.LP_LIFT * (1 - lpDrop);
+                    spinning = true;
+                    audio.startRecord(tt.speakers, url, sideEnded);
+                }
+
+                function togglePlay() {
+                    if (spinning) { spinning = false; audio.stopRecord(); return; }
+                    spinUp(onDeck?.data.preview);
+                }
+
+                /** 把墙上这张放上去（已经在盘上就收回墙） */
+                function playRecord(rec) {
+                    if (spinning) { spinning = false; audio.stopRecord(); }
+                    if (onDeck === rec) {                 // 收回去，换回唱机自带那张
+                        onDeck = null;
+                        tt.setLabel(null);
+                        return;
+                    }
+                    onDeck = rec;
+                    tt.setLabel(rec.data.cover);          // 盘上贴的得是正在放的那张
+                    spinUp(rec.data.preview);
+                }
+                const recordOf = (o) => records.find((r) => r.sleeve === o || r.grab === o) || null;
 
                 const { group: fridge, doorPlane, doors: fridgeDoors } = buildFridge();
                 // 嵌在柜龛里，所以正对前方；三维感靠机位角度，不靠转冰箱。
@@ -1026,6 +1053,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                 const pickSet = new Set([
                     ...magnets, ...range.knobs, ...faucet.pickSpout, ...faucet.pickLever,
                     ...pianoKeys, ...power.pick, ...tt.pickCover, ...tt.pickPlay,
+                    ...records.flatMap((r) => [r.sleeve, r.grab]),
                     ...(sheet?.pick || []),
                     ...lamps.flatMap((l) => l.pick), ...joints.flatMap((j) => j.pick),
                     ...cabs.flatMap((c) => c.pick),
@@ -1213,6 +1241,10 @@ export default function KitchenScene({ places = [], things = [] }) {
                         if (power.pick.includes(o)) { togglePiano(); return; }
                         if (tt.pickCover.includes(o)) { toggleLid(); return; }
                         if (tt.pickPlay.includes(o)) { togglePlay(); return; }
+                        {
+                            const rec = recordOf(o);
+                            if (rec) { playRecord(rec); return; }
+                        }
                         if (sheet && sheet.pick.includes(o)) {
                             // 举着的时候点它 = 放回去；在原处点它 = 拿起来
                             if (sheet.held.visible) closeSheetRef.current?.();
@@ -1366,6 +1398,13 @@ export default function KitchenScene({ places = [], things = [] }) {
                         canvas.classList.toggle('is-pointing', !!hovered);
                         const d = hovered?.userData;
                         if (d?.place) setHover({ slug: d.place.slug, place: d.place.place });
+                        else if (hovered && recordOf(hovered)) {
+                            const r = recordOf(hovered);
+                            setHover({
+                                slug: `lp-${r.data.cover}`,
+                                place: onDeck === r ? '收回墙上' : `${r.data.name}${r.data.track ? ` · ${r.data.track}` : ''}`,
+                            });
+                        }
                         else if (hovered && sheet?.pick.includes(hovered)) {
                             setHover({
                                 slug: 'sheet',
@@ -1718,6 +1757,20 @@ export default function KitchenScene({ places = [], things = [] }) {
                         if (!spinning && !moving && tt.lp.visible && armLift < 0.005 && lpDrop < 0.02) {
                             tt.lp.visible = false;
                         }
+                        /* 被抽出来那张封套往屋里挪 4cm、歪一点：架上得看得出来
+                           少了哪一张，不然唱机上那张是从哪儿来的读不出来。 */
+                        for (const r of records) {
+                            const out = r === onDeck;
+                            const wantX = r.home.x + (out ? 0.045 : 0);
+                            const wantTilt = out ? -0.10 : 0;
+                            if (Math.abs(wantX - r.sleeve.position.x) > 1e-5) {
+                                const k = 1 - Math.exp(-7 * dt);
+                                r.sleeve.position.x += (wantX - r.sleeve.position.x) * k;
+                                r.sleeve.rotation.z += (wantTilt - r.sleeve.rotation.z) * k;
+                                markShadows();
+                            }
+                        }
+
                         /* 盘和唱片是绕自己轴心转的圆盘 —— 转归转，这一帧和下一帧的
                            投影一模一样，没必要为它每帧重画两张 2048² 的投影贴图。
                            真会改投影的只有三样：掀盖、抬臂、上下片。 */

@@ -178,6 +178,8 @@ export function stopPianoVoices(fade = 0.35) {
      · 一道低通，隔着半间屋子听音箱，高频本来就掉了
    两只音箱各接一个 PannerNode，人走过去左右和音量都跟着变。 */
 
+/** 唱机自带的那张：站上本来就有的完整 MP3。墙上那批走的是另一条路 ——
+ *  iTunes 的 30 秒试听，链接直接写在 living.js 的唱片表里，一个字节都不落地。 */
 const TRACK = '/music/Frank Ocean - Pink + White.mp3';
 
 let vinyl = null;   // { el, src, bus, noise }
@@ -195,8 +197,14 @@ function noiseBuffer(c, seconds) {
     return buf;
 }
 
-/** 开始放唱片。speakers 是两只音箱的世界坐标。 */
-export function startRecord(speakers) {
+/**
+ * 开始放唱片。
+ * @param speakers 两只音箱的世界坐标
+ * @param url      放哪一首。留空 = 唱机自带那张
+ * @param onEnded  放完了。**黑胶没有循环这回事** —— 一面走完就该抬臂归位，
+ *                 所以放完要回头通知，让唱臂和转盘停下来。
+ */
+export function startRecord(speakers, url, onEnded) {
     const c = ensureAudio();
     if (!c || vinyl) return;
 
@@ -227,10 +235,17 @@ export function startRecord(speakers) {
     /* 音乐本体。crossOrigin 要在 src 之前设，否则 MediaElementSource 会被
        当成跨域静音（同源其实用不着，留着以防以后换 CDN）。 */
     const el = new Audio();
+    /* crossOrigin 要在 src 之前设。墙上那批是 Apple CDN 上的跨域音频，
+       它响应头开了 access-control-allow-origin: *，所以
+       createMediaElementSource 拿得到样本 —— 不设这一行就会被当成跨域静音，
+       底噪照响、歌没声。 */
     el.crossOrigin = 'anonymous';
-    el.loop = true;
+    el.loop = false;
     el.preload = 'auto';
-    el.src = TRACK;
+    el.src = url || TRACK;
+    /* 一面放完（或者这段试听放完）。ended 之后 vinyl 还在，交给上层决定
+       是抬臂收盘还是接着放下一张。 */
+    el.addEventListener('ended', () => { if (vinyl?.el === el) onEnded?.(); });
     const src = c.createMediaElementSource(el);
     const musicGain = c.createGain();
     musicGain.gain.value = 0.85;
@@ -251,7 +266,14 @@ export function stopRecord() {
     v.bus.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
     setTimeout(() => {
         try { v.noise.stop(); } catch { /* 已经停了 */ }
-        try { v.el.pause(); v.el.src = ''; } catch { /* 同上 */ }
+        /* 收盘。`el.src = ''` 是不行的：空串会按当前页面地址解析，浏览器于是
+           拿这页 HTML 当音频去解码，每收一次盘报一个 MEDIA_ERR_SRC_NOT_SUPPORTED。
+           removeAttribute + load() 才是把媒体元素清空的写法，不发请求也不报错。 */
+        try {
+            v.el.pause();
+            v.el.removeAttribute('src');
+            v.el.load();
+        } catch { /* 同上 */ }
         try { v.src.disconnect(); } catch { /* 同上 */ }
         try {
             v.tone.disconnect();
