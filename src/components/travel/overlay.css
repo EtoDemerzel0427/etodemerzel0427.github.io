@@ -9,6 +9,9 @@
     --cream:      #f8f0e0;
     --violet:     #6b4fd6;
     --cyan:       #35e2ff;
+    /* 谱面上左手那一支。--cyan 太亮，压在米色纸上看不见；这支是同一头的蓝，
+       调深到在纸上和墨色、和右手那支粉都拉得开。 */
+    --blue:       #1a7ff0;
     --pink:       #ff2e88;
     --yellow:     #ffd23f;
     --deep:       #170e33;
@@ -615,7 +618,25 @@
 }
 .fv-sheet__paper svg { max-width: 100%; height: auto; }
 
-/* 正在响的那一下。选中色和屋里那套霓虹粉是同一支。 */
+/* 谱面上的音是能点的：点哪个音就从那儿弹起。abcjs 给每个能点的元素挂了
+   data-index，拿它当选择器 —— 光标和悬停色都是说「这儿点得动」。
+   悬停用的是弹到时那支粉的淡一档：同一件事的两个阶段（能点 → 正在响），
+   换一支颜色会读成两码事。 */
+.fv-sheet__paper [data-index] { cursor: pointer; }
+.fv-sheet__paper [data-index]:hover,
+.fv-sheet__paper [data-index]:hover path,
+.fv-sheet__paper [data-index]:hover ellipse,
+.fv-sheet__paper [data-index]:hover line {
+    fill: rgba(255, 46, 136, 0.55);
+    stroke: rgba(255, 46, 136, 0.55);
+}
+
+/* 正在响的那一下 —— 亮多久照谱面上的时值，长音就一直亮到松手。
+
+   两只手分色：右手是屋里那套霓虹粉，左手是一支蓝。两行谱表上同时有
+   十几个音在跑，一支颜色是分不出哪一下归哪只手的。琴键点亮用的是同一对颜色
+   （living.js 的 pianoKeyMats），谱上一个音、键上一个键，一眼对得上。
+   只有一行谱表的谱子没有左右手可分，全是粉。 */
 .fv-sheet__paper .fv-note-on,
 .fv-sheet__paper .fv-note-on path,
 .fv-sheet__paper .fv-note-on ellipse,
@@ -623,6 +644,25 @@
     fill: var(--pink);
     stroke: var(--pink);
 }
+.fv-sheet__paper .fv-note-on--lh,
+.fv-sheet__paper .fv-note-on--lh path,
+.fv-sheet__paper .fv-note-on--lh ellipse,
+.fv-sheet__paper .fv-note-on--lh line {
+    fill: var(--blue);
+    stroke: var(--blue);
+}
+
+/* 「点谱面就能跳」那一句。比说明再轻一档 —— 它讲的是用法，不是内容。 */
+.fv-sheet__note--tip {
+    font-size: 13px;
+    opacity: 0.5;
+    padding-bottom: 6px;
+}
+/* 这一句里的「右手 / 左手」照它们在谱面上亮起来的颜色写，省一句解释。
+   整句压着 0.5 的透明度，这两个字就不再压了 —— 它们是色卡。 */
+.fv-sheet__note--tip .fv-hand { font-weight: 700; opacity: 1; }
+.fv-hand--rh { color: var(--pink); }
+.fv-hand--lh { color: var(--blue); }
 
 .fv-sheet__foot {
     display: flex;

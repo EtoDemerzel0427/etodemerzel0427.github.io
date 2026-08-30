@@ -35,10 +35,38 @@ export function loadAbcjs() {
 const unitToSec = (tempo) => (60 / tempo) * 4;
 
 /**
+ * 每个音是哪只手弹的。钢琴谱两行谱表：上面那行右手，下面那行左手。
+ *
+ * 认**谱表**，不认谱号 —— 这份谱子里左手那行有好几处临时改成高音谱号
+ * （`[V:LHupper clef=treble]`，左手爬到中央 C 以上那几句），照谱号分会把
+ * 那几句判给右手。
+ *
+ * @returns {{ handOf: Map<number, 0|1>, staves: number }} startChar → 0 右手 / 1 左手。
+ *          只有一行谱表的谱子（单声部旋律）没有左右手可分，表是空的
+ */
+function handsByChar(tune) {
+    const handOf = new Map();
+    let staves = 1;
+    for (const line of tune.lines || []) {
+        const sts = line.staff || [];
+        staves = Math.max(staves, sts.length);
+        for (let s = 0; s < sts.length; s++) {
+            for (const voice of sts[s].voices || []) {
+                for (const el of voice) {
+                    if (el.el_type !== 'note' || el.startChar == null) continue;
+                    handOf.set(el.startChar, s > 0 ? 1 : 0);
+                }
+            }
+        }
+    }
+    return { handOf: staves > 1 ? handOf : new Map(), staves };
+}
+
+/**
  * @param abcjs   loadAbcjs() 的结果
  * @param abc     ABC 源码
  * @param qpm     每分钟多少四分音符。留空 = 用谱面自带的 Q:（没写就是 abcjs 的 180）
- * @returns {{ tune, notes, duration, tempo }}
+ * @returns {{ tune, notes, duration, tempo, staves }}
  * @throws 谱子解不开、或者一个音都没有
  */
 export function buildScore(abcjs, abc, qpm) {
@@ -46,6 +74,7 @@ export function buildScore(abcjs, abc, qpm) {
     if (!tune) throw new Error('这段 ABC 解不开');
     const audio = tune.setUpAudio(qpm ? { qpm } : {});
     const k = unitToSec(audio.tempo);
+    const { handOf, staves } = handsByChar(tune);
 
     const notes = [];
     for (const track of audio.tracks) {
@@ -58,12 +87,46 @@ export function buildScore(abcjs, abc, qpm) {
                 // abcjs 的 volume 是 0..127 那一路；除以 120 之后落在 0.7..0.88，
                 // 和点琴键那条路（0.72..0.92）是同一个力度区间
                 vel: Math.min(1, (e.volume || 95) / 120),
+                // 这个音在 ABC 源码里的位置。点谱面跳播时拿它对时间，见 timeAtChar()
+                startChar: e.startChar,
+                endChar: e.endChar,
+                hand: handOf.get(e.startChar) || 0,      // 0 右手 / 1 左手
             });
         }
     }
     if (!notes.length) throw new Error('这份谱子里一个音都没有');
     notes.sort((a, b) => a.t - b.t);
-    return { tune, notes, duration: audio.totalDuration * k, tempo: audio.tempo };
+    return { tune, notes, duration: audio.totalDuration * k, tempo: audio.tempo, staves };
+}
+
+/**
+ * 谱面上第 char 个字符，落在曲子的第几秒。点谱面跳播用的：abcjs 只能告诉我们
+ * 被点的是源码里哪一段，秒数得回音符表里换。
+ *
+ * 点中的那一下不一定有声音 —— 休止符、连音线后半截的那个音头、装饰音的尾巴，
+ * 谱面上都是一个能点的东西，音符表里却没有对应的条目。所以对不上就退一步，
+ * 找字符位置最近的那个音：谱面上挨着的，时间上也挨着。
+ *
+ * @param score buildScore() 的结果
+ * @param char  abcjs 给的 startChar
+ * @param near  现在弹到第几秒。同一个字符往往对上好几个音（和弦里的几个音头、
+ *              走两遍的段落），拿它挑离当下最近的那一次
+ * @returns 秒；一个音都对不上就是 null
+ */
+export function timeAtChar(score, char, near = 0) {
+    if (!Number.isFinite(char)) return null;
+    let best = null, bestGap = Infinity, bestDt = Infinity;
+    for (const n of score.notes) {
+        if (n.startChar == null) continue;
+        // 落在这个音自己那段字符里 = 正好点中它，不用比远近
+        const gap = char >= n.startChar && char < (n.endChar ?? n.startChar + 1)
+            ? 0 : Math.abs(n.startChar - char);
+        const dt = Math.abs(n.t - near);
+        if (gap < bestGap || (gap === bestGap && dt < bestDt)) {
+            best = n; bestGap = gap; bestDt = dt;
+        }
+    }
+    return best ? best.t : null;
 }
 
 /** 从 ABC 头里抠出曲名 / 作者，给面板当标题用。 */
@@ -90,7 +153,7 @@ const PUMP_MS = 250;
 
 /**
  * @param score   buildScore() 的结果
- * @param onNote  (midi, durSec) —— 这个键现在该沉下去
+ * @param onNote  (midi, durSec, hand) —— 这个键现在该沉下去，沉多久，哪只手
  * @param onEnd   最后一个音响完
  * @param at      琴在屋里的坐标，给 PannerNode
  */
@@ -190,7 +253,7 @@ export function createRecital(score, { onNote, onEnd, at } = {}) {
                 const n = notes[keyIdx++];
                 // 从后台切回来，这一段的键早该松了 —— 补按一屏没有意义
                 if (n.t < now - 0.2) continue;
-                onNote?.(n.midi, n.dur);
+                onNote?.(n.midi, n.dur, n.hand);
             }
         },
     };

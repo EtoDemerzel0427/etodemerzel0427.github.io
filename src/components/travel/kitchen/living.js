@@ -3064,11 +3064,13 @@ function buildPiano(group) {
          · 黑键反过来。底色是 0x16161c，染色染不动，只能实打实上色再补自发光
            才浮得起来。
 
-       粉是谱面上高亮那一支（overlay.css 的 --pink），同一个音一眼能对上。 */
-    const litKey = (base, color, glow) => {
+       两支颜色，一手一支：右手粉、左手蓝，和谱面上高亮那两支是同一对
+       （overlay.css 的 --pink / --blue）—— 同一个音一眼能对上，两只手也
+       一眼分得开。自己拿手点键弹的时候没有左右手可分，走右手那一支。 */
+    const litKey = (base, color, emissive, glow) => {
         const m = base.clone();
         m.color = new THREE.Color(color);
-        m.emissive = new THREE.Color(0xff2e88);
+        m.emissive = new THREE.Color(emissive);
         m.emissiveIntensity = glow;
         return m;
     };
@@ -3204,12 +3206,14 @@ function buildPiano(group) {
         }
     }
     group.userData.pianoKeys = keys;
-    // 白键 / 黑键各一对：常态和点亮。KitchenScene 每帧按需换上去。
+    /* 白键 / 黑键 × 常态 / 右手 / 左手。KitchenScene 每帧按需换上去。
+       0xf98ab5、0x7bb1eb = 象牙白 0xf1eee5 分别往粉和蓝里调 55%。 */
     group.userData.pianoKeyMats = {
         white: ivory, black: ebony,
-        // 0xf98ab5 = 象牙白 0xf1eee5 往 0xff2e88 里调 55%
-        whiteLit: litKey(ivory, 0xf98ab5, 0),
-        blackLit: litKey(ebony, 0xff2e88, 1.05),
+        whiteLit: litKey(ivory, 0xf98ab5, 0xff2e88, 0),
+        blackLit: litKey(ebony, 0xff2e88, 0xff2e88, 1.05),
+        whiteLitL: litKey(ivory, 0x7bb1eb, 0x1a7ff0, 0),
+        blackLitL: litKey(ebony, 0x1a7ff0, 0x1a7ff0, 1.05),
     };
     /* 电钢琴 —— 不开电源不响。KitchenScene 接这三样：命中盒、指示灯、小屏。 */
     group.userData.pianoPower = { pick: [powerGrab], btn: powerBtn, led: powerLed, screen };

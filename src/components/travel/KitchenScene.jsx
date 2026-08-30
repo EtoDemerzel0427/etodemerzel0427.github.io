@@ -30,6 +30,44 @@ const mmss = (t) => {
     return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
 };
 
+/**
+ * 排完版之后，把「ABC 里的字符位置」对上「谱面上那个音的 SVG 节点」。
+ * 弹到哪儿亮哪儿要靠它：音符表里每个音都记着自己的 startChar（recital.js
+ * buildScore），查一下就知道该给哪几个 <g> 加高亮。
+ *
+ * 连音线**后半截**那个音头并进前一个音：连起来的两个音在音频里是一个音
+ * （abcjs 把它们并成了一个更长的音符），谱面上却还是两个音头 —— 不并的话
+ * 后面那个从头到尾都不会亮。只并「整个音头都是连过来的」那种；和弦里只有
+ * 一个音连过来、别的音是新起的，那一下自己有音，照常自己亮。
+ *
+ * @returns {Map<number, SVGElement[]>} startChar → 那一下要点亮的节点
+ */
+function indexSheet(visual) {
+    const byChar = new Map();
+    for (const line of visual?.lines || []) {
+        for (const staff of line.staff || []) {
+            for (const voice of staff.voices || []) {
+                let prev = null;              // 这个声部里上一个音的那组节点
+                for (const el of voice) {
+                    if (el.el_type !== 'note' || el.rest) continue;
+                    const els = el.abselem?.elemset;
+                    if (!els?.length) continue;
+                    if (prev && el.pitches?.length && el.pitches.every((pt) => pt.endTie)) {
+                        prev.push(...els);
+                        continue;
+                    }
+                    if (el.startChar == null) continue;
+                    const rec = byChar.get(el.startChar) || [];
+                    rec.push(...els);
+                    byChar.set(el.startChar, rec);
+                    prev = rec;
+                }
+            }
+        }
+    }
+    return byChar;
+}
+
 /** 举在眼前那张谱子的页宽（米）。living.js 的 SHEET_W —— 两边都是 A4，
  *  这儿只拿它反推「离眼睛多远才占到画面的那么宽」。 */
 const SHEET_PAGE_W = 0.210;
@@ -137,9 +175,10 @@ export default function KitchenScene({ places = [], things = [] }) {
     const spot = userAbc ? '你自己上传的' : sheetThing?.spot;
     const paperRef = useRef(null);      // 面板里画五线谱的地方
     const scoreRef = useRef(null);      // { tune, notes, duration }
-    const timerRef = useRef(null);      // abcjs.TimingCallbacks
     const abcjsRef = useRef(null);
-    const visualRef = useRef(null);     // renderAbc 出来的 tune，高亮要用它
+    const charTimeRef = useRef(null);   // recital 的 timeAtChar，点谱面跳播要用
+    const visualRef = useRef(null);     // renderAbc 出来的 tune
+    const sheetIndexRef = useRef(null); // indexSheet() 的结果：startChar → SVG 节点
     /* 进度条走 DOM 不走 state：每帧 setState 会把整个组件（连着那张 canvas
        的 vdom）重调一遍，而屋子本身正吃着一帧 16ms 的预算。 */
     const barRef = useRef(null);
@@ -178,6 +217,13 @@ export default function KitchenScene({ places = [], things = [] }) {
         if (clockRef.current) clockRef.current.textContent = `${mmss(t)} / ${mmss(total)}`;
     }, []);
 
+    /* 把谱面上的高亮全熄掉。**暂停不走这儿** —— 停下要停在哪儿亮哪儿。
+       回到开头、把谱子拿下来、收回抽屉才熄：那三件事都是「这一遍不算了」。 */
+    const clearNotes = useCallback(() => {
+        paperRef.current?.querySelectorAll('.fv-note-on')
+            .forEach((el) => el.classList.remove('fv-note-on', 'fv-note-on--lh'));
+    }, []);
+
     /* 翻开谱子那一下才去拉 abcjs（一百多 KB）+ 排一遍谱。换谱子、换速度都
        从这儿重来。
 
@@ -198,10 +244,11 @@ export default function KitchenScene({ places = [], things = [] }) {
         setScoreState('loading');
         (async () => {
             try {
-                const { loadAbcjs, buildScore, sheetTexture } = await import('./kitchen/recital.js');
+                const { loadAbcjs, buildScore, sheetTexture, timeAtChar } = await import('./kitchen/recital.js');
                 const abcjs = await loadAbcjs();
                 if (!aliveRef.current) return;
                 abcjsRef.current = abcjs;
+                charTimeRef.current = timeAtChar;
 
                 /* 倍率是乘在**谱面自己的速度**上的，所以原速要先量一遍。
                    直接拿 qpm 当绝对值填的话，换一份谱子速度就全乱了。 */
@@ -239,21 +286,42 @@ export default function KitchenScene({ places = [], things = [] }) {
             scale: 0.86,
             paddingtop: 4, paddingbottom: 10, paddingleft: 4, paddingright: 4,
             foregroundColor: '#150f2c',
+            /* 点谱面跳播。abcjs 点中之后会把那个音染上 selectionColor，而且一直
+               留到下一次点 —— 染成墨色等于不染：跳到哪儿是靠听、靠 .fv-note-on
+               跟着走的，谱面上不该多一个洗不掉的记号。 */
+            selectionColor: '#150f2c',
+            clickListener: (elem) => seekToNoteRef.current?.(elem?.startChar),
         });
         visualRef.current = visual;
+        sheetIndexRef.current = indexSheet(visual);
     }, [scoreState, abc]);
 
     /* 弹的时候：进度条 + 谱面上跟着走的高亮。
-       高亮用 abcjs 的 TimingCallbacks，但**时钟以音频为准** —— 它自己那套是
-       performance.now，四分钟下来会和采样播放对不上，所以每隔几秒拿音频时钟
-       把它拨回去一次。 */
+
+       高亮**不走 abcjs 的 TimingCallbacks**，直接照音符表来。两件事它做不了：
+
+         · 时值。它是「下一个音响了就把上一个熄掉」，于是左手一个四拍的长音会
+           被右手紧接着的十六分音符立刻打断 —— 谱面上看不出谁还在响。音符表里
+           每个音自己带着时值，亮多久照它，长音就一直亮到松手。
+         · 时钟。它自己那套走 performance.now，和采样播放对不上，四分钟下来要
+           隔几秒拨一次表；照音符表走读的就是音频时钟本身，不用对表，点谱面
+           跳播、拖进度条也不用另外通知它。 */
     useEffect(() => {
         if (!playing) return undefined;
         const paper = paperRef.current;
-        const clear = () => paper?.querySelectorAll('.fv-note-on')
-            .forEach((el) => el.classList.remove('fv-note-on'));
-
         const scroller = paper?.closest('.fv-sheet__scroll');
+        const index = sheetIndexRef.current;
+        const notes = scoreRef.current?.notes || [];
+
+        /* 正亮着的节点 → 该熄的时刻（秒）。和弦、连音线会让好几个音落在同一个
+           节点上，取最晚的那个 —— 先熄了的话长音看着像被自己的和弦音掐断。 */
+        const lit = new Map();
+        const douse = (el) => el.classList.remove('fv-note-on', 'fv-note-on--lh');
+        const clear = () => { for (const el of lit.keys()) douse(el); lit.clear(); };
+        /* 上一次停下时定格在谱面上的那几个音：DOM 里还挂着高亮，lit 却是空的
+           （effect 重跑了一遍）。不擦掉就再也没人管得着它们。 */
+        clearNotes();
+
         /* 谱面跟着走。整首曲子在面板里有二十来行，不卷的话高亮十几秒之后
            就跑到看不见的地方去了。只在它**快出画**的时候卷一次 —— 每个音都
            卷等于谱子一直在抖。 */
@@ -264,73 +332,77 @@ export default function KitchenScene({ places = [], things = [] }) {
             scroller.scrollTop += (a.top - b.top) - b.height * 0.34;
         };
 
-        if (!timerRef.current && abcjsRef.current && visualRef.current) {
-            timerRef.current = new abcjsRef.current.TimingCallbacks(visualRef.current, {
-                // 调过速之后，谱面上的高亮也得按新速度走
-                qpm: scoreRef.current?.tempo,
-                eventCallback: (ev) => {
-                    clear();
-                    if (!ev?.elements) return;
-                    let first = null;
-                    for (const group of ev.elements) {
-                        for (const el of [group].flat(Infinity)) {
-                            if (!el?.classList) continue;
-                            el.classList.add('fv-note-on');
-                            first = first || el;
-                        }
-                    }
-                    follow(first);
-                },
-            });
-        }
-
-        let raf = 0, started = false, lastSync = -1e9;
+        let raf = 0;
+        let i = 0;                  // 音符表游标：下一个还没亮起来的音
+        let last = -1e9;
         const tick = () => {
             raf = requestAnimationFrame(tick);
             const t = worldRef.current?.sheetPos?.() ?? 0;
             paint(t);
-            const timer = timerRef.current;
-            if (!timer) return;
-            if (!started) {
-                if (t < 0) return;                  // 起手前那半秒，谱面先别动
-                started = true; lastSync = t;
-                timer.setProgress(t, 'seconds');
-                timer.start();
-            } else if (t - lastSync > 4) {
-                lastSync = t;
-                timer.setProgress(t, 'seconds');    // 拨回音频时钟
+            if (t < 0) return;                  // 起手前那半秒，谱面先别动
+
+            /* 位置跳了（点谱面、拖进度条），或者标签页在后台睡了一觉回来：
+               游标重新对一遍，亮着的先全熄掉 —— 它们记的「该熄的时刻」是
+               老时间轴上的，留着会一直挂在谱面上。 */
+            if (t < last || t > last + 0.5) {
+                clear();
+                i = 0;
+                while (i < notes.length && notes[i].t < t) i++;
             }
+            last = t;
+
+            let fresh = null;
+            while (i < notes.length && notes[i].t <= t) {
+                const n = notes[i++];
+                const els = index?.get(n.startChar);
+                if (!els) continue;             // 装饰音没有 startChar，谱面上不亮
+                for (const el of els) {
+                    if (!lit.has(el)) {
+                        el.classList.add('fv-note-on');
+                        if (n.hand) el.classList.add('fv-note-on--lh');
+                    }
+                    lit.set(el, Math.max(lit.get(el) || 0, n.t + n.dur));
+                }
+                fresh = fresh || els[0];
+            }
+            for (const [el, off] of lit) {
+                if (off > t) continue;
+                douse(el);
+                lit.delete(el);
+            }
+            if (fresh) follow(fresh);
         };
         raf = requestAnimationFrame(tick);
         return () => {
             cancelAnimationFrame(raf);
-            timerRef.current?.stop?.();
-            timerRef.current = null;
-            clear();
             /* 最后再画一次：停在哪儿就显示到哪儿。归零是不对的 —— 暂停之后
                进度条空着、但按「继续」是从中间接上，两下对不上。
                暂停、弹完、卸载都走这儿，所以停在哪儿只在这一处记。 */
             const at = rescaleRef.current ?? worldRef.current?.sheetPos?.() ?? 0;
             rescaleRef.current = null;
+            /* 高亮**留在谱面上**：按「停一下」就是为了看清这会儿弹的是哪几个音，
+               灯一起灭掉等于把答案收走。琴键那边同理（世界那边的 holdKeys）。
+               位置归了零才熄 —— 回到开头、一遍弹完，都是「这一遍过去了」。 */
+            if (at <= 0.01) clearNotes();
             paint(at);
             setHoldAt(at);
         };
-    }, [playing, paint]);
+    }, [playing, paint, clearNotes]);
 
     const putOnRest = useCallback((on) => {
         worldRef.current?.putSheetOnRest(on);
         setOnRest(on);
-        if (!on) { setPlaying(false); setHoldAt(0); paint(0); }
-    }, [paint]);
+        if (!on) { setPlaying(false); setHoldAt(0); paint(0); clearNotes(); }
+    }, [paint, clearNotes]);
 
     /* 收回抽屉：面板一并关掉。纸从手上飞回抽屉，镜头跟过去看它落下 ——
        所以这是「收起来」，不是「拿下来」，两个按钮各管一段。 */
     const stowSheet = useCallback(() => {
         worldRef.current?.stowSheet();
         setOnRest(false);
-        setPlaying(false); setHoldAt(0); paint(0);
+        setPlaying(false); setHoldAt(0); paint(0); clearNotes();
         setSheetOpen(false);
-    }, [paint]);
+    }, [paint, clearNotes]);
 
     /** from 留空 = 从停下的地方接着弹 */
     const playSheet = useCallback((from) => {
@@ -340,6 +412,22 @@ export default function KitchenScene({ places = [], things = [] }) {
            重建，它内部那个「停在第几秒」就没了。 */
         worldRef.current?.playSheet(scoreRef.current, from ?? holdAt);
     }, [onRest, holdAt]);
+
+    /* 点谱面上的音，就从那一句弹起。
+
+       四分五十秒的曲子里找「第二段副歌那个转折」，在进度条上是拖着来回试，
+       在谱面上是看着点 —— 谱子本身就是这首曲子最好的进度条。
+
+       abcjs 只告诉我们被点的是 ABC 源码里第几个字符，秒数回音符表里换。
+       和拖进度条一样：点完直接弹，不用再按一下播放。 */
+    const seekToNoteRef = useRef(null);
+    seekToNoteRef.current = (startChar) => {
+        const score = scoreRef.current;
+        if (!score || !charTimeRef.current) return;
+        const now = Math.max(0, worldRef.current?.sheetPos?.() ?? holdAtRef.current);
+        const t = charTimeRef.current(score, startChar, now);
+        if (t != null) playSheet(t);
+    };
 
     const pauseSheet = useCallback(() => {
         // 进度条和 holdAt 都由 playing 那个 effect 的清理照当前位置写，这儿不用管
@@ -351,7 +439,8 @@ export default function KitchenScene({ places = [], things = [] }) {
         setPlaying(false);
         setHoldAt(0);
         paint(0);
-    }, [paint]);
+        clearNotes();       // 停着按「从头」时 effect 不会重跑，定格的高亮得自己熄
+    }, [paint, clearNotes]);
 
     /* 换速度。练琴用的：写死在谱面上的那个速度对着练是没法练的。
 
@@ -681,14 +770,15 @@ export default function KitchenScene({ places = [], things = [] }) {
                 const keyMats = living.userData.pianoKeyMats || null;
                 let keyGlow = false;        // 「点亮琴键」开关，默认关
                 const power = living.userData.pianoPower;
-                const pressed = new Map();      // key mesh -> 松手的时刻
+                const pressed = new Map();      // key mesh -> { until 松手的时刻, hand 0 右 / 1 左 }
                 let pianoOn = false;            // 电钢琴，开机才响
                 let nudgeUntil = 0;             // 没开机就弹琴时，让指示灯闪几下指路
                 function hitKey(mesh) {
                     const d = mesh.userData;
                     if (!d || d.midi === undefined) return;
                     // 键是机械的，没通电也压得下去；只是不出声
-                    pressed.set(mesh, performance.now() + 110);
+                    // 自己点的键没有左右手可分，走右手那一支颜色
+                    pressed.set(mesh, { until: performance.now() + 110, hand: 0 });
                     if (!pianoOn) {
                         /* 没电还去弹 —— 别只是「没反应」，那样人会以为琴是死的。
                            让电源指示灯猛闪一秒半，眼睛自然会被带到开关上。 */
@@ -766,12 +856,14 @@ export default function KitchenScene({ places = [], things = [] }) {
                     if (recital || !score) return recital;
                     recital = createRecital(score, {
                         at: PIANO_AT,
-                        onNote: (midi, dur) => {
+                        onNote: (midi, dur, hand) => {
                             const mesh = keyByMidi.get(midi);
                             if (!mesh) return;
-                            /* 键沉下去的时长照谱面走，但压一个上限：这谱子里有
-                               四拍的长音，键在那儿按住三秒看着是卡住了，不是在弹。 */
-                            pressed.set(mesh, performance.now() + Math.min(dur * 1000, 420) + 90);
+                            /* 键沉多久，照谱面上的时值来 —— 四拍的长音就按住四拍，
+                               真琴也是这样按着不放的。只兜一个下限：72bpm 下一个
+                               十六分音符 83ms，比这更短的键沉下去还没到底就弹回来，
+                               看着像没按。 */
+                            pressed.set(mesh, { until: performance.now() + Math.max(dur * 1000, 110), hand, auto: true });
                         },
                         onEnd: () => { wantPlay = false; setPlaying(false); },
                     });
@@ -786,6 +878,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                     if (!pianoOn) togglePiano();
                     if (!wantPlay) goToPiano();     // 已经在弹的时候拖进度，别再拽一次镜头
                     wantPlay = true;
+                    releaseKeys();      // 上次停下时定格的那几个键先松开，接着弹的会自己按
                     setPlaying(true);
                     /* 采样要 700KB。没开过电源的话这会儿才开始下，playPianoNote
                        在下完之前是直接吞掉的 —— 不等它，开头一整句就没了。 */
@@ -797,10 +890,21 @@ export default function KitchenScene({ places = [], things = [] }) {
                     if (ready?.then) ready.then(go); else go();
                 }
 
+                /* 「停一下」是**定格**，不是松手：正按着的那几个键留在原处，不弹
+                   回来也不熄灯。停下来看看这一下弹的是哪几个音 —— 要看的正是
+                   这个，键一齐弹回去等于把答案收走了。谱面上的高亮同理，见
+                   React 那边那个 effect。
+
+                   只冻自动演奏按下的（auto）。自己手点的那一下只有 110ms，正好
+                   撞上暂停的话会永远沉在那儿。 */
+                function holdKeys() { for (const p of pressed.values()) if (p.auto) p.until = Infinity; }
+                function releaseKeys() { for (const [m, p] of pressed) if (p.auto) pressed.delete(m); }
+
                 /** 停在当前位置，接着还能续上。 */
                 function pauseSheet() {
                     wantPlay = false;
                     recital?.pause();
+                    holdKeys();
                     setPlaying(false);
                 }
                 /** 回到开头。 */
@@ -808,6 +912,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                     wantPlay = false;
                     recital?.pause();
                     recital?.reset();
+                    releaseKeys();
                     setPlaying(false);
                 }
 
@@ -1663,22 +1768,26 @@ export default function KitchenScene({ places = [], things = [] }) {
                        沉太多会穿到键床下面去。 */
                     if (pressed.size) {
                         const now = performance.now();
-                        for (const [m, until] of pressed) if (now > until) pressed.delete(m);
+                        for (const [m, p] of pressed) if (now > p.until) pressed.delete(m);
                     }
                     for (const m of pianoKeys) {
-                        const down = pressed.has(m);
+                        const down = pressed.get(m);
                         const want = m.userData.restY - (down ? 0.007 : 0);
                         const cur = m.position.y;
                         if (Math.abs(want - cur) > 1e-5) {
                             m.position.y = cur + (want - cur) * (1 - Math.exp(-26 * dt));
                         }
-                        /* 开了「点亮琴键」就给按下的那几个换上发光材质。
+                        /* 开了「点亮琴键」就给按下的那几个换上发光材质。右手一支粉、
+                           左手一支紫，和谱面上高亮那两支对得上。
                            换引用、不改颜色 —— 88 个键共用同一个材质。 */
                         if (keyMats) {
                             const black = m.userData.black;
-                            const mat = keyGlow && down
-                                ? (black ? keyMats.blackLit : keyMats.whiteLit)
-                                : (black ? keyMats.black : keyMats.white);
+                            let mat = black ? keyMats.black : keyMats.white;
+                            if (keyGlow && down) {
+                                mat = down.hand
+                                    ? (black ? keyMats.blackLitL : keyMats.whiteLitL)
+                                    : (black ? keyMats.blackLit : keyMats.whiteLit);
+                            }
                             if (m.material !== mat) m.material = mat;
                         }
                     }
@@ -2032,8 +2141,19 @@ export default function KitchenScene({ places = [], things = [] }) {
                             <p className="fv-sheet__note">
                                 {scoreState === 'failed' ? '这份谱子没排出来 —— 关掉再点一次试试。' : '正在排谱…'}
                             </p>
-                        ) : !onRest && (
+                        ) : !onRest ? (
                             <p className="fv-sheet__note">谱面在你手上。放上谱架，这台琴就能照着弹。</p>
+                        ) : (
+                            <p className="fv-sheet__note fv-sheet__note--tip">
+                                点谱面上任意一个音，就从那儿弹起。亮着的是此刻在响的音
+                                {scoreRef.current?.staves > 1 && (
+                                    <>
+                                        ：<b className="fv-hand fv-hand--rh">右手</b>
+                                        {' / '}
+                                        <b className="fv-hand fv-hand--lh">左手</b>
+                                    </>
+                                )}。
+                            </p>
                         )}
                         {/* 手上拿着的时候把谱面收起来、但不卸载 —— 卸了每次都要重排
                             一遍八十七小节，高亮那套绑定也得重接。收在外面这层上：
