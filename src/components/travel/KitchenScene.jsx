@@ -928,20 +928,58 @@ export default function KitchenScene({ places = [], things = [] }) {
                 const records = living.userData.records || [];
                 let onDeck = null;          // 盘上现在是哪张，null = 唱机自带那张
 
-                /* 唱片从架上飞到盘上（或者飞回去）的那 0.85 秒。
-                   在封套里是竖着的、面朝屋里；落到盘上是平的。所以位置走弧线、
-                   姿态从竖到平做球面插值 —— 两头分别对着这两个四元数。 */
-                const FLIGHT_S = 0.85;
-                let flight = null;          // { rec, t, dir }  dir: 1 上机 / -1 回架
-                const flyFrom = new THREE.Vector3(), flyTo = new THREE.Vector3();
-                // 绕 Z 转 -90°：圆盘的法线从 +Y 转到 +X，也就是竖起来面朝屋里
-                const FLY_UP = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -Math.PI / 2));
+                /* 上片这一整套动作，1.5 秒，分三段接着走：
+
+                     0.00–0.28  封套从架上抽出来，往屋里挪、顺手转个角度
+                     0.30–0.52  唱片顺着封套口滑出来（还是和封套平行的）
+                     0.52–1.00  唱片飞到盘上，一路从竖着转成平的
+                     0.58–0.86  封套插回架上
+
+                   为什么不能让唱片直接从架上飞出来（第一版就是那样）：封套是不透
+                   明的一块板，唱片从它身上穿出去读作幽灵，不是「取唱片」。得先把
+                   封套拿出来、侧过身，唱片才有地方出来。
+
+                   收回去是同一套倒着放 —— 下面所有量都是 u 的函数，u 倒着走就行。 */
+                const FLIGHT_S = 1.5;
+                const SLEEVE_OUT = new THREE.Vector3(0.26, -0.05, 0);   // 封套抽出来的位移
+                const SLEEVE_TILT = 0.45;                                // 抽出来之后往右倾的角度
+
+                /* 唱片从**右边**那条边出来 —— 唱片套是左边书脊、右边开口，
+                   拿出来的时候把右边往下一压，唱片顺着滑出去。
+
+                   站在屋里看着北墙（朝 -X 看）时，右手边是 -Z：封套按 i 递增排，
+                   i=0 那张（Adele）在最左，它的 z 最大。所以「往右」= z 变小。
+
+                   于是倾斜要绕 **X 轴**转：绕 X 转才把 -Z 那条边压下去。绕 Z 转
+                   （上一版那样）压下去的是底边，做出来是唱片从下面掉出来。 */
+                const AXIS_X = new THREE.Vector3(1, 0, 0);
+                const EDGE_RIGHT = new THREE.Vector3(0, 0, -1);
+                const SLIDE = 0.34;                                      // 唱片滑出封套的距离
+                /* 竖起来面朝屋里：圆盘法线从 +Y 绕 Z 转 -90° 到 +X。
+                   绕 X 的倾斜**不动这个法线**，所以盘面永远和封套面平行。 */
+                const Q_UP = new THREE.Quaternion()
+                    .setFromAxisAngle(new THREE.Vector3(0, 0, 1), -Math.PI / 2);
                 const FLY_FLAT = new THREE.Quaternion();
+                // 每帧按封套**当前**的倾角重算，不是一上来就摆成最终角度（那会穿模）
+                const qTilt = new THREE.Quaternion();
+                const slideDir = new THREE.Vector3();
+
+                let flight = null;          // { rec, t, dir }  dir: 1 上机 / -1 回架
+                const flyTo = new THREE.Vector3();      // 唱盘那头
+                const flyMid = new THREE.Vector3();     // 唱片脱离封套那一刻在哪儿
+                const flyTmp = new THREE.Vector3();
+
+                /** 一段一段地走：把 u 裁到 [a,b] 再缓入缓出 */
+                const seg = (u, a, b) => {
+                    const x = Math.max(0, Math.min(1, (u - a) / (b - a)));
+                    return x * x * (3 - 2 * x);
+                };
 
                 function startFlight(rec, dir) {
-                    // 架上那头：从封套里往屋里抽出来一点
-                    rec.sleeve.getWorldPosition(flyFrom);
-                    flyFrom.x += 0.09;
+                    // 唱片脱离封套那一刻：封套已经完全抽出来、倾到底，唱片再滑出 SLIDE
+                    qTilt.setFromAxisAngle(AXIS_X, -SLEEVE_TILT);
+                    slideDir.copy(EDGE_RIGHT).applyQuaternion(qTilt);
+                    flyMid.copy(rec.home).add(SLEEVE_OUT).addScaledVector(slideDir, SLIDE);
                     // 盘上那头：唱盘中心，落到绒垫面的高度
                     tt.platter.getWorldPosition(flyTo);
                     flyTo.y += tt.LP_Y;
@@ -1868,24 +1906,50 @@ export default function KitchenScene({ places = [], things = [] }) {
                         l.aim.getWorldPosition(l.light.target.position);
                     }
 
-                    /* 唱片在半路上：从封套飞到唱盘，或者飞回架上。 */
+                    /* 取唱片这一整套：封套出来 → 唱片滑出来 → 飞到盘上 → 封套归位。
+                       段落划分见上面 startFlight 那儿的注释。 */
                     if (flight) {
                         flight.t = Math.min(1, flight.t + dt / FLIGHT_S);
-                        const e = flight.t * flight.t * (3 - 2 * flight.t);   // 缓入缓出
-                        const k = flight.dir > 0 ? e : 1 - e;                 // 回架就是倒着走
-                        tt.flier.position.lerpVectors(flyFrom, flyTo, k);
-                        /* 直着连两点会从柜子里穿过去。往上抬一点、往屋里带一点，
-                           读起来才是「拿在手上送过去」。 */
-                        const arc = Math.sin(Math.PI * k);
-                        tt.flier.position.y += arc * 0.07;
-                        tt.flier.position.x += arc * 0.11;
-                        tt.flier.quaternion.slerpQuaternions(FLY_UP, FLY_FLAT, k);
+                        const u = flight.dir > 0 ? flight.t : 1 - flight.t;
+                        const rec = flight.rec;
+
+                        /* 封套：抽出来、侧过身；等唱片走了再插回去。
+                           两段乘在一起 —— 后一段把前一段收回来。 */
+                        const out = seg(u, 0, 0.28) * (1 - seg(u, 0.58, 0.86));
+                        rec.sleeve.position.copy(rec.home).addScaledVector(SLEEVE_OUT, out);
+                        rec.sleeve.rotation.x = -SLEEVE_TILT * out;     // 右边那条边往下压
+
+                        const emerge = seg(u, 0.30, 0.52);
+                        const fly = seg(u, 0.52, 1);
+                        if (fly <= 0) {
+                            /* 还在封套里 / 正往外滑：贴着封套走，姿态跟封套**当前**
+                               的倾角一致。跟当前值、不是跟最终值 —— 上一版一上来就
+                               摆成最终角度，封套还在慢慢转，两者不平行，唱片就从
+                               封套面里穿出去了。
+                               起点用封套当前的位置，所以 u=0 时唱片正好藏在封套里，
+                               不是凭空浮在架子前面。 */
+                            qTilt.setFromAxisAngle(AXIS_X, -SLEEVE_TILT * out);
+                            slideDir.copy(EDGE_RIGHT).applyQuaternion(qTilt);
+                            rec.sleeve.getWorldPosition(flyTmp);
+                            tt.flier.position.copy(flyTmp).addScaledVector(slideDir, emerge * SLIDE);
+                            tt.flier.quaternion.copy(qTilt).multiply(Q_UP);
+                        } else {
+                            /* 脱手了：从封套口那一点飞到唱盘，一路转平。
+                               直着连两点会从柜子里穿过去，抬一点、往屋里带一点。 */
+                            tt.flier.position.lerpVectors(flyMid, flyTo, fly);
+                            const arc = Math.sin(Math.PI * fly);
+                            tt.flier.position.y += arc * 0.07;
+                            tt.flier.position.x += arc * 0.11;
+                            qTilt.setFromAxisAngle(AXIS_X, -SLEEVE_TILT);
+                            tt.flier.quaternion.copy(qTilt).multiply(Q_UP).slerp(FLY_FLAT, fly);
+                        }
                         markShadows();
 
                         if (flight.t >= 1) {
-                            const { rec, dir } = flight;
+                            const dir = flight.dir;
                             flight = null;
                             tt.flier.visible = false;
+                            rec.sleeve.rotation.x = 0;      // 交回下面那段常态缓动
                             if (dir > 0) {
                                 /* 落到盘上。lpDrop 直接给 1 —— 唱片已经由这一趟送到
                                    绒垫面了，再走一遍「悬着落下」就是落两次。 */
@@ -1928,6 +1992,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                         /* 被抽出来那张封套往屋里挪 4cm、歪一点：架上得看得出来
                            少了哪一张，不然唱机上那张是从哪儿来的读不出来。 */
                         for (const r of records) {
+                            if (flight && flight.rec === r) continue;   // 归上面那套管
                             const out = r === onDeck;
                             const wantX = r.home.x + (out ? 0.045 : 0);
                             const wantTilt = out ? -0.10 : 0;
