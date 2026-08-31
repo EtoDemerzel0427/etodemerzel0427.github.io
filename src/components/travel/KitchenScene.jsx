@@ -71,6 +71,9 @@ function indexSheet(visual) {
 /** 举在眼前那张谱子的页宽（米）。living.js 的 SHEET_W —— 两边都是 A4，
  *  这儿只拿它反推「离眼睛多远才占到画面的那么宽」。 */
 const SHEET_PAGE_W = 0.210;
+/** 举在眼前那张学位证的画框宽（米）。room.js 里那块 FR_W —— 同上，
+ *  拿来反推距离，这样换视场角、换屏幕比例，它在画面里的大小都不变。 */
+const DIPLOMA_PAGE_W = 0.335;
 /** 看过开场引导的标记。换了 key 就等于对所有人再弹一次。 */
 const GUIDE_KEY = 'fv-guide-seen-1';
 const HOME_POS = VIEWS[0].pos;
@@ -206,6 +209,27 @@ export default function KitchenScene({ places = [], things = [] }) {
     };
     const closeSheetRef = useRef(null);
     closeSheetRef.current = () => setSheetOpen(false);
+
+    /* ---------- 学位证 ----------
+       走廊尽头那条支廊人是走不进去的（那头堆着东西，没铺进可走区），
+       所以架子上那张裱起来的证书在屋里永远只是个金边的小黑框。远远点它，
+       它自己飘到眼前来 —— 和谱子那张纸走的是同一条路，见 room.js 里
+       group.userData.diploma。 */
+    const [diplomaOpen, setDiplomaOpen] = useState(false);
+    const openDiplomaRef = useRef(null);
+    openDiplomaRef.current = () => {
+        setActiveSlug(null);
+        setSheetOpen(false);        // 两样东西不能同时举在手上
+        setDiplomaOpen((v) => !v);
+    };
+    const closeDiplomaRef = useRef(null);
+    closeDiplomaRef.current = () => setDiplomaOpen(false);
+    useEffect(() => {
+        worldRef.current?.holdDiploma(diplomaOpen);
+    }, [diplomaOpen, ready]);
+    // 去看冰箱贴 / 翻谱子的时候，手上这张就该放回去
+    useEffect(() => { if (activeSlug) setDiplomaOpen(false); }, [activeSlug]);
+    useEffect(() => { if (sheetOpen) setDiplomaOpen(false); }, [sheetOpen]);
 
     /* 纸在手上 ⟺ 面板开着**且**它还没架到琴上。
 
@@ -846,6 +870,22 @@ export default function KitchenScene({ places = [], things = [] }) {
                 const HAND_TILT = new THREE.Quaternion()
                     .setFromEuler(new THREE.Euler(0.035, 0.085, -0.012));
 
+                /* 学位证。和谱子同一套「拿到眼前」的状态机，只是它没有第二个
+                   落点（谱架），所以只有「在架上」和「在手上」两态。 */
+                const diploma = room.userData.diploma || null;
+                let diplomaHeld = false;
+                let diplomaT = 0;
+                const dipHome = new THREE.Vector3(), dipHomeQ = new THREE.Quaternion();
+                const dipHomeS = new THREE.Vector3();
+                const dipHand = new THREE.Vector3(), dipHandQ = new THREE.Quaternion();
+                /* 那张平面的法线在几何里就已经转成 +X 了（和框正面同向），所以
+                   要正对相机，得把它转回 -90° 再套相机的朝向。顺带歪一点点，
+                   正对着拍平的话读起来像一张贴在屏幕上的图片。 */
+                const DIP_FACE = new THREE.Quaternion()
+                    .setFromEuler(new THREE.Euler(0, -Math.PI / 2, 0));
+                const DIP_TILT = new THREE.Quaternion()
+                    .setFromEuler(new THREE.Euler(0.03, 0.055, -0.008));
+
                 /* 让它弹的时候把镜头带到琴前。走过去是不行的 —— 从影音角到窗边
                    要绕大半间屋子，寻路走完曲子都过了半分钟了，而且一路低头看地板
                    （walkTo 是到位之前就把朝向定死的）。所以走预设机位那条路：
@@ -1479,6 +1519,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                     ...pianoKeys, ...power.pick, ...tt.pickCover, ...tt.pickPlay,
                     ...records.flatMap((r) => [r.sleeve, r.grab]),
                     ...(sheet?.pick || []),
+                    ...(diploma ? [diploma.grab, diploma.heldFace] : []),
                     ...lamps.flatMap((l) => l.pick), ...joints.flatMap((j) => j.pick),
                     ...cabs.flatMap((c) => c.pick),
                     ...[webScreenDef, gameScreenDef, tvDef].filter(Boolean).map((d) => d.mesh),
@@ -1683,6 +1724,11 @@ export default function KitchenScene({ places = [], things = [] }) {
                             else openSheetRef.current?.();
                             return;
                         }
+                        if (diploma && (o === diploma.grab || o === diploma.heldFace)) {
+                            if (diploma.held.visible) closeDiplomaRef.current?.();
+                            else openDiplomaRef.current?.();
+                            return;
+                        }
                         { const d = screenDefOf(o); if (d) { pokeScreen(d); return; } }
                         if (o.userData.midi !== undefined) { hitKey(o); return; }
                         if (o.userData.place) onSelect(o.userData.place.slug);
@@ -1690,6 +1736,8 @@ export default function KitchenScene({ places = [], things = [] }) {
                     }
                     // 正看着某枚冰箱贴：点别处先收面板，不顺手走一步
                     if (activeRef.current) { onSelect(activeRef.current); return; }
+                    // 学位证举在眼前的时候同理：点画面别处 = 放回架上
+                    if (diplomaHeld) { closeDiplomaRef.current?.(); return; }
 
                     if (r.kind === 'floor') {
                         const spot = snapToWalkable(r.hit.point.x, r.hit.point.z, 0.8);
@@ -1850,6 +1898,12 @@ export default function KitchenScene({ places = [], things = [] }) {
                                 slug: 'sheet',
                                 place: sheet.held.visible ? '放回去'
                                     : sheetOnRest ? '谱架上那张谱子' : '一叠谱子',
+                            });
+                        }
+                        else if (diploma && (hovered === diploma.grab || hovered === diploma.heldFace)) {
+                            setHover({
+                                slug: 'diploma',
+                                place: diploma.held.visible ? '放回架上' : '架子上那张裱起来的证书',
                             });
                         }
                         else if (d?.note) {
@@ -2166,6 +2220,50 @@ export default function KitchenScene({ places = [], things = [] }) {
                         }
                     }
 
+                    /* 学位证：从走廊尽头那格架子飘到眼前。同上一段的写法，
+                       区别只在两处 ——
+                         · 它要飞的是十来米，不是半米，所以缓动慢一档（5.5），
+                           看得清它是**从那儿**过来的，而不是凭空出现在脸前
+                         · 中途拱起的幅度按行程放大一点，一路贴着地板平移读起来
+                           像张贴纸在滑 */
+                    if (diploma) {
+                        const wantHeld = diplomaHeld ? 1 : 0;
+                        if (Math.abs(diplomaT - wantHeld) > 1e-4) {
+                            diplomaT += (wantHeld - diplomaT) * (1 - Math.exp(-5.5 * dt));
+                            if (Math.abs(diplomaT - wantHeld) < 1e-4) diplomaT = wantHeld;
+                            markShadows();
+                        }
+                        const atHome = diplomaT < 0.002;
+                        if (diploma.frame.visible !== atHome) diploma.frame.visible = atHome;
+                        diploma.held.visible = !atHome;
+
+                        if (!atHome) {
+                            diploma.frame.updateWorldMatrix(true, false);
+                            diploma.frame.matrixWorld.decompose(dipHome, dipHomeQ, dipHomeS);
+
+                            const half = Math.tan((camera.fov * Math.PI / 180) / 2);
+                            const wide = canvas.clientWidth > 820;
+                            /* 这一件的全部意义就是「终于看清了」，所以占得比谱子
+                                狠：宽屏铺掉右边四成四，窄屏几乎顶格。分界线和
+                                overlay.css 里那条 820px 一致。 */
+                            const fracW = wide ? 0.44 : 0.86;
+                            const ndcX = wide ? 0.40 : 0;
+                            const ndcY = wide ? 0.02 : 0.40;
+                            const dist = DIPLOMA_PAGE_W / (fracW * 2 * half * camera.aspect);
+                            const visH = 2 * dist * half;
+                            tmpV.set(ndcX * visH * camera.aspect / 2, ndcY * visH / 2, -dist)
+                                .applyMatrix4(camera.matrixWorld);
+                            dipHand.copy(tmpV);
+                            camera.getWorldQuaternion(dipHandQ);
+                            dipHandQ.multiply(DIP_FACE).multiply(DIP_TILT);
+
+                            const e = diplomaT * diplomaT * (3 - 2 * diplomaT);
+                            diploma.held.position.lerpVectors(dipHome, dipHand, e);
+                            diploma.held.quaternion.slerpQuaternions(dipHomeQ, dipHandQ, e);
+                            diploma.held.position.y += Math.sin(Math.PI * e) * 0.22;
+                        }
+                    }
+
                     /* 钢琴：按下的键沉 7mm，到点自己弹回来。
                        真琴键前端下沉约 10mm，这里取小一点 —— 键只有 13mm 厚，
                        沉太多会穿到键床下面去。 */
@@ -2426,6 +2524,11 @@ export default function KitchenScene({ places = [], things = [] }) {
                     setSheetTexture: (tex) => sheet?.setTexture(tex),
                     /** 面板开着 = 纸拿在手上 */
                     holdSheet: (on) => { sheetHeld = !!on; },
+                    /** 学位证：面板开着 = 拿到眼前了 */
+                    hasDiploma: !!diploma,
+                    holdDiploma: (on) => { diplomaHeld = !!on; },
+                    /* 调试用：不用在屋里点中那个小黑框就能拿起来 */
+                    openDiploma: () => openDiplomaRef.current?.(),
                     /** 弹到的琴键点不点亮。关掉那一下由渲染循环把材质换回去。 */
                     setKeyGlow: (on) => { keyGlow = !!on; },
                     /* 架上谱架 / 从谱架拿下来。往琴那边去要跟镜头，往回不用 ——
@@ -2539,11 +2642,12 @@ export default function KitchenScene({ places = [], things = [] }) {
             else if (guide) closeGuide();
             else if (listView) setListView(false);
             else if (activeSlug) setActiveSlug(null);
+            else if (diplomaOpen) setDiplomaOpen(false);
             else if (sheetOpen) setSheetOpen(false);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [activeSlug, listView, guide, sheetOpen, atScreen, closeGuide]);
+    }, [activeSlug, listView, guide, sheetOpen, diplomaOpen, atScreen, closeGuide]);
 
     return (
         <div className="fv-root">
@@ -2627,6 +2731,26 @@ export default function KitchenScene({ places = [], things = [] }) {
                         </div>
                     </>
                 )}
+            </aside>
+
+            {/* 学位证。屋里那一格离得太远，字是读不出来的 —— 点它，框飘到眼前，
+                这块牌子在旁边说它是什么。 */}
+            <aside className={`fv-diploma${diplomaOpen ? ' is-open' : ''}`} aria-hidden={!diplomaOpen}>
+                <button className="fv-panel__close fv-diploma__close"
+                        onClick={() => setDiplomaOpen(false)} aria-label="关闭">✕</button>
+                <div className="fv-panel__head">
+                    <div className="fv-panel__place">硕士学位证</div>
+                    <div className="fv-panel__sub">The University of Texas at Austin · 2024</div>
+                </div>
+                <div className="fv-panel__body fv-diploma__body">
+                    <p>2024 年 5 月，我从 UT Austin 毕业，拿到 Master of Science in Engineering。</p>
+                    {/* 整句写在一行：JSX 会把换行连着缩进折成一个空格，中文里那就是
+                        平白多出来的一格。 */}
+                    <p>我在那里度过了不错的两年半，交到了一些很好的朋友。尽管我一直宣称我不喜欢德州这个地方，但我对 UT 始终有着深厚的感情。Hook&nbsp;&rsquo;em.&nbsp;🤘！</p>
+                </div>
+                <div className="fv-diploma__foot">
+                    <button className="fv-chip" onClick={() => setDiplomaOpen(false)}>放回架上</button>
+                </div>
             </aside>
 
             {/* 谱子。翻出来之后就一直挂着不卸 —— 面板关掉只是移出视野，曲子还在
@@ -2834,7 +2958,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                     {coarse ? '拖动转视角 · 点哪儿走哪儿' : 'WASD 走动 · 拖动或 ← → 转视角 · 点哪儿走哪儿'}
                     {view === 'fridge'
                         ? ` · ${places.length} 枚冰箱贴，点开看详情 · 家电点把手开门 · 旋钮点火、龙头能转能放水`
-                        : ' · 钢琴开电源就能弹 · 唱机能掀盖、能放唱片 · 灯罩点一下开关灯 · 柜门抽屉垃圾桶都点得开，抽屉里有东西'}
+                        : ' · 钢琴开电源就能弹 · 唱机能掀盖，墙上的唱片点一下就上机 · 两块屏和电视点一下开机，坐下来能用 · 灯罩点一下开关灯 · 柜门抽屉垃圾桶都点得开，抽屉里有东西'}
                 </span>
             </div>
 
@@ -2873,17 +2997,30 @@ export default function KitchenScene({ places = [], things = [] }) {
                                     <li>不想转的话，<b>列表 ☰</b> 是纯文字版</li>
                                 </ul>
                             </section>
+                            {/* 一张单子越写越长，所以按屋子的两头分开：厨房那头全是
+                                开合，客厅那头全是会响会亮的。屋里现在真的能点的东西
+                                都该在这两张单子上 —— 点不出来的功能等于没做。 */}
                             <section>
-                                <h4>能上手的东西</h4>
+                                <h4>厨房这头</h4>
                                 <ul>
-                                    <li><b>柜门 / 抽屉 / 垃圾桶盖</b> —— 点一下开，再点一下关</li>
+                                    <li><b>柜门 / 抽屉 / 垃圾桶盖</b> —— 点一下开，再点一下关（客厅那边的柜子也一样）</li>
                                     <li><b>冰箱 · 烤箱 · 微波炉 · 洗碗机</b> —— 点把手开门</li>
                                     <li><b>灶台旋钮</b> —— 点一下点火，再点一下熄火</li>
                                     <li><b>水龙头</b> —— 能转向，也能放水</li>
+                                </ul>
+                            </section>
+                            <section>
+                                <h4>客厅那头</h4>
+                                <ul>
                                     <li><b>电钢琴</b> —— 先开电源，然后就能弹</li>
-                                    <li><b>唱机</b> —— 能掀盖、能放唱片</li>
-                                    <li><b>灯罩</b> —— 点一下开灯关灯</li>
-                                    <li><b>抽屉</b> —— 不只是能拉开，里头有东西</li>
+                                    <li><b>唱机底下那个抽屉</b> —— 里头有份谱子；架上谱架，这台琴会照着弹一遍</li>
+                                    <li><b>唱机</b> —— 能掀盖，也能起停转盘</li>
+                                    <li><b>墙上那 7 张唱片</b> —— 点封套，它自己走到唱机上，放那首歌的三十秒</li>
+                                    <li><b>书桌上两块屏</b> —— 点一下开机，再点一下坐过去：左边那块跑的就是这个站，右边那块能玩贪吃蛇</li>
+                                    <li><b>电视</b> —— 点一下开，上面是旁边那台 PS5 的界面</li>
+                                    <li><b>灯罩</b> —— 点一下开灯关灯；台灯的<b>灯臂 · 灯头</b>还能点着一格一格转</li>
+                                    {/* 走廊那头是走不进去的，不写一句就等于没有 */}
+                                    <li><b>走廊尽头架子上那张证书</b> —— 远远点它，它自己飘到眼前</li>
                                 </ul>
                             </section>
                         </div>

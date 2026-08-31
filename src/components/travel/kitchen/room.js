@@ -1186,6 +1186,46 @@ function buildHallway(group, { WALL_H, ceil, LW_Z, wallMat }) {
             position: [-0.028, -FR_H / 2 + 0.02, 0], parent: frame, outline: 0, cast: false,
         });
         leg.rotation.z = 0.35;
+
+        /* 命中盒。这一格在走廊尽头，人走不到那条支廊里去 —— 站在廊口看，
+           整个框只有二三十像素宽，比 stickyPick 那 13px 的容差大不了多少。
+           往 +X 支出去一个盒子，远远指过去就能点中。 */
+        const grab = new THREE.Mesh(
+            box(0.09, FR_H + 0.06, FR_W + 0.06),
+            new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+        );
+        grab.position.set(0.045, 0, 0);
+        grab.castShadow = grab.receiveShadow = false;
+        grab.userData.pickProxy = true;
+        frame.add(grab);
+
+        /* 拿到眼前的那一份。和谱子那张纸同一套办法（见 living.js buildSheetMusic）：
+           不是把架子上这块几何飞过来，而是另做一张不受光、不做深度测试的平面，
+           位姿由 KitchenScene 每帧从「架上」插值到「眼前」。
+
+           关掉 depthTest 是必需的：这东西悬在走廊尽头和相机之间，中间隔着
+           大半条走廊和一道墙拐角，老老实实做深度测试的话，飞到一半就插进墙里。
+
+           不受光同理 —— 举起来是为了**读**它，让走廊那盏昏灯决定它有多亮，
+           等于白举。
+
+           PlaneGeometry 法线朝 +Z，绕 Y 转 90° 之后朝 +X，正好和框正面朝
+           同一边；转过去之后 u 也指向 -Z，和 BoxGeometry +X 面的 UV 一致，
+           所以两份的字是同一个朝向。 */
+        const held = new THREE.Group();
+        held.visible = false;
+        group.add(held);
+        const heldGeo = new THREE.PlaneGeometry(FR_W, FR_H);
+        heldGeo.rotateY(Math.PI / 2);
+        const heldFace = new THREE.Mesh(heldGeo, new THREE.MeshBasicMaterial({
+            map: diplomaTexture(2), depthTest: false, toneMapped: false,
+        }));
+        heldFace.renderOrder = 902;
+        heldFace.castShadow = heldFace.receiveShadow = false;
+        held.add(heldFace);
+
+        group.userData.diploma = { frame, grab, held, heldFace, width: FR_W };
+
         // 右边两个手办
         for (let k = 0; k < 2; k++) {
             const zz = SH_Z1 - 0.085 - k * 0.055;

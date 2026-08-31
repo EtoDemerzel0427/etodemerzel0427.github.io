@@ -149,12 +149,16 @@ export function shadeGradient() {
    照实物画：黑木框 + 一圈金色珠边 + 深色卡纸 + 金线 + 米色证书。
    为什么用 canvas 画而不是贴一张照片：这是本人的学位证，扫描件不该
    进公开仓库；照排一遍，走近能读，字也永远是清的。 */
-let diplomaTex = null;
-export function diplomaTexture() {
-    if (diplomaTex) return diplomaTex;
+/* 拿到眼前看的那一份要另画一张更大的：架子上那张在画面里只有几十像素宽，
+   1200×900 绰绰有余；举到脸前占掉半屏，同一张图就糊了。所以按倍数缓存，
+   坐标一律写在 1200×900 这套里，靠 ctx.scale 放大 —— 字号、线宽跟着一起长。 */
+const diplomaTexBySize = new Map();
+export function diplomaTexture(scale = 1) {
+    if (diplomaTexBySize.has(scale)) return diplomaTexBySize.get(scale);
     const W = 1200, H = 900;
-    const [c, ctx] = canvas2d(W);
-    c.height = H;
+    const [c, ctx] = canvas2d(Math.round(W * scale));
+    c.height = Math.round(H * scale);      // 改尺寸会把画布连同变换一起清空，所以 scale 放在后面
+    ctx.scale(scale, scale);
 
     ctx.fillStyle = '#120f0d';                       // 框
     ctx.fillRect(0, 0, W, H);
@@ -218,10 +222,11 @@ export function diplomaTexture() {
         ctx.stroke();
     }
 
-    diplomaTex = new THREE.CanvasTexture(c);
-    diplomaTex.colorSpace = THREE.SRGBColorSpace;
-    diplomaTex.anisotropy = 8;
-    return diplomaTex;
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    diplomaTexBySize.set(scale, tex);
+    return tex;
 }
 
 /* 贴图代表的真实尺寸（米）。全屋木纹共用这一个尺度，

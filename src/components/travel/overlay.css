@@ -555,6 +555,82 @@
    @media .fv-panel__close { top: -22px }（那条是给底部抽屉面板的）。 */
 .fv-guide__close { top: -8px; right: -8px; }
 
+/* ---------- 学位证 ----------
+   和谱子同一个位置（左边），因为那张证书也是飘在画面右边的；只是内容短，
+   不需要谱子那么宽，也不用滚。 */
+
+.fv-diploma {
+    position: absolute;
+    left: 4vw;
+    top: 50%;
+    width: min(340px, 84vw);
+    max-height: 74vh;
+    transform: translateY(-50%) translateX(-40px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 320ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    background: var(--cream);
+    border: 7px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 14px 16px 0 rgba(21, 15, 44, 0.55);
+    display: flex;
+    flex-direction: column;
+    z-index: 21;
+}
+
+.fv-diploma.is-open {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+    pointer-events: auto;
+}
+
+.fv-diploma__close { right: -14px; top: -14px; }
+
+/* 学校名比「东京」那种地名长得多，40px 一行放不下 —— 标题这儿单独收一档。 */
+.fv-diploma > .fv-panel__head .fv-panel__place { font-size: 32px; }
+.fv-diploma > .fv-panel__head .fv-panel__sub { font-size: 13px; }
+
+.fv-diploma > .fv-panel__head,
+.fv-diploma__foot { flex: 0 0 auto; }
+.fv-diploma__body { flex: 1 1 auto; min-height: 0; font-size: 16px; }
+.fv-diploma__body p:last-child { margin-bottom: 0; }
+
+
+.fv-diploma__foot {
+    display: flex;
+    gap: 10px;
+    padding: 10px 16px 12px;
+    border-top: 5px solid var(--ink);
+    background: rgba(21, 15, 44, 0.06);
+}
+
+/* 竖屏上证书是横着占掉上半屏的（见 KitchenScene 里那段构图），
+   面板从底下抽上来，高度得压住 —— 不然两样叠在一起。 */
+@media (max-width: 820px) {
+    .fv-diploma {
+        left: 0; right: 0; top: auto; bottom: 0;
+        width: 100%; max-height: 46vh;
+        transform: translateY(30px);
+        border-width: 6px 0 0;
+        border-radius: 0;
+        /* 从底下抽上来的时候要盖住左下角那个「玩法 ?」（.fv-hud 是 30），
+           不然那枚按钮正压在正文上。面板开着的时候它也不该点得动。 */
+        z-index: 31;
+    }
+    .fv-diploma.is-open { transform: translateY(0); }
+    .fv-diploma__close { right: 8px; top: -22px; }
+    .fv-diploma > .fv-panel__head { padding: 10px 16px 8px; }
+    .fv-diploma > .fv-panel__head .fv-panel__place { font-size: 26px; }
+    .fv-diploma__body { padding: 12px 16px 14px; font-size: 15px; line-height: 1.6; }
+    /* 竖屏上底边那一条被「玩法 ?」压着，而「放回架上」在这儿是多余的 ——
+       右上角有 ✕，点画面别处也是放回去。 */
+    .fv-diploma__foot { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fv-diploma { transition-duration: 1ms !important; }
+}
+
 /* ---------- 谱子 ----------
    和详情面板同一套（米色纸 + 墨线框 + 硬投影），但摆在**左边**、也更宽：
    五线谱是横着长的，420px 的右侧面板一行谱要挤成两行。 */
