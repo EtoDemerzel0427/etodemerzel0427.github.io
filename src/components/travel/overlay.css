@@ -861,3 +861,91 @@
     font-size: 14px;
     color: var(--pink);
 }
+
+/* ---------- 坐在电脑前 ----------
+   屏幕上那张网页是一个按投影矩形摆的真 iframe（.fv-screen-layer，z-index 3）。
+   遮挡是在 3D 那边解决的：坐下时屋里只画这台显示器（SEAT_LAYER），
+   所以这儿不需要任何压暗层。这一层（.fv-seat）只放出口，指针默认不接。 */
+
+.fv-screen-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+}
+.fv-seat {
+    position: absolute;
+    inset: 0;
+    z-index: 45;
+    pointer-events: none;
+}
+
+.fv-seat__out {
+    position: absolute;
+    left: 50%;
+    bottom: clamp(14px, 4vh, 34px);
+    transform: translateX(-50%);
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Patrick Hand', system-ui, sans-serif;
+    font-size: 15px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 rgba(21, 15, 44, 0.85);
+}
+
+.fv-seat__out:hover { background: #fff; }
+.fv-seat__out:active { transform: translateX(-50%) translate(2px, 2px); box-shadow: 1px 1px 0 rgba(21, 15, 44, 0.85); }
+
+.fv-seat__out kbd {
+    font: inherit;
+    font-size: 12px;
+    padding: 1px 6px;
+    border: 1.5px solid var(--ink);
+    border-radius: 5px;
+    opacity: 0.72;
+}
+
+/* 在这台电脑里点「住在这儿」的时候。真开进去就是一间屋子里再开一间屋子，
+   两套 three.js 场景叠着跑 —— 拦下来，顺手说句话。 */
+.fv-seat__note {
+    position: absolute;
+    left: 50%;
+    bottom: calc(clamp(14px, 4vh, 34px) + 52px);
+    transform: translateX(-50%);
+    padding: 7px 15px;
+    border-radius: 999px;
+    background: rgba(21, 15, 44, 0.9);
+    color: var(--cream);
+    font-family: 'Patrick Hand', system-ui, sans-serif;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+/* 「关掉屏幕」排在「站起来」左边。站起来是主操作，这个是次的，所以做浅一档。 */
+.fv-seat__out--off {
+    left: auto;
+    right: calc(50% + 62px);
+    transform: none;
+    background: rgba(248, 240, 224, 0.72);
+    font-size: 14px;
+    padding: 8px 14px;
+}
+.fv-seat__out--off:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(21, 15, 44, 0.85); }
+
+/* 被拦下的链接给的那句提示。博文那条里有个真链接，所以这块要能点。 */
+.fv-seat__note { pointer-events: auto; }
+.fv-seat__note a {
+    color: var(--cyan);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+}
+.fv-seat__note a:hover { color: #fff; }

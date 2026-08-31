@@ -1113,7 +1113,10 @@ function buildDesk(group) {
     const white = matte(0xdedbd0, { roughness: 0.38 });
     const legMat = matte(0xd0ccc2, { roughness: 0.55 });
     const bezel = matte(0x1b1b21, { roughness: 0.55 });
-    const screenMat = matte(0x2b3346, { roughness: 0.22, emissive: 0x223047, emissiveIntensity: 0.9 });
+    /* 屏幕材质**一块屏一份**。之前三块屏（左桌大屏 / 右桌 27 寸 / 笔记本）
+       共用同一个 material —— 那就没法单独开关，也没法各放各的内容：
+       改一处 emissiveIntensity 或 map，三块屏一起跟着变。 */
+    const newScreenMat = () => matte(0x2b3346, { roughness: 0.22, emissive: 0x223047, emissiveIntensity: 0.9 });
 
     /* 扫描把靠窗这一条读成一张 3.21m 的长桌，实际是**两张升降桌并排**，
        中间留一道缝（灯就塞在那道缝里）。桌面深 0.79，贴着窗墙。
@@ -1159,33 +1162,42 @@ function buildDesk(group) {
        实物是三面 8mm 窄边 + 20mm 下巴。 */
     const poleMat = matte(0xe4e1da, { roughness: 0.38 });
     const monitor = (z, w, h, { x = 3.81, stand = 'plate', lift = 0.115, whiteBack = false } = {}) => {
+        /* 这台显示器自成一个 group。坐下用电脑的时候要**只画它**（屋里别的
+           东西一件不画，见 KitchenScene 的 SEAT_LAYER）—— 那就得有办法一把
+           抓住它的所有零件，散在 living 那个大 group 里是抓不住的。 */
+        const mg = new THREE.Group();
+        group.add(mg);
         const cy = TOP + TH + lift + h / 2;
         /* 背壳和前脸是**两种颜色**：27UP850K 的后壳是白的，只有正面那圈
            边框是黑的。做成一整块黑，从侧面和背后看就完全不是那台屏了。 */
         solid(rb(0.026, h, w, 0.006), whiteBack ? poleMat : bezel, {
-            position: [x, cy, z], parent: group, outline: 0.007,
+            position: [x, cy, z], parent: mg, outline: 0.007,
         });
         solid(box(0.005, h - 0.004, w - 0.004), bezel, {          // 正面黑边框
-            position: [x - 0.0155, cy, z], parent: group, outline: 0, cast: false,
+            position: [x - 0.0155, cy, z], parent: mg, outline: 0, cast: false,
         });
         const SB = 0.008, CHIN = 0.020;
-        solid(box(0.004, h - SB - CHIN, w - SB * 2), screenMat, {
-            position: [x - 0.0195, cy + (CHIN - SB) / 2, z], parent: group, outline: 0, cast: false,
+        /* 亮面那块矩形单独留个名字：聚焦模式要把内容（真网页 / 游戏）
+           正好铺在它上面，所以尺寸和中心点都得报出去。 */
+        const panelW = w - SB * 2, panelH = h - SB - CHIN;
+        const panelY = cy + (CHIN - SB) / 2, panelX = x - 0.0195;
+        const screen = solid(box(0.004, panelH, panelW), newScreenMat(), {
+            position: [panelX, panelY, z], parent: mg, outline: 0, cast: false,
         });
         if (stand === 'plate') {
             solid(box(0.052, 0.058, 0.072), bezel, {              // 球头颈
-                position: [x + 0.030, cy - h / 2 + 0.048, z], parent: group, outline: 0.005, cast: false,
+                position: [x + 0.030, cy - h / 2 + 0.048, z], parent: mg, outline: 0.005, cast: false,
             });
             solid(rb(0.235, 0.012, 0.30, 0.004), bezel, {         // 方铁底板
-                position: [3.80, TOP + TH + 0.006, z], parent: group, outline: 0.005, cast: false,
+                position: [3.80, TOP + TH + 0.006, z], parent: mg, outline: 0.005, cast: false,
             });
             const PH = 0.20;
             solid(box(0.045, PH, 0.086), bezel, {                 // 扁方立柱（在屏板**背后**）
-                position: [3.845, TOP + TH + 0.012 + PH / 2, z], parent: group, outline: 0.006,
+                position: [3.845, TOP + TH + 0.012 + PH / 2, z], parent: mg, outline: 0.006,
             });
             // 过线孔：挖不出来，用一块更深的凹面顶上去，够读出「这儿是个孔」
             solid(box(0.008, 0.032, 0.044), matte(0x0b0c0f, { roughness: 0.95 }), {
-                position: [3.8225, TOP + TH + 0.012 + PH * 0.52, z], parent: group, outline: 0, cast: false,
+                position: [3.8225, TOP + TH + 0.012 + PH * 0.52, z], parent: mg, outline: 0, cast: false,
             });
         } else {
             /* LG 27UP850K 的 ArcLine 底座。近照能确认它不是椭圆扁带：内外边
@@ -1235,12 +1247,12 @@ function buildDesk(group) {
             const crescent = arcBand(outerR, outerR, innerR, innerR, halfAngle, 0.018);
             solid(crescent, lgMetal, {
                 position: [baseCenterX, TOP + TH + 0.009, z],
-                parent: group, outline: 0.0032, cast: false,
+                parent: mg, outline: 0.0032, cast: false,
             });
 
             // 底部短套筒压在圆弧中点上，遮住圆弧和立柱的接缝。
             solid(cyl(0.034, 0.036, 0.024, 28), lgMetal, {
-                position: [AX - 0.012, TOP + TH + 0.021, z], parent: group, outline: 0.0035, cast: false,
+                position: [AX - 0.012, TOP + TH + 0.021, z], parent: mg, outline: 0.0035, cast: false,
             });
 
             // 下段细长、上段套筒略粗，中间用一道窄环把伸缩接缝读出来。
@@ -1249,27 +1261,28 @@ function buildDesk(group) {
             const seamY = screenBottom - 0.045;
             const p1 = screenBottom + 0.088;
             solid(cyl(0.029, 0.031, seamY - p0, 28), lgMetal, {
-                position: [AX - 0.012, (p0 + seamY) / 2, z], parent: group, outline: 0.0035,
+                position: [AX - 0.012, (p0 + seamY) / 2, z], parent: mg, outline: 0.0035,
             });
             solid(cyl(0.0325, 0.0325, 0.012, 28), matte(0xaeadab, {
                 roughness: 0.37, metalness: 0.39,
             }), {
-                position: [AX - 0.012, seamY, z], parent: group, outline: 0.0028, cast: false,
+                position: [AX - 0.012, seamY, z], parent: mg, outline: 0.0028, cast: false,
             });
             solid(cyl(0.034, 0.033, p1 - seamY, 28), lgMetal, {
-                position: [AX - 0.012, (seamY + p1) / 2, z], parent: group, outline: 0.0035,
+                position: [AX - 0.012, (seamY + p1) / 2, z], parent: mg, outline: 0.0035,
             });
 
             // 上段后面用一根短圆柱横向接进屏背的 OneClick 安装位。
             solid(cyl(0.028, 0.028, 0.050, 24), lgMetal, {
                 position: [(3.823 + AX - 0.012) / 2, screenBottom + 0.058, z],
-                rotation: [0, 0, Math.PI / 2], parent: group, outline: 0.0032, cast: false,
+                rotation: [0, 0, Math.PI / 2], parent: mg, outline: 0.0032, cast: false,
             });
         }
+        return { screen, node: mg, w: panelW, h: panelH, pos: [panelX, panelY, z] };
     };
 
     // 左桌：一块大屏 + 屏顶挂灯 + 前面的笔记本
-    monitor(1.48, 0.74, 0.44, { stand: 'plate' });
+    const bigScreen = monitor(1.48, 0.74, 0.44, { stand: 'plate' });
 
     /* 屏幕挂灯。实物是搭在屏顶、灯口朝下偏前的一根黑管，后面吊一块配重。
        它值得单独做，因为它**是这张桌子上的第二个光源** —— 一根不发光的
@@ -1294,36 +1307,90 @@ function buildDesk(group) {
     /* 笔记本。**宽度沿 Z、进深沿 X** —— 人坐在 -X 那头面朝 +X，屏面必须朝 -X。
        之前宽度做在了 X 上、上盖还绕 X 轴翻，等于把笔记本侧过来搁在桌上。 */
     const alu = matte(0x3c4048, { roughness: 0.45, metalness: 0.3 });
+    /* 笔记本单独一个 group：坐到大屏跟前用电脑的时候，它的上盖正好顶在
+       屏幕下沿前面（盖顶 y≈1.02 > 屏底 0.918），挡住一条。那一态要把它收起来，
+       所以得能一把抓住它。 */
+    const laptop = new THREE.Group();
+    group.add(laptop);
     const LP_X = 3.60, LP_Z = 1.62;               // 机身中心
     const LP_D = 0.235, LP_W = 0.335;             // 进深(X) / 宽度(Z)
     const LP_Y = TOP + TH;
     solid(rb(LP_D, 0.015, LP_W, 0.005), alu, {
-        position: [LP_X, LP_Y + 0.0075, LP_Z], parent: group, outline: 0.007,
+        position: [LP_X, LP_Y + 0.0075, LP_Z], parent: laptop, outline: 0.007,
     });
     solid(box(0.115, 0.003, 0.285), matte(0x1d1f24, { roughness: 0.72 }), {   // 键盘区
-        position: [LP_X + 0.035, LP_Y + 0.016, LP_Z], parent: group, outline: 0, cast: false,
+        position: [LP_X + 0.035, LP_Y + 0.016, LP_Z], parent: laptop, outline: 0, cast: false,
     });
     solid(box(0.070, 0.003, 0.115), matte(0x33363c, { roughness: 0.5 }), {    // 触控板
-        position: [LP_X - 0.062, LP_Y + 0.016, LP_Z], parent: group, outline: 0, cast: false,
+        position: [LP_X - 0.062, LP_Y + 0.016, LP_Z], parent: laptop, outline: 0, cast: false,
     });
     /* 上盖：铰链在机身**后缘**（+X），往后仰 0.25 rad。
        绕 Z 转负角 = 顶端倒向 +X，屏面法线随之指向 -X 略微朝上。 */
+    /* 上盖挂在铰链上的一个 pivot 里，而不是各零件自己转 —— 这样它能**开合**。
+       坐到大屏跟前用电脑的时候要把它合上（见下面 userData.laptopLid）：
+       开着的时候盖顶在 y≈1.02，比屏幕下沿 0.918 还高，正好横在视线上；
+       合上之后顶面只有 y≈0.81，怎么看都挡不着。
+       而且这本来就是实情 —— 笔记本接着外接屏用的时候，盖子就是合着的。 */
     const TILT = 0.25, LID_H = 0.225;
     const hx = LP_X + LP_D / 2, hy = LP_Y + 0.015;
-    const sn = Math.sin(TILT), cs = Math.cos(TILT);
-    const lid = solid(rb(0.011, LID_H, LP_W, 0.004), alu, {
-        position: [hx + sn * LID_H / 2, hy + cs * LID_H / 2, LP_Z], parent: group, outline: 0.007,
+    const lidPivot = new THREE.Group();
+    lidPivot.position.set(hx, hy, LP_Z);
+    laptop.add(lidPivot);
+    solid(rb(0.011, LID_H, LP_W, 0.004), alu, {
+        position: [0, LID_H / 2, 0], parent: lidPivot, outline: 0.007,
     });
-    lid.rotation.z = -TILT;
-    const scr = solid(box(0.003, LID_H - 0.020, LP_W - 0.020), screenMat, {
-        position: [hx + sn * LID_H / 2 - cs * 0.008, hy + cs * LID_H / 2 - sn * 0.008, LP_Z],
-        parent: group, outline: 0, cast: false,
+    solid(box(0.003, LID_H - 0.020, LP_W - 0.020), newScreenMat(), {
+        position: [-0.008, LID_H / 2, 0], parent: lidPivot, outline: 0, cast: false,
     });
-    scr.rotation.z = -TILT;
+    /* 绕 Z 转负角 = 盖顶倒向 +X（往窗那边仰）。所以正角是往 -X 合下来，
+       合到 +90° 正好平躺在键盘上。 */
+    lidPivot.rotation.z = -TILT;
+
+    /* 盖背上那颗苹果。这是台 MacBook Pro，少了它就只是「一块灰板」。
+
+       朝向不用另想：苹果的柄朝盖子的**局部 +Y**（掀开时的上方）。于是
+       掀着的时候，从窗那边看过去它是正的（Apple 1999 年之后就是这么放的，
+       为的是给对面的人看）；合上之后盖子转 90°，柄转向 -X，坐在桌前的人
+       低头看到的是倒着的苹果 —— 现实里合着的 MacBook 就是这样。
+
+       路径取自 simple-icons 的 Apple 图标（CC0）。 */
+    {
+        const APPLE_D = 'M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701';
+        const cv = document.createElement('canvas');
+        cv.width = cv.height = 256;
+        const g2 = cv.getContext('2d');
+        g2.scale(256 / 24, 256 / 24);
+        /* 镜面苹果在这间屋的灯下读作「比机身亮一档的一块金属」。
+           照本色（近黑）画的话，在深灰盖子上根本看不见。 */
+        g2.fillStyle = '#b6bcc6';
+        g2.fill(new Path2D(APPLE_D));
+        const tex = new THREE.CanvasTexture(cv);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 8;
+        // 16 吋机器上那颗苹果高约 4.5cm；路径本身是 24×24，画布留白就是四周的边距
+        const mark = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.048, 0.048),
+            /* 别做成纯金属：metalness 高的话，它的亮度几乎全来自环境反射，
+               而这间屋子的环境贴图很暗 —— 结果就是一颗黑苹果贴在深灰盖子上，
+               等于没有。改成低金属度 + 一点点自发光，当作那层镜面镀层在吃光。 */
+            new THREE.MeshStandardMaterial({
+                map: tex, transparent: true, roughness: 0.34, metalness: 0.15,
+                emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.22,
+                side: THREE.DoubleSide, depthWrite: false,
+            }),
+        );
+        mark.rotation.y = Math.PI / 2;              // 面朝盖子的局部 +X（盖背）
+        mark.position.set(0.0059, LID_H / 2, 0);    // 盖厚 11mm，贴在外表面前头一点
+        mark.userData.ghost = true;                 // 不参与拾取
+        mark.userData.isOutline = true;             // 也不参与描边遍历
+        lidPivot.add(mark);
+    }
+
+    group.userData.laptopLid = { node: lidPivot, open: -TILT, shut: Math.PI / 2 };
 
     /* 右桌：LG 27UP850K（27 吋 16:9 4K，白后壳 + 月牙底座）+ 一台 30L 主机。
        外框 614×365，是 16:9 —— 中间那版按带鱼屏做成 0.78×0.335 是我看错了。 */
-    monitor(2.95, 0.614, 0.365, { stand: 'arc', lift: 0.185, whiteBack: true });
+    const lgScreen = monitor(2.95, 0.614, 0.365, { stand: 'arc', lift: 0.185, whiteBack: true });
 
     /* 主机是台 **HP OMEN 30L**（GT13）：432 高 × 165 宽 × 421 深，一台又窄又深
        的塔。前面几版全错在同一件事上 —— 我一直把它当成「宽而扁」的箱子，
@@ -1375,6 +1442,9 @@ function buildDesk(group) {
     solid(box(0.014, 0.022, BEZ_W - 0.020), caseDark, {                    // 顶端前置 I/O
         position: [faceX + 0.010, TY + CH / 2 - 0.036, bezZ], parent: group, outline: 0, cast: false,
     });
+    /* 前脸这两处（OMEN 菱形标 + 底下那圈大圆环）是机箱**通电之后**才亮的。
+       关机时给一点灰自发光，只是为了别在背光里糊成纯黑剪影；
+       开机则整个换成 RGB 那支紫，和侧透里那根灯条同一个色。 */
     const omen = matte(0x4b4d56, { roughness: 0.35, emissive: 0x565963, emissiveIntensity: 0.7 });
     const badge = solid(box(0.003, 0.026, 0.026), omen, {                  // OMEN 菱形标
         position: [faceX + 0.0005, TY + 0.085, bezZ], parent: group, outline: 0, cast: false,
@@ -1418,9 +1488,25 @@ function buildDesk(group) {
     solid(box(CX - 0.050, 0.056, CZ - 0.034), guts(0x2c2e35, 0x53565f, 0.85, 0.7), {   // 电源仓
         position: [TX, TY - CH / 2 + 0.048, TZ], parent: group, outline: 0, cast: false,
     });
-    solid(box(0.230, 0.005, 0.004), matte(0xe3c6ff, { roughness: 0.3, emissive: 0xb07fe0, emissiveIntensity: 2.2 }), {
+    /* 侧透里那根 RGB 灯条。之前它是**一直亮着**的 —— 一台没开机的机器在
+       发光，说不通。现在跟着右桌那块屏一起开关。 */
+    const rgbStrip = matte(0xe3c6ff, { roughness: 0.3, emissive: 0xb07fe0, emissiveIntensity: 0 });
+    solid(box(0.230, 0.005, 0.004), rgbStrip, {
         position: [TX - 0.010, TY - 0.018, gz - 0.062], parent: group, outline: 0, cast: false,
     });
+    /* 机箱亮起来要往外洒光，不然只是「机器上贴了几块发光的贴纸」。
+       一盏很近、很弱的点光，够在桌面和旁边的柱子上留一圈紫就行。 */
+    /* 半径收在 0.72m：RGB 是照亮自己那台机器的，不是给房间打光的。
+       给到 1m 会把旁边的柱子和桌面整片刷成紫的。 */
+    const rgbLight = new THREE.PointLight(0xb07fe0, 0, 0.72, 2);
+    rgbLight.position.set(TX - 0.04, TY - 0.02, TZ - CZ / 2 - 0.04);
+    group.add(rgbLight);
+    group.userData.tower = {
+        front: omen, strip: rgbStrip, light: rgbLight,
+        off: { color: 0x565963, i: 0.7 },
+        on: { color: 0xc79dff, i: 2.6 },
+        stripOn: 2.4, lightOn: 0.28,
+    };
     /* 前脸网孔柱后面那把 12cm 进风扇。它也是吹前后的，所以从侧透同样
        只看得见框的侧面 —— 少了它箱子前面 17cm 是空的，但也不能拿一个
        圆面对着玻璃来凑数。 */
@@ -1964,6 +2050,19 @@ function buildDesk(group) {
     aimAt.position.set(0, -SH + 0.012 - 1.2, 0);
     shadeGrp.add(aimAt);
 
+    /* 屋里能凑上去用的屏幕。屏面一律朝 -X（人坐在房间那头往窗边看）。
+       KitchenScene 拿这张表做聚焦：相机推到屏幕正前方，再把内容铺上去 ——
+       左桌那块大屏铺一张真网页（CSS3D iframe），右桌那块 27 寸铺游戏
+       （CanvasTexture）。两块屏用的是两套完全不同的技术，所以这里只登记
+       「屏在哪、多大」，具体铺什么由各自的模块决定。 */
+    group.userData.screens = [
+        ...(group.userData.screens || []),
+        { id: 'desk-web', label: '用这台电脑', kind: 'web',
+          mesh: bigScreen.screen, node: bigScreen.node, w: bigScreen.w, h: bigScreen.h },
+        { id: 'desk-game', label: '玩一局', kind: 'game',
+          mesh: lgScreen.screen, node: lgScreen.node, w: lgScreen.w, h: lgScreen.h },
+    ];
+
     group.userData.lamps = {
         ...(group.userData.lamps || {}),
         desk: {
@@ -2407,9 +2506,17 @@ function buildMedia(group) {
         });
     }
     solid(rb(1.48, 0.86, 0.045, 0.006), dark, { position: [1.45, 1.20, 4.32], parent: group, outline: 0.010 });
-    solid(box(1.43, 0.81, 0.006), matte(0x161d29, { roughness: 0.26, metalness: 0.2 }), {
+    const tvPanel = solid(box(1.43, 0.81, 0.006), matte(0x161d29, { roughness: 0.26, metalness: 0.2 }), {
         position: [1.45, 1.20, 4.294], parent: group, outline: 0, cast: false,
     });
+    /* 电视也登记成一块屏。它和桌上那两块的区别是**没有近景**：
+       电视本来就是隔着一间屋看的，凑到屏幕跟前既不合常理也没内容可操作。
+       所以点它只有开 / 关两态。朝向是 -Z（对着沙发），不是桌上那两块的 -X。 */
+    group.userData.screens = [
+        ...(group.userData.screens || []),
+        { id: 'tv', label: '开电视', kind: 'tv', facing: 'z-',
+          mesh: tvPanel, w: 1.43, h: 0.81, hide: [] },
+    ];
 
     /* 白色六斗柜（扫描 storage_cabinet_low1_0），上面那台唱机 */
     const dX0 = -0.33, dX1 = 0.13, dZ0 = 2.93, dZ1 = 3.58, dH = 0.74;
@@ -2720,11 +2827,20 @@ function buildMedia(group) {
 
     const psBlack = matte(0x17191e, { roughness: 0.42, metalness: 0.08 });
     const psWhite = matte(0xe9e9e5, { roughness: 0.38 });
+    /* 机身两侧那两条灯带。**默认是灭的** —— 和机箱里那根 RGB 一样，
+       一台没开机的主机不该在发光。开机时先蓝色呼吸（PS5 引导中就是这个），
+       引导完成再定成白色常亮。跟着电视一起开关，见 KitchenScene。 */
     const psBlue = matte(0x71d9ff, {
-        roughness: 0.25, emissive: 0x39bfff, emissiveIntensity: 1.35,
+        roughness: 0.25, emissive: 0x39bfff, emissiveIntensity: 0,
     });
 
     // 竖放底座：实物是前后较长的黑色椭圆盘，不是圆脚。
+    /* 灯带亮起来要往地上和旁边的白斗柜洒一点光，不然只是「机身上有两条亮线」。 */
+    const psLight = new THREE.PointLight(0x5ec8ff, 0, 0.85, 2);
+    psLight.position.set(0, 0.33, -0.02);
+    ps.add(psLight);
+    group.userData.ps5 = { led: psBlue, light: psLight, ledOn: 2.1, lightOn: 0.30 };
+
     const psBase = solid(cyl(0.096, 0.096, 0.014, 28), psBlack, {
         position: [0, -0.009, 0], parent: ps, outline: 0.005, cast: false,
     });
@@ -3443,8 +3559,17 @@ export function buildLiving() {
     buildDesk(group);
     // 椅子面朝 +X（书桌和窗）。lx 取 3.10：坐垫伸进桌板下面，
     // 靠背留在桌沿 3.15 外侧 —— 扫描给的 3.22 会让靠背整个穿过桌面。
-    buildLeatherChair(group, 3.10, 1.78, -0.22);
-    buildMeshChair(group, 3.10, 3.15, 0.16);
+    /* 两把椅子各自正对着一块屏。坐到那块屏跟前时相机就落在靠背附近、甚至
+       后面（座位距离是按画幅算的，窄窗口下会退到 x≈2.55，而椅子占 2.88–3.38），
+       所以那一态要把**对应的那把**收起来 —— 不是两把一起收。 */
+    const deskChair = buildLeatherChair(group, 3.10, 1.78, -0.22);
+    const gameChair = buildMeshChair(group, 3.10, 3.15, 0.16);
+    /* 每块屏自己带一份「坐下时挡在视线上的东西」。左桌那块还多一件：
+       笔记本不是收走而是合盖（lid），东西留在原处才不穿帮。 */
+    const byId = (id) => (group.userData.screens || []).find((sc) => sc.id === id);
+    const web = byId('desk-web'), game = byId('desk-game');
+    if (web) { web.hide = [deskChair]; web.lid = group.userData.laptopLid || null; }
+    if (game) game.hide = [gameChair];
     buildSofa(group);
     buildMedia(group);
     buildLamps(group);

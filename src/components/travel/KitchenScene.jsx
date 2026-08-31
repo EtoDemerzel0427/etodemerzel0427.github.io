@@ -108,6 +108,14 @@ export default function KitchenScene({ places = [], things = [] }) {
         typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
     ));
 
+    /* 坐到桌前那台电脑跟前了。这块屏上跑的是**真网页**（见 kitchen/webscreen.js），
+       所以聚焦期间相机要整个锁死，鼠标全交给那张页面。 */
+    const [atScreen, setAtScreen] = useState(false);
+    /* 在电脑里点了被拦下的链接。{ kind: 'apt' | 'post', href } */
+    const [blocked, setBlocked] = useState(null);
+    const exitScreenRef = useRef(null);
+    const powerOffRef = useRef(null);
+
     const active = useMemo(
         () => places.find((p) => p.slug === activeSlug) || null,
         [places, activeSlug],
@@ -518,6 +526,15 @@ export default function KitchenScene({ places = [], things = [] }) {
        手机上等于一句说明都没有，所以改成进屋先弹一次，看过就记进 localStorage。
        左下角常驻一个「玩法 ?」，随时能再叫出来（那个按钮手机上也在）。 */
     const [guide, setGuide] = useState(false);
+
+    /* 坐着的时候右上角那排机位按钮和「列表」还是点得动的（它们是 DOM，不归
+       3D 那边的输入锁管）。真按了就当人要走。
+       这件事**必须在 React 这边判**，不能放进 rAF 循环里看 viewRef ——
+       enterScreen 里的 leavePreset() 走的是 setView(null)，而 viewRef 要等
+       下一次渲染才跟上；循环里下一帧读到的还是旧的预设名，刚坐下就被自己踢走了。 */
+    useEffect(() => {
+        if (atScreen && (view || listView || guide)) exitScreenRef.current?.();
+    }, [atScreen, view, listView, guide]);
     useEffect(() => {
         let seen = false;
         try { seen = window.localStorage.getItem(GUIDE_KEY) === '1'; } catch { seen = false; }
@@ -566,6 +583,17 @@ export default function KitchenScene({ places = [], things = [] }) {
                 const { createRecital } = await import('./kitchen/recital.js');
                 const { buildFridge } = await import('./kitchen/fridge.js');
                 const { buildMagnets } = await import('./kitchen/magnets.js');
+                /* CSS3D 那一层只在真要用的时候拉。它会把 iframe 连同整个站点
+                   一起拽进来，触屏上又走不通（下面 coarse 那道闸），
+                   不该让所有人在开屋子的时候先等它。 */
+                /* 屏幕开着那一态（贴图）是所有人都有的，触屏也一样 —— 它就是块
+                   普通几何体。只有「坐下操作真网页」那一态要 CSS3D，那个在触屏上
+                   走不通（iOS 里 iframe 的滚动和 position:fixed 都不对），所以下面
+                   建 webScreen 的时候才卡 coarse。 */
+                const { createWebScreen, seatFor, buildScreenSurface } =
+                    await import('./kitchen/webscreen.js');
+                const { createSnake } = await import('./kitchen/snake.js');
+                const { createTv } = await import('./kitchen/tv.js');
 
                 // 贴图上的地名要用 Bangers 画，先等字体
                 if (document.fonts?.ready) {
@@ -1064,6 +1092,220 @@ export default function KitchenScene({ places = [], things = [] }) {
                 const comic = makeComicPass(1, 1, dpr);
                 composer.addPass(comic);
 
+                /* 左桌那块大屏 = 这个站本身。
+                   触屏上不接：CSS3D 里的 iframe 在 iOS 上滚动和 position:fixed
+                   都不对，与其给一块半坏的屏，不如让它维持原样（点了就走过去看）。 */
+                const allScreens = living.userData.screens || [];
+                const webScreenDef = allScreens.find((sc) => sc.id === 'desk-web') || null;
+                const gameScreenDef = allScreens.find((sc) => sc.id === 'desk-game') || null;
+                const tvDef = allScreens.find((sc) => sc.id === 'tv') || null;
+
+                /* 两块屏「开着」的时候各画各的，而且**用的是同一种办法**：
+                   一张贴在屏面上的贴图。贴图是真几何体 —— 任何角度都看得见，
+                   被椅背挡住就是挡住。
+                     左桌 = 首页快照（静的）
+                     右桌 = 一局贪吃蛇（每帧重画）
+                   只有左桌「坐下操作真网页」那一态才另外压一个 iframe 上去。 */
+                const snake = gameScreenDef ? createSnake(gameScreenDef) : null;
+                const surfaceOf = new Map();
+                if (webScreenDef) surfaceOf.set(webScreenDef, buildScreenSurface(THREE, webScreenDef));
+                if (gameScreenDef) surfaceOf.set(gameScreenDef, snake);
+                /* 电视上是那台 PS5 的主界面 —— 屋里唱机旁边的地上就立着一台。
+                   它没有近景：电视本来就是隔着一间屋看的。 */
+                const tv = tvDef ? createTv(tvDef) : null;
+                if (tvDef) surfaceOf.set(tvDef, tv);
+                /* 坐下那一态：CSS3D 里的真 iframe。触屏不接 —— 与其给一块半坏的屏，
+                   不如让它停在「开着但只能看」，那一态本身是完整的。 */
+                const webScreen = (webScreenDef && !coarse)
+                    ? createWebScreen(canvas.parentElement, webScreenDef, { src: '/' })
+                    : null;
+                webScreen?.onEscape(() => exitScreen());
+                webScreen?.onBlocked((kind, href) => {
+                    setBlocked({ kind, href });
+                    // 博文那条带链接，得留够时间点；套娃那条只是句话
+                    setTimeout(() => setBlocked(null), kind === 'post' ? 7000 : 2600);
+                });
+
+                /* 点一块屏：关着就开机，开着就坐下。
+                   两步而不是一步 —— 开机是「屋里多了一块亮着的屏」，走到哪儿都看得见；
+                   坐下是「接管键鼠去用它」，那是另一件事，不该被一次点击捆在一起。 */
+                /* 机箱通电。屏幕亮起来的时候前脸那圈环、菱形标和侧透里的灯条
+                   一起点起来，再往外洒一点紫光 —— 不然屏幕自己亮着、机器一片死黑，
+                   读起来像「显示器没接主机」。
+                   走缓动而不是硬切：真机器按下电源也是渐亮的那一下。 */
+                const tower = living.userData.tower || null;
+                let towerWant = 0, towerNow = 0;
+                function setTower(on) { towerWant = on ? 1 : 0; }
+                function paintTower(k) {
+                    if (!tower) return;
+                    const c = new THREE.Color(tower.off.color).lerp(new THREE.Color(tower.on.color), k);
+                    tower.front.emissive.copy(c);
+                    tower.front.emissiveIntensity = tower.off.i + (tower.on.i - tower.off.i) * k;
+                    tower.strip.emissiveIntensity = tower.stripOn * k;
+                    tower.light.intensity = tower.lightOn * k;
+                }
+                paintTower(0);
+
+                /* 唱机旁边地上那台 PS5。电视是接在它上面的，所以电视一开，
+                   主机也得跟着醒：先蓝色呼吸（引导中），电视上那段开机动画走完了
+                   再定成白色常亮。灭的时候淡出。 */
+                const ps5 = living.userData.ps5 || null;
+                let psOn = false, psK = 0, psT = 0;
+                const psBlue = new THREE.Color(0x39bfff), psWhite = new THREE.Color(0xe6f6ff);
+                function paintPs5(dt) {
+                    if (!ps5) return;
+                    const want = psOn ? 1 : 0;
+                    if (Math.abs(want - psK) > 1e-3) psK += (want - psK) * (1 - Math.exp(-5 * dt));
+                    if (psOn) psT += dt; else psT = 0;
+                    if (psK < 1e-3 && !psOn) {
+                        ps5.led.emissiveIntensity = 0; ps5.light.intensity = 0; return;
+                    }
+                    /* 引导中呼吸：正弦压在 0.35–1 之间。tv.boot 走到 1 就是引导完，
+                       换成白色不再呼吸 —— 和真机一样，蓝灯只在开机那几秒。 */
+                    const booting = (tv?.boot ?? 1) < 1;
+                    const pulse = booting ? 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(psT * 5.6)) : 1;
+                    ps5.led.emissive.copy(booting ? psBlue : psWhite);
+                    ps5.led.emissiveIntensity = ps5.ledOn * psK * pulse;
+                    ps5.light.color.copy(booting ? psBlue : psWhite);
+                    ps5.light.intensity = ps5.lightOn * psK * pulse;
+                }
+
+                function pokeScreen(def) {
+                    const surf = surfaceOf.get(def);
+                    if (!surf) return;
+                    if (!surf.on) {
+                        surf.setPower(true);
+                        if (def === gameScreenDef) setTower(true);
+                        if (def === tvDef) psOn = true;       // 电视接在那台 PS5 上
+                        markShadows();
+                        return;
+                    }
+                    // 电视只有开关两态，没有「坐下用」这回事
+                    if (def === tvDef) { powerOffScreen(def); return; }
+                    /* 触屏上没有「坐下」这一态（webScreen 为空，游戏也没键盘），
+                       再点就是关机 —— 不然开了之后没有任何办法把它关回去。 */
+                    if (def === webScreenDef && !webScreen) { powerOffScreen(def); return; }
+                    if (def === gameScreenDef && coarse) { powerOffScreen(def); return; }
+                    enterScreen(def);
+                }
+                function powerOffScreen(def) {
+                    const d = def || screenFocus;
+                    if (!d) return;
+                    if (d === screenFocus) exitScreen();
+                    surfaceOf.get(d)?.setPower(false);
+                    if (d === gameScreenDef) setTower(false);
+                    if (d === tvDef) psOn = false;
+                    markShadows();
+                }
+                /* 坐下时要让开视线的两样东西。iframe 是 DOM，永远盖在画布上面，
+                   所以只要有东西横在相机和屏幕之间，前后关系就一定是错的 ——
+                   压暗救不了，暗的椅背也还是椅背。但也**只动这两样**，屋子别的
+                   部分照常画：整间屋子黑掉那是另一种错。
+
+                   两样东西两种办法，都要说得通，不能是「东西凭空没了」：
+                     · 椅子 —— 收起来。你正坐在它上面，第一人称看不见自己的椅子。
+                     · 笔记本 —— **合上盖**，不是收走。它是真摆在那儿的，凭空消失
+                       就穿帮了；而接着外接屏用的时候，盖子本来就是合着的。
+                       合上之后顶面 y≈0.81，远低于视线到屏幕下沿的 y≈0.95。 */
+                const lid = living.userData.laptopLid || null;
+                let lidWant = lid ? lid.open : 0;
+                /** 让开（或还回）某块屏的视线。清单挂在那块屏自己身上（living.js）。 */
+                const clearSightline = (def, clear) => {
+                    for (const o of def?.hide || []) o.visible = !clear;
+                    if (def?.lid) lidWant = clear ? def.lid.shut : def.lid.open;
+                    markShadows();
+                };
+
+                function enterScreen(def) {
+                    if (screenFocus || !def) return;
+                    if (def === webScreenDef && !webScreen) return;
+                    screenFocus = def;
+                    if (def === webScreenDef) webScreen.reset();
+                    setAtScreen(true);
+                    // 在推镜头之前就让开，路上不会有半截椅背扫过画面
+                    clearSightline(def, true);
+                    leavePreset();
+                }
+                function exitScreen() {
+                    if (!screenFocus) return;
+                    clearSightline(screenFocus, false);
+                    screenFocus = null;
+                    setAtScreen(false);
+                }
+                exitScreenRef.current = exitScreen;
+                powerOffRef.current = () => powerOffScreen();
+
+                /* 开发时的快捷入口：/my-apt/#sit 直接开机 + 坐到电脑前。
+                   这一态要验证的东西（遮挡、iframe 对不对得上、点不点得动）
+                   每次都要手动走三步才能到，留个口子省事。只在 dev 生效。 */
+                /* 开发时的视察口。屋里有几处状态要走三四步才到得了（开机 → 坐下、
+                   合上盖、开电视…），每验证一次都手点一遍太费事。只在 dev 生效。 */
+                if (import.meta.env.DEV && location.hash.length > 1) {
+                    /* 直接把人放过去，不走缓动 —— 无头浏览器里 rAF 的步进不正常，
+                       靠插值永远到不了位，截出来的图全是半路上的构图。 */
+                    const jump = (px, py, pz, tx, ty, tz) => {
+                        camPos.set(px, py, pz);
+                        snapTo.copy(camPos);
+                        snapping = false; walkPath = null;
+                        const a = aimAt(camPos, tx, ty, tz);
+                        aim.yaw = want.yaw = a.yaw;
+                        aim.pitch = want.pitch = a.pitch;
+                        leavePreset();
+                    };
+                    /** 开机 → 坐下 → **直接把人放到座位上**。靠缓动的话在无头
+                     *  浏览器里永远到不了位，截出来全是半路的构图。 */
+                    const sitAt = (def, then) => {
+                        pokeScreen(def);
+                        setTimeout(() => {
+                            pokeScreen(def);
+                            setTimeout(() => {
+                                const st = seatFor(def, camera);
+                                jump(st.pos[0], st.pos[1], st.pos[2], st.look[0], st.look[1], st.look[2]);
+                                then?.();
+                            }, 150);
+                        }, 300);
+                    };
+                    const spots = {
+                        // 开电视，站到沙发那头看（#tv 是开机动画，#tv2 是主界面）
+                        tv: () => { pokeScreen(tvDef); jump(2.80, 1.46, 1.62, 1.30, 1.20, 4.29); },
+                        tv2: () => {
+                            pokeScreen(tvDef);
+                            // 无头浏览器里 rAF 的 dt 近似为 0，开机动画自己走不完
+                            for (let i = 0; i < 30; i++) { tv?.update(0.12); paintPs5(0.12); }
+                            jump(2.80, 1.46, 1.62, 1.30, 1.20, 4.29);
+                        },
+                        // 看那台 PS5 自己
+                        ps5: () => {
+                            pokeScreen(tvDef);
+                            for (let i = 0; i < 12; i++) { tv?.update(0.1); paintPs5(0.1); }
+                            jump(1.10, 0.62, 3.10, 0.18, 0.30, 3.74);
+                        },
+                        // 开机箱，站到右桌旁边看前脸那圈灯
+                        tower: () => {
+                            pokeScreen(gameScreenDef);
+                            for (let i = 0; i < 30; i++) { towerNow += (towerWant - towerNow) * 0.2; }
+                            paintTower(towerNow);
+                            jump(3.05, 1.18, 3.40, 3.45, 1.00, 3.76);
+                        },
+                        // 开机 + 坐到大屏前
+                        sit: () => sitAt(webScreenDef),
+                        // 开机 + 坐到右桌那台游戏机前，再让蛇跑起来
+                        game: () => sitAt(gameScreenDef, () => {
+                            /* 手动喂时间：无头浏览器里 rAF 的 dt 近似为 0，
+                               游戏钟自己走不动，截出来永远是那张待机画面。 */
+                            snake?.key('arrowright');
+                            for (let i = 0; i < 8; i++) snake?.update(0.12);
+                            snake?.key('arrowdown');
+                            for (let i = 0; i < 5; i++) snake?.update(0.12);
+                        }),
+                        // 合上盖，站到桌前俯看那台 MacBook
+                        // 合上盖，站到桌前俯看那台 MacBook（不进近景，免得退出时镜头被拉回去）
+                        lid: () => { clearSightline(webScreenDef, true); jump(3.18, 1.22, 1.62, 3.605, 0.804, 1.62); },
+                    };
+                    const go = spots[location.hash.slice(1)];
+                    if (go) setTimeout(() => { setGuide(false); setListView(false); go(); }, 1500);
+                }
+
                 /* ---------- 相机：预设机位 + 自由走动 ----------
                    位置和朝向拆开存：位置可以「走」（带碰撞），朝向永远是
                    拖拽给的 yaw/pitch。预设机位只是一次「位置 + 朝向」的赋值。 */
@@ -1118,6 +1360,12 @@ export default function KitchenScene({ places = [], things = [] }) {
                 let wasFocused = false;
                 const beforeFocus = camPos.clone();
                 const beforeAim = { yaw: 0, pitch: 0 };   // 位置和朝向都要存，不然退出聚焦会站对地方看错方向
+                /* 桌前那块屏的聚焦。和冰箱贴那一对变量**分开存** —— 两种聚焦
+                   可以先后发生，共用一份起点会被后进的那次冲掉，退出时人就回错地方。 */
+                let screenFocus = null;
+                let wasAtScreen = false;
+                const beforeScreen = camPos.clone();
+                const beforeScreenAim = { yaw: 0, pitch: 0 };
                 const tmpV2 = new THREE.Vector3();
 
 
@@ -1229,8 +1477,12 @@ export default function KitchenScene({ places = [], things = [] }) {
                     ...(sheet?.pick || []),
                     ...lamps.flatMap((l) => l.pick), ...joints.flatMap((j) => j.pick),
                     ...cabs.flatMap((c) => c.pick),
+                    ...[webScreenDef, gameScreenDef, tvDef].filter(Boolean).map((d) => d.mesh),
                 ]);
                 const pickList = [...pickSet];
+                /** 撞到的这块几何是不是某块屏的屏面 */
+                const screenDefOf = (o) => [webScreenDef, gameScreenDef, tvDef]
+                    .find((d) => d && d.mesh === o) || null;
                 /** 撞到的这块几何属于哪个可交互件（大棱镜那枚磁贴是一堆零件拼的，
                  *  命中盒在最外层，所以要往上找） */
                 function interactiveOf(obj) {
@@ -1356,6 +1608,10 @@ export default function KitchenScene({ places = [], things = [] }) {
                 let dragSign = 1;
 
                 function onPointerDown(e) {
+                    /* 坐在屏幕前：网页自己吃掉它那块区域的点击，落到画布上的
+                       都是「点了页面外面」—— 当成站起来，和点开的冰箱贴面板外面
+                       会收面板是同一个约定。 */
+                    if (screenFocus) { exitScreen(); return; }
                     if (e.button !== 0 && e.pointerType === 'mouse') return;
                     dragging = true; dragAmount = 0; downAt = performance.now();
                     dragSign = (e.pointerType === 'touch' || e.pointerType === 'pen') ? -1 : 1;
@@ -1423,6 +1679,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                             else openSheetRef.current?.();
                             return;
                         }
+                        { const d = screenDefOf(o); if (d) { pokeScreen(d); return; } }
                         if (o.userData.midi !== undefined) { hitKey(o); return; }
                         if (o.userData.place) onSelect(o.userData.place.slug);
                         return;
@@ -1458,6 +1715,12 @@ export default function KitchenScene({ places = [], things = [] }) {
                     const t = e.target;
                     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
                     const k = keyOf(e);
+                    /* 坐在屏幕前：键盘不归走位。右桌那台在玩贪吃蛇，方向键交给它；
+                       左桌那台在用网页，键盘整个归 iframe。 */
+                    if (screenFocus) {
+                        if (screenFocus === gameScreenDef && snake?.key(k)) e.preventDefault();
+                        return;
+                    }
                     if (!MOVE_KEYS.has(k)) return;
                     if (uiRef.current) return;        // 列表页开着就别在后面走
                     keys.add(k);
@@ -1469,6 +1732,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                 /* 触控板：两指横滑转视角、纵滑前后挪。
                    Mac 上这是比拖拽更顺手的转身方式，也不占鼠标左键。 */
                 function onWheel(e) {
+                    if (screenFocus) return;      // 滚动归网页，别拿去挪相机
                     if (activeRef.current || uiRef.current) return;
                     e.preventDefault();
                     if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
@@ -1596,6 +1860,16 @@ export default function KitchenScene({ places = [], things = [] }) {
                         else if (hovered && jointOf(hovered)) {
                             setHover({ slug: `joint-${jointOf(hovered).name}`, place: jointOf(hovered).label });
                         }
+                        else if (hovered && screenDefOf(hovered)) {
+                            const d = screenDefOf(hovered);
+                            const on = surfaceOf.get(d)?.on;
+                            const label = !on
+                                ? (d === tvDef ? '开电视' : d === gameScreenDef ? '开这台机器' : '开这台电脑')
+                                : d === tvDef ? '关电视'
+                                    : d === gameScreenDef ? (coarse ? '关掉' : '坐下来玩')
+                                        : webScreen ? '坐下来用' : '关掉';
+                            setHover({ slug: `screen-${d.id}`, place: label });
+                        }
                         else if (hovered && lampOf(hovered)) {
                             setHover({ slug: 'lamp', place: lampOf(hovered).on ? '关灯' : '开灯' });
                         }
@@ -1674,6 +1948,64 @@ export default function KitchenScene({ places = [], things = [] }) {
                         wasFocused = false;
                         snapTo.copy(beforeFocus);
                         faceTo(beforeAim.yaw, beforeAim.pitch);
+                        snapping = true;
+                    }
+
+                    snake?.update(dt);
+                    tv?.update(dt);
+                    paintPs5(dt);
+                    if (tower && Math.abs(towerWant - towerNow) > 1e-3) {
+                        towerNow += (towerWant - towerNow) * (1 - Math.exp(-4.5 * dt));
+                        paintTower(towerNow);
+                    }
+
+                    /* 笔记本合盖 / 掀盖。和柜门那些一样走指数缓动，
+                       转的时候每帧点一次投影 —— 盖子是有影子的。 */
+                    if (lid && Math.abs(lidWant - lid.node.rotation.z) > 1e-4) {
+                        lid.node.rotation.z += (lidWant - lid.node.rotation.z) * (1 - Math.exp(-6 * dt));
+                        markShadows();
+                    }
+
+                    /* 桌前那块屏。和冰箱贴那段的取景方式不一样：冰箱贴是让它占
+                       画面的一个比例、再让到一侧给面板腾地方；这块屏必须**正对**
+                       —— 上面那张网页是真 DOM，只有正视时它才和屏幕边框严丝合缝，
+                       稍微一斜，CSS3D 那层和 WebGL 画的边框就错开了。 */
+                    if (screenFocus) {
+                        if (!wasAtScreen) {
+                            beforeScreen.copy(camPos);
+                            beforeScreenAim.yaw = want.yaw; beforeScreenAim.pitch = want.pitch;
+                            wasAtScreen = true;
+                        }
+                        const seat = seatFor(screenFocus, camera);
+                        snapTo.set(...seat.pos);
+                        const a3 = aimAt(snapTo, ...seat.look);
+                        faceTo(a3.yaw, a3.pitch);
+                        snapping = true;
+                        walkPath = null;
+                        /* **落位之前不把网页亮出来。** CSS3D 是画布之上独立的一层，
+                           屋里的几何体挡不住它 —— 推镜头的半路上，那张网页会明晃晃
+                           地浮在沙发和椅子前面。等站定了、也转正了再淡入。 */
+                        /* 阈值给得松一点（8cm / 0.03rad）。位置是指数逼近、而
+                           座位本身还被 fov 的缓动往后拽，卡到 2cm 要等好几秒；
+                           8cm 上取景已经差不多了，剩下那点收敛正好和 0.45s 的
+                           淡入重叠，读起来就是「坐下的同时屏幕醒过来」。 */
+                        /* iframe 只有左桌那块屏才有。照着屏幕在画面上的投影摆，
+                           放在「落位了没」的判定之前 —— 亮起来的那一帧位置就得是对的。 */
+                        const web = screenFocus === webScreenDef ? webScreen : null;
+                        web?.place(camera, canvas.clientWidth, canvas.clientHeight);
+                        web?.setLive(
+                            camPos.distanceTo(snapTo) < 0.08
+                            && Math.abs(wrapPi(aim.yaw - want.yaw)) < 0.03
+                            /* 俯仰也要算进来。位置和朝向是分开插值的，只看 yaw
+                               的话，人从别处望过来时 pitch 还没抬平，网页就已经
+                               在一个斜着的画面里亮了 —— 那一下它和屏幕边框是错开的。 */
+                            && Math.abs(aim.pitch - want.pitch) < 0.03,
+                        );
+                    } else if (wasAtScreen) {
+                        wasAtScreen = false;
+                        webScreen?.setLive(false);
+                        snapTo.copy(beforeScreen);
+                        faceTo(beforeScreenAim.yaw, beforeScreenAim.pitch);
                         snapping = true;
                     }
 
@@ -2156,6 +2488,8 @@ export default function KitchenScene({ places = [], things = [] }) {
                     window.removeEventListener('keydown', onKeyDown);
                     window.removeEventListener('keyup', onKeyUp);
                     window.removeEventListener('blur', dropKeys);
+                    webScreen?.dispose();
+                    for (const s2 of surfaceOf.values()) s2.dispose?.();
                     composer.dispose();
                     pmrem.dispose();
                     scene.traverse((o) => {
@@ -2197,14 +2531,15 @@ export default function KitchenScene({ places = [], things = [] }) {
     useEffect(() => {
         const onKey = (e) => {
             if (e.key !== 'Escape') return;
-            if (guide) closeGuide();
+            if (atScreen) exitScreenRef.current?.();
+            else if (guide) closeGuide();
             else if (listView) setListView(false);
             else if (activeSlug) setActiveSlug(null);
             else if (sheetOpen) setSheetOpen(false);
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [activeSlug, listView, guide, sheetOpen, closeGuide]);
+    }, [activeSlug, listView, guide, sheetOpen, atScreen, closeGuide]);
 
     return (
         <div className="fv-root">
@@ -2215,8 +2550,33 @@ export default function KitchenScene({ places = [], things = [] }) {
             {!ready && !failed && <div className="fv-boot">正在开灯…</div>}
             {ready && <div className="fv-boot is-done" />}
 
-            {hover && !activeSlug && (
+            {hover && !activeSlug && !atScreen && (
                 <div className="fv-tag" ref={tagRef}>{hover.place}</div>
+            )}
+
+            {/* 坐在电脑前。屏幕上跑的是这个站本身（CSS3D 层里的真 iframe），
+                所以这儿只留一个出口 —— 别的什么都不该压在那张网页上面。 */}
+            {atScreen && (
+                <div className="fv-seat">
+                    <button className="fv-seat__out" onClick={() => exitScreenRef.current?.()}>
+                        站起来 <kbd>Esc</kbd>
+                    </button>
+                    {/* 站起来只是离开这张椅子，屏幕仍然开着（走到屋里别处照样看得见）。
+                        想让它灭，得另外说一声 —— 和真的电脑一样。 */}
+                    <button className="fv-seat__out fv-seat__out--off"
+                        onClick={() => powerOffRef.current?.()}>关掉屏幕</button>
+                    {blocked?.kind === 'apt' && (
+                        <div className="fv-seat__note">你已经在这儿了。</div>
+                    )}
+                    {blocked?.kind === 'post' && (
+                        <div className="fv-seat__note">
+                            博文在这块屏上读着累 ——{' '}
+                            <a href={blocked.href} target="_blank" rel="noopener noreferrer">
+                                到站上读 ↗
+                            </a>
+                        </div>
+                    )}
+                </div>
             )}
 
             <aside className={`fv-panel${active ? ' is-open' : ''}`} aria-hidden={!active}>
