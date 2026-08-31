@@ -110,11 +110,14 @@ export default function KitchenScene({ places = [], things = [] }) {
 
     /* 坐到桌前那台电脑跟前了。这块屏上跑的是**真网页**（见 kitchen/webscreen.js），
        所以聚焦期间相机要整个锁死，鼠标全交给那张页面。 */
-    const [atScreen, setAtScreen] = useState(false);
+    /* 坐在哪块屏前：null / 'web' / 'game'。'game' 时触屏要出一副方向键 ——
+       那块屏上跑的是贪吃蛇，没键盘就没法玩。 */
+    const [atScreen, setAtScreen] = useState(null);
     /* 在电脑里点了被拦下的链接。{ kind: 'apt' | 'post', href } */
     const [blocked, setBlocked] = useState(null);
     const exitScreenRef = useRef(null);
     const powerOffRef = useRef(null);
+    const snakeKeyRef = useRef(null);
 
     const active = useMemo(
         () => places.find((p) => p.slug === activeSlug) || null,
@@ -1114,9 +1117,11 @@ export default function KitchenScene({ places = [], things = [] }) {
                    它没有近景：电视本来就是隔着一间屋看的。 */
                 const tv = tvDef ? createTv(tvDef) : null;
                 if (tvDef) surfaceOf.set(tvDef, tv);
-                /* 坐下那一态：CSS3D 里的真 iframe。触屏不接 —— 与其给一块半坏的屏，
-                   不如让它停在「开着但只能看」，那一态本身是完整的。 */
-                const webScreen = (webScreenDef && !coarse)
+                /* 坐下那一态：一个真 iframe。**触屏也给** —— 当初拦着不给是因为
+                   那会儿用的是 CSS3D，在 iOS 上滚动和 position:fixed 都不对；
+                   现在它就是个普通的 2D 定位 iframe，触屏没有理由不能用。
+                   摆法由 webscreen.js 自己按指针类型分（触屏铺面板，鼠标贴投影矩形）。 */
+                const webScreen = webScreenDef
                     ? createWebScreen(canvas.parentElement, webScreenDef, { src: '/' })
                     : null;
                 webScreen?.onEscape(() => exitScreen());
@@ -1142,7 +1147,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                     tower.front.emissive.copy(c);
                     tower.front.emissiveIntensity = tower.off.i + (tower.on.i - tower.off.i) * k;
                     tower.strip.emissiveIntensity = tower.stripOn * k;
-                    tower.light.intensity = tower.lightOn * k;
+                    tower.glow.material.opacity = tower.glowOn * k;
                 }
                 paintTower(0);
 
@@ -1158,7 +1163,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                     if (Math.abs(want - psK) > 1e-3) psK += (want - psK) * (1 - Math.exp(-5 * dt));
                     if (psOn) psT += dt; else psT = 0;
                     if (psK < 1e-3 && !psOn) {
-                        ps5.led.emissiveIntensity = 0; ps5.light.intensity = 0; return;
+                        ps5.led.emissiveIntensity = 0; ps5.glow.material.opacity = 0; return;
                     }
                     /* 引导中呼吸：正弦压在 0.35–1 之间。tv.boot 走到 1 就是引导完，
                        换成白色不再呼吸 —— 和真机一样，蓝灯只在开机那几秒。 */
@@ -1166,8 +1171,8 @@ export default function KitchenScene({ places = [], things = [] }) {
                     const pulse = booting ? 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(psT * 5.6)) : 1;
                     ps5.led.emissive.copy(booting ? psBlue : psWhite);
                     ps5.led.emissiveIntensity = ps5.ledOn * psK * pulse;
-                    ps5.light.color.copy(booting ? psBlue : psWhite);
-                    ps5.light.intensity = ps5.lightOn * psK * pulse;
+                    ps5.glow.material.color.copy(booting ? psBlue : psWhite);
+                    ps5.glow.material.opacity = ps5.glowOn * psK * pulse;
                 }
 
                 function pokeScreen(def) {
@@ -1182,10 +1187,6 @@ export default function KitchenScene({ places = [], things = [] }) {
                     }
                     // 电视只有开关两态，没有「坐下用」这回事
                     if (def === tvDef) { powerOffScreen(def); return; }
-                    /* 触屏上没有「坐下」这一态（webScreen 为空，游戏也没键盘），
-                       再点就是关机 —— 不然开了之后没有任何办法把它关回去。 */
-                    if (def === webScreenDef && !webScreen) { powerOffScreen(def); return; }
-                    if (def === gameScreenDef && coarse) { powerOffScreen(def); return; }
                     enterScreen(def);
                 }
                 function powerOffScreen(def) {
@@ -1221,7 +1222,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                     if (def === webScreenDef && !webScreen) return;
                     screenFocus = def;
                     if (def === webScreenDef) webScreen.reset();
-                    setAtScreen(true);
+                    setAtScreen(def === gameScreenDef ? 'game' : 'web');
                     // 在推镜头之前就让开，路上不会有半截椅背扫过画面
                     clearSightline(def, true);
                     leavePreset();
@@ -1230,9 +1231,10 @@ export default function KitchenScene({ places = [], things = [] }) {
                     if (!screenFocus) return;
                     clearSightline(screenFocus, false);
                     screenFocus = null;
-                    setAtScreen(false);
+                    setAtScreen(null);
                 }
                 exitScreenRef.current = exitScreen;
+                snakeKeyRef.current = (k) => snake?.key(k);
                 powerOffRef.current = () => powerOffScreen();
 
                 /* 开发时的快捷入口：/my-apt/#sit 直接开机 + 坐到电脑前。
@@ -1993,8 +1995,11 @@ export default function KitchenScene({ places = [], things = [] }) {
                            放在「落位了没」的判定之前 —— 亮起来的那一帧位置就得是对的。 */
                         const web = screenFocus === webScreenDef ? webScreen : null;
                         web?.place(camera, canvas.clientWidth, canvas.clientHeight);
-                        web?.setLive(
-                            camPos.distanceTo(snapTo) < 0.08
+                        /* 面板那一态不必等相机 —— 它压根不贴屏幕的投影，等下去
+                           只是让人点完之后干瞪着镜头飞。贴投影那一态才要等：
+                           没转正之前摆上去是对不齐的。 */
+                        web?.setLive(web.panelMode
+                            || camPos.distanceTo(snapTo) < 0.08
                             && Math.abs(wrapPi(aim.yaw - want.yaw)) < 0.03
                             /* 俯仰也要算进来。位置和朝向是分开插值的，只看 yaw
                                的话，人从别处望过来时 pitch 还没抬平，网页就已经
@@ -2565,6 +2570,20 @@ export default function KitchenScene({ places = [], things = [] }) {
                         想让它灭，得另外说一声 —— 和真的电脑一样。 */}
                     <button className="fv-seat__out fv-seat__out--off"
                         onClick={() => powerOffRef.current?.()}>关掉屏幕</button>
+                    {/* 触屏上没有方向键，游戏得自己配一副。压在画面下沿，
+                        避开「站起来」那一排。 */}
+                    {atScreen === 'game' && coarse && (
+                        <div className="fv-dpad">
+                            {[['arrowup', '↑', 'u'], ['arrowleft', '←', 'l'],
+                              ['arrowright', '→', 'r'], ['arrowdown', '↓', 'd']].map(([k, ch, cls]) => (
+                                <button key={k} className={`fv-dpad__b fv-dpad__b--${cls}`}
+                                    aria-label={k}
+                                    onPointerDown={(e) => { e.preventDefault(); snakeKeyRef.current?.(k); }}>
+                                    {ch}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {blocked?.kind === 'apt' && (
                         <div className="fv-seat__note">你已经在这儿了。</div>
                     )}

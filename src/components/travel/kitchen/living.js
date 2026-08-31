@@ -1106,6 +1106,34 @@ function buildStool(parent, x, z) {
     });
 }
 
+/** 一张躺在台面/地面上的辉光贴片，用来伪装「这台机器在往外发光」。
+ *
+ *  **不能用真的点光源。** 光源的数量是编进每一个着色器的：这屋里已经有 18 盏，
+ *  再加两盏点光会让全部三十来个着色器程序都变大，首次进屋的预编译从
+ *  0.59s 涨到 1.82s —— 为两处装饰性的光晕，让所有人多等一秒二。
+ *  加性混合的贴片只是多两次绘制调用，看上去是一回事。
+ */
+function glowCard(size, color) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 128;
+    const g2 = cv.getContext('2d');
+    const rg = g2.createRadialGradient(64, 64, 0, 64, 64, 64);
+    rg.addColorStop(0, 'rgba(255,255,255,0.95)');
+    rg.addColorStop(0.42, 'rgba(255,255,255,0.30)');
+    rg.addColorStop(1, 'rgba(255,255,255,0)');
+    g2.fillStyle = rg;
+    g2.fillRect(0, 0, 128, 128);
+    const tex = new THREE.CanvasTexture(cv);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({
+        map: tex, color, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    m.rotation.x = -Math.PI / 2;          // 躺平
+    m.userData.ghost = true;              // 不参与拾取
+    m.userData.isOutline = true;          // 也不参与描边
+    return m;
+}
+
 /* ---------- 靠窗的两张升降桌（扫描 table_other_rect_3） ---------- */
 
 function buildDesk(group) {
@@ -1494,18 +1522,16 @@ function buildDesk(group) {
     solid(box(0.230, 0.005, 0.004), rgbStrip, {
         position: [TX - 0.010, TY - 0.018, gz - 0.062], parent: group, outline: 0, cast: false,
     });
-    /* 机箱亮起来要往外洒光，不然只是「机器上贴了几块发光的贴纸」。
-       一盏很近、很弱的点光，够在桌面和旁边的柱子上留一圈紫就行。 */
-    /* 半径收在 0.72m：RGB 是照亮自己那台机器的，不是给房间打光的。
-       给到 1m 会把旁边的柱子和桌面整片刷成紫的。 */
-    const rgbLight = new THREE.PointLight(0xb07fe0, 0, 0.72, 2);
-    rgbLight.position.set(TX - 0.04, TY - 0.02, TZ - CZ / 2 - 0.04);
-    group.add(rgbLight);
+    /* 机箱亮起来要往外洒一点光，不然只是「机器上贴了几块发光的贴纸」。
+       在桌面上摊一张紫色辉光贴片就够 —— 见 glowCard 里为什么不是真光源。 */
+    const rgbGlow = glowCard(0.52, 0xb07fe0);
+    rgbGlow.position.set(TX - 0.05, TOP + TH + 0.0015, TZ - 0.02);
+    group.add(rgbGlow);
     group.userData.tower = {
-        front: omen, strip: rgbStrip, light: rgbLight,
+        front: omen, strip: rgbStrip, glow: rgbGlow,
         off: { color: 0x565963, i: 0.7 },
         on: { color: 0xc79dff, i: 2.6 },
-        stripOn: 2.4, lightOn: 0.28,
+        stripOn: 2.4, glowOn: 0.42,
     };
     /* 前脸网孔柱后面那把 12cm 进风扇。它也是吹前后的，所以从侧透同样
        只看得见框的侧面 —— 少了它箱子前面 17cm 是空的，但也不能拿一个
@@ -2835,11 +2861,11 @@ function buildMedia(group) {
     });
 
     // 竖放底座：实物是前后较长的黑色椭圆盘，不是圆脚。
-    /* 灯带亮起来要往地上和旁边的白斗柜洒一点光，不然只是「机身上有两条亮线」。 */
-    const psLight = new THREE.PointLight(0x5ec8ff, 0, 0.85, 2);
-    psLight.position.set(0, 0.33, -0.02);
-    ps.add(psLight);
-    group.userData.ps5 = { led: psBlue, light: psLight, ledOn: 2.1, lightOn: 0.30 };
+    /* 灯带亮起来要在地上留一圈光，不然只是「机身上有两条亮线」。 */
+    const psGlow = glowCard(0.62, 0x5ec8ff);
+    psGlow.position.set(PS_X, 0.006, PS_Z);
+    group.add(psGlow);
+    group.userData.ps5 = { led: psBlue, glow: psGlow, ledOn: 2.1, glowOn: 0.5 };
 
     const psBase = solid(cyl(0.096, 0.096, 0.014, 28), psBlack, {
         position: [0, -0.009, 0], parent: ps, outline: 0.005, cast: false,

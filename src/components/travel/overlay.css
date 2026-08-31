@@ -949,3 +949,51 @@
     white-space: nowrap;
 }
 .fv-seat__note a:hover { color: #fff; }
+
+/* ---------- 触屏上的方向键 ----------
+   贪吃蛇在触屏上没有键盘可用，得自己配一副。摆成十字，压在画面左下，
+   避开底部居中的「站起来 / 关掉屏幕」那一排。 */
+.fv-dpad {
+    position: absolute;
+    left: max(12px, env(safe-area-inset-left));
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    width: 168px;
+    height: 168px;
+    pointer-events: none;
+}
+
+.fv-dpad__b {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    pointer-events: auto;
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    background: rgba(248, 240, 224, 0.88);
+    color: var(--ink);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    /* 连点方向键的时候别选中文字、别弹出放大镜 */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    box-shadow: 2px 2px 0 rgba(21, 15, 44, 0.8);
+}
+
+.fv-dpad__b:active { transform: translate(2px, 2px); box-shadow: none; }
+
+.fv-dpad__b--u { left: 56px; top: 0; }
+.fv-dpad__b--l { left: 0; top: 56px; }
+.fv-dpad__b--r { left: 112px; top: 56px; }
+.fv-dpad__b--d { left: 56px; top: 112px; }
+
+/* 窄屏上把「站起来」那一排抬高，避开左下角的「玩法？」；方向键跟着往上让。 */
+@media (max-width: 560px) {
+    .fv-seat__out { bottom: calc(66px + env(safe-area-inset-bottom)); }
+    .fv-seat__note { bottom: calc(118px + env(safe-area-inset-bottom)); }
+    .fv-dpad { bottom: calc(136px + env(safe-area-inset-bottom)); }
+}

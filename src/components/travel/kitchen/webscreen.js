@@ -42,7 +42,17 @@ import * as THREE from 'three';
  *  版式是同一套，坐下的那一下画面不会跳。 */
 const PX_W = 1280;
 
+/* 触屏上不按投影矩形摆。
+   竖屏手机的画幅比这块 16:9 的屏瘦得多，座位距离由宽度决定，于是屏幕在
+   画面里只占中间一条 —— 一张按 1280 排版的桌面站点再缩进那条里，字小到
+   没法读，更别说点。所以触屏改成「铺一块面板」：iframe 按视口的真实像素
+   给宽高、不缩放，站点自己的响应式布局就能生效。
+   镜头照样飞到座位上，只是这一态由面板接管画面。 */
+const isCoarse = () => typeof window !== 'undefined'
+    && !!window.matchMedia?.('(pointer: coarse)').matches;
+
 export function createWebScreen(root, screen, { src = '/' } = {}) {
+    const panelMode = isCoarse();
     const layer = document.createElement('div');
     layer.className = 'fv-screen-layer';
     root.appendChild(layer);
@@ -71,6 +81,15 @@ export function createWebScreen(root, screen, { src = '/' } = {}) {
      *  正对着看，所以四个角投出来就是个轴对齐矩形，取包围盒即可 ——
      *  歪着看会有透视梯形，但那只发生在推镜头的路上，那会儿 iframe 是灭的。 */
     const place = (camera, w, h) => {
+        if (panelMode) {
+            // 顶上留出那排机位按钮，底下留出「站起来」
+            const x0 = 10, y0 = 72, pw = Math.max(200, w - 20), ph = Math.max(240, h - 72 - 118);
+            frame.style.width = `${pw}px`;
+            frame.style.height = `${ph}px`;
+            frame.style.transform = `translate(${x0}px, ${y0}px)`;
+            frame.style.borderRadius = '10px';
+            return;
+        }
         screen.mesh.getWorldPosition(center);
         let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
         // 屏面朝 -X：宽沿世界 Z，高沿世界 Y
@@ -129,6 +148,8 @@ export function createWebScreen(root, screen, { src = '/' } = {}) {
 
     return {
         place,
+        /** 触屏那一态铺的是面板，不贴屏幕投影 —— 所以它不必等相机落位。 */
+        get panelMode() { return panelMode; },
         /** 落位之后才把网页亮出来、才接管鼠标。
          *  推镜头的路上不亮：那会儿还没正对，投影是个梯形，摆不准。 */
         setLive(on) {
@@ -166,7 +187,10 @@ export function createWebScreen(root, screen, { src = '/' } = {}) {
  * **高和宽都要算，取远的那个。** 只按高算的话，窗口一窄（画面比这块 16:9
  * 的屏还瘦），屏幕左右两边就顶出画面外去了。
  */
-export function seatFor(screen, camera, fill = 0.82) {
+export function seatFor(screen, camera, fill) {
+    /* 竖屏（手机）上把屏幕铺得更满：那种画幅里除了这块屏也没别的可看，
+       留边只会让本来就窄的一条更小。 */
+    if (fill === undefined) fill = camera.aspect < 1 ? 0.94 : 0.82;
     const at = new THREE.Vector3();
     screen.mesh.getWorldPosition(at);
     const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
