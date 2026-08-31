@@ -25,7 +25,12 @@
 
    坐下的时候相机是**正对且锁死**的，所以那块屏在画面上的投影就是一个
    轴对齐的矩形 —— 根本不需要 3D 变换。换成按投影矩形摆的普通 2D iframe，
-   命中测试是平的，点击/滚动全部正常。
+   命中测试是平的，点击/滚动全部正常。触屏走的是同一条路。
+
+   **手机上不要改成铺一块面板、让站点用移动版布局。** 试过，是错的：
+   画面里那是一台电脑的显示器，屏幕上贴的那张快照也是 1280 桌面版拍的，
+   坐下之后换成手机版，等于自己打自己。宁可字小 —— 隔着一间屋看别人的
+   显示器，本来就是这么小。真想读的人给一个「在浏览器里打开」的出口。
 
    遮挡则是换个办法根治：坐下时**屋里除了这台显示器什么都不画**
    （KitchenScene 里的 SEAT_LAYER）。压暗没有用 —— 暗的椅背也还是椅背，
@@ -42,17 +47,7 @@ import * as THREE from 'three';
  *  版式是同一套，坐下的那一下画面不会跳。 */
 const PX_W = 1280;
 
-/* 触屏上不按投影矩形摆。
-   竖屏手机的画幅比这块 16:9 的屏瘦得多，座位距离由宽度决定，于是屏幕在
-   画面里只占中间一条 —— 一张按 1280 排版的桌面站点再缩进那条里，字小到
-   没法读，更别说点。所以触屏改成「铺一块面板」：iframe 按视口的真实像素
-   给宽高、不缩放，站点自己的响应式布局就能生效。
-   镜头照样飞到座位上，只是这一态由面板接管画面。 */
-const isCoarse = () => typeof window !== 'undefined'
-    && !!window.matchMedia?.('(pointer: coarse)').matches;
-
 export function createWebScreen(root, screen, { src = '/' } = {}) {
-    const panelMode = isCoarse();
     const layer = document.createElement('div');
     layer.className = 'fv-screen-layer';
     root.appendChild(layer);
@@ -81,15 +76,6 @@ export function createWebScreen(root, screen, { src = '/' } = {}) {
      *  正对着看，所以四个角投出来就是个轴对齐矩形，取包围盒即可 ——
      *  歪着看会有透视梯形，但那只发生在推镜头的路上，那会儿 iframe 是灭的。 */
     const place = (camera, w, h) => {
-        if (panelMode) {
-            // 顶上留出那排机位按钮，底下留出「站起来」
-            const x0 = 10, y0 = 72, pw = Math.max(200, w - 20), ph = Math.max(240, h - 72 - 118);
-            frame.style.width = `${pw}px`;
-            frame.style.height = `${ph}px`;
-            frame.style.transform = `translate(${x0}px, ${y0}px)`;
-            frame.style.borderRadius = '10px';
-            return;
-        }
         screen.mesh.getWorldPosition(center);
         let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
         // 屏面朝 -X：宽沿世界 Z，高沿世界 Y
@@ -148,8 +134,11 @@ export function createWebScreen(root, screen, { src = '/' } = {}) {
 
     return {
         place,
-        /** 触屏那一态铺的是面板，不贴屏幕投影 —— 所以它不必等相机落位。 */
-        get panelMode() { return panelMode; },
+        /** iframe 眼下停在哪个地址。手机上「在浏览器里打开」要用它 ——
+         *  翻到第三页才想认真读，开出去的该是那一页，不是首页。 */
+        get url() {
+            try { return frame.contentWindow?.location?.href || null; } catch { return null; }
+        },
         /** 落位之后才把网页亮出来、才接管鼠标。
          *  推镜头的路上不亮：那会儿还没正对，投影是个梯形，摆不准。 */
         setLive(on) {

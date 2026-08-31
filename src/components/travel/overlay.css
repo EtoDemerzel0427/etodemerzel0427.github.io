@@ -997,3 +997,17 @@
     .fv-seat__note { bottom: calc(118px + env(safe-area-inset-bottom)); }
     .fv-dpad { bottom: calc(136px + env(safe-area-inset-bottom)); }
 }
+
+/* 手机上「在浏览器里打开」。始终**贴在「站起来」那一排的正上方** ——
+   写死一个 112px 的话，横屏（视口只有 360 高）时它会飘到屏幕正中间。 */
+.fv-seat__out--open {
+    bottom: calc(clamp(14px, 4vh, 34px) + 46px);
+    font-size: 14px;
+    padding: 8px 16px;
+    background: rgba(248, 240, 224, 0.82);
+}
+@media (max-width: 560px) {
+    .fv-seat__out--open { bottom: calc(66px + 46px + env(safe-area-inset-bottom)); }
+    /* 有这颗按钮的时候，「你已经在这儿了」那句再往上让一档 */
+    .fv-seat__note { bottom: calc(160px + env(safe-area-inset-bottom)); }
+}

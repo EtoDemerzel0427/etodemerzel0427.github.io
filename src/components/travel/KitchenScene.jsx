@@ -118,6 +118,7 @@ export default function KitchenScene({ places = [], things = [] }) {
     const exitScreenRef = useRef(null);
     const powerOffRef = useRef(null);
     const snakeKeyRef = useRef(null);
+    const screenUrlRef = useRef(null);
 
     const active = useMemo(
         () => places.find((p) => p.slug === activeSlug) || null,
@@ -1235,6 +1236,7 @@ export default function KitchenScene({ places = [], things = [] }) {
                 }
                 exitScreenRef.current = exitScreen;
                 snakeKeyRef.current = (k) => snake?.key(k);
+                screenUrlRef.current = () => webScreen?.url || null;
                 powerOffRef.current = () => powerOffScreen();
 
                 /* 开发时的快捷入口：/my-apt/#sit 直接开机 + 坐到电脑前。
@@ -1995,11 +1997,8 @@ export default function KitchenScene({ places = [], things = [] }) {
                            放在「落位了没」的判定之前 —— 亮起来的那一帧位置就得是对的。 */
                         const web = screenFocus === webScreenDef ? webScreen : null;
                         web?.place(camera, canvas.clientWidth, canvas.clientHeight);
-                        /* 面板那一态不必等相机 —— 它压根不贴屏幕的投影，等下去
-                           只是让人点完之后干瞪着镜头飞。贴投影那一态才要等：
-                           没转正之前摆上去是对不齐的。 */
-                        web?.setLive(web.panelMode
-                            || camPos.distanceTo(snapTo) < 0.08
+                        web?.setLive(
+                            camPos.distanceTo(snapTo) < 0.08
                             && Math.abs(wrapPi(aim.yaw - want.yaw)) < 0.03
                             /* 俯仰也要算进来。位置和朝向是分开插值的，只看 yaw
                                的话，人从别处望过来时 pitch 还没抬平，网页就已经
@@ -2570,6 +2569,17 @@ export default function KitchenScene({ places = [], things = [] }) {
                         想让它灭，得另外说一声 —— 和真的电脑一样。 */}
                     <button className="fv-seat__out fv-seat__out--off"
                         onClick={() => powerOffRef.current?.()}>关掉屏幕</button>
+                    {/* 手机上这块屏只有巴掌大，字确实小 —— 那是隔着一间屋看别人
+                        显示器该有的样子，不该为此把站点换成移动版布局。真想读的
+                        给个出口，开出去的是屏幕上当前那一页，不是首页。 */}
+                    {atScreen === 'web' && coarse && (
+                        <button className="fv-seat__out fv-seat__out--open"
+                            onClick={() => {
+                                const u = screenUrlRef.current?.();
+                                if (u) window.open(u, '_blank', 'noopener');
+                            }}>在浏览器里打开 ↗</button>
+                    )}
+
                     {/* 触屏上没有方向键，游戏得自己配一副。压在画面下沿，
                         避开「站起来」那一排。 */}
                     {atScreen === 'game' && coarse && (
