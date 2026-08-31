@@ -928,6 +928,30 @@ export default function KitchenScene({ places = [], things = [] }) {
                 const records = living.userData.records || [];
                 let onDeck = null;          // 盘上现在是哪张，null = 唱机自带那张
 
+                /* 唱片从架上飞到盘上（或者飞回去）的那 0.85 秒。
+                   在封套里是竖着的、面朝屋里；落到盘上是平的。所以位置走弧线、
+                   姿态从竖到平做球面插值 —— 两头分别对着这两个四元数。 */
+                const FLIGHT_S = 0.85;
+                let flight = null;          // { rec, t, dir }  dir: 1 上机 / -1 回架
+                const flyFrom = new THREE.Vector3(), flyTo = new THREE.Vector3();
+                // 绕 Z 转 -90°：圆盘的法线从 +Y 转到 +X，也就是竖起来面朝屋里
+                const FLY_UP = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -Math.PI / 2));
+                const FLY_FLAT = new THREE.Quaternion();
+
+                function startFlight(rec, dir) {
+                    // 架上那头：从封套里往屋里抽出来一点
+                    rec.sleeve.getWorldPosition(flyFrom);
+                    flyFrom.x += 0.09;
+                    // 盘上那头：唱盘中心，落到绒垫面的高度
+                    tt.platter.getWorldPosition(flyTo);
+                    flyTo.y += tt.LP_Y;
+
+                    tt.setFlierLabel(rec.data.cover);
+                    tt.flier.visible = true;
+                    tt.lp.visible = false;      // 飞着的时候盘上不能同时有一张
+                    flight = { rec, t: 0, dir };
+                }
+
                 /** 一面放完。黑胶不循环 —— 抬臂、归位、盘停下来，片留在盘上。 */
                 function sideEnded() {
                     spinning = false;
@@ -948,17 +972,22 @@ export default function KitchenScene({ places = [], things = [] }) {
                     spinUp(onDeck?.data.preview);
                 }
 
-                /** 把墙上这张放上去（已经在盘上就收回墙） */
+                /** 把墙上这张放上去（已经在盘上就收回墙）。声音等唱片落到盘上再起。 */
                 function playRecord(rec) {
+                    /* AudioContext 必须在**点击这个手势里**建起来。等唱片飞完
+                       0.85 秒再建就不算手势了，浏览器会把它挂在 suspended。 */
+                    audio.ensureAudio();
                     if (spinning) { spinning = false; audio.stopRecord(); }
                     if (onDeck === rec) {                 // 收回去，换回唱机自带那张
                         onDeck = null;
                         tt.setLabel(null);
+                        startFlight(rec, -1);
                         return;
                     }
                     onDeck = rec;
                     tt.setLabel(rec.data.cover);          // 盘上贴的得是正在放的那张
-                    spinUp(rec.data.preview);
+                    lidOpen = true;                       // 先掀盖，唱片才有地方落
+                    startFlight(rec, 1);
                 }
                 const recordOf = (o) => records.find((r) => r.sleeve === o || r.grab === o) || null;
 
@@ -1839,6 +1868,35 @@ export default function KitchenScene({ places = [], things = [] }) {
                         l.aim.getWorldPosition(l.light.target.position);
                     }
 
+                    /* 唱片在半路上：从封套飞到唱盘，或者飞回架上。 */
+                    if (flight) {
+                        flight.t = Math.min(1, flight.t + dt / FLIGHT_S);
+                        const e = flight.t * flight.t * (3 - 2 * flight.t);   // 缓入缓出
+                        const k = flight.dir > 0 ? e : 1 - e;                 // 回架就是倒着走
+                        tt.flier.position.lerpVectors(flyFrom, flyTo, k);
+                        /* 直着连两点会从柜子里穿过去。往上抬一点、往屋里带一点，
+                           读起来才是「拿在手上送过去」。 */
+                        const arc = Math.sin(Math.PI * k);
+                        tt.flier.position.y += arc * 0.07;
+                        tt.flier.position.x += arc * 0.11;
+                        tt.flier.quaternion.slerpQuaternions(FLY_UP, FLY_FLAT, k);
+                        markShadows();
+
+                        if (flight.t >= 1) {
+                            const { rec, dir } = flight;
+                            flight = null;
+                            tt.flier.visible = false;
+                            if (dir > 0) {
+                                /* 落到盘上。lpDrop 直接给 1 —— 唱片已经由这一趟送到
+                                   绒垫面了，再走一遍「悬着落下」就是落两次。 */
+                                tt.lp.visible = true;
+                                lpDrop = 1;
+                                tt.lp.position.y = tt.LP_Y;
+                                spinUp(rec.data.preview);
+                            }
+                        }
+                    }
+
                     /* 唱机：掀盖 / 唱盘 33⅓ 转 / 唱臂落针再慢慢往内圈走 */
                     {
                         const wantLid = lidOpen ? tt.LID_OPEN : 0;
@@ -1863,7 +1921,8 @@ export default function KitchenScene({ places = [], things = [] }) {
                            一闪就出现的唱片和绿绒垫连在一起看，就是「绿胶变黑胶」。 */
                         lpDrop += ((spinning ? 1 : 0) - lpDrop) * (1 - Math.exp(-5.5 * dt));
                         tt.lp.position.y = tt.LP_Y + tt.LP_LIFT * (1 - lpDrop);
-                        if (!spinning && !moving && tt.lp.visible && armLift < 0.005 && lpDrop < 0.02) {
+                        if (!flight && !spinning && !moving && tt.lp.visible
+                            && armLift < 0.005 && lpDrop < 0.02) {
                             tt.lp.visible = false;
                         }
                         /* 被抽出来那张封套往屋里挪 4cm、歪一点：架上得看得出来

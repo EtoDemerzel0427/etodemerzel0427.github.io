@@ -2601,8 +2601,30 @@ function buildMedia(group) {
     ttGrab.userData.pickProxy = true;
     group.add(ttGrab);
 
+    /* 一张会飞的唱片：从架上的封套里抽出来，送到唱盘上。
+
+       为什么不能拿盘上那张飞：盘上那张是 platter 的子节点（要跟着转盘转），
+       而这一路是从北墙飞到斗柜，两头的父节点根本不是一个。所以另做一张，
+       在世界坐标里走完，落地那一刻换成盘上那张。
+
+       不参与拾取 —— 飞的那 0.85 秒里它横穿半个屋子，挡住谁都不合适。 */
+    const flier = new THREE.Group();
+    flier.visible = false;
+    flier.userData.ghost = true;
+    group.add(flier);
+    solid(cyl(0.150, 0.150, 0.0022, 48), matte(0x121215, { roughness: 0.30 }), {
+        position: [0, 0, 0], parent: flier, outline: 0.003, cast: false,
+    });
+    const flierLabel = solid(cyl(0.0505, 0.0505, 0.0009, 32), artworkMaterial(null, 0xbfc6c9), {
+        position: [0, 0.0017, 0], parent: flier, outline: 0, cast: false,
+    });
+
     group.userData.turntable = {
-        platter, lp, arm, cover, coverPivot, lpLabel,
+        platter, lp, arm, cover, coverPivot, lpLabel, flier,
+        /** 飞着那张的中心标签 */
+        setFlierLabel(coverFile) {
+            flierLabel.material = artworkMaterial(coverFile && `/travel/covers/${coverFile}`, 0xbfc6c9);
+        },
         /** 换掉盘上那张的中心标签。传空 = 换回唱机自带的那张。 */
         setLabel(coverFile) {
             const url = coverFile ? `/travel/covers/${coverFile}` : '/travel/covers/frank-ocean-blonde.jpg';
