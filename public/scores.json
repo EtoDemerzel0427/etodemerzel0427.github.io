@@ -1,16 +1,16 @@
 {
   "competition": "Primera Division",
-  "date": "2026-08-31",
+  "date": "2026-09-06",
   "status": "FINISHED",
   "homeTeam": {
+    "name": "Valencia",
+    "score": 0,
+    "crest": "https://crests.football-data.org/95.png"
+  },
+  "awayTeam": {
     "name": "Barça",
     "score": 5,
     "crest": "https://crests.football-data.org/81.png"
   },
-  "awayTeam": {
-    "name": "Rayo Vallecano",
-    "score": 2,
-    "crest": "https://crests.football-data.org/87.png"
-  },
-  "winner": "HOME_TEAM"
+  "winner": "AWAY_TEAM"
 }
