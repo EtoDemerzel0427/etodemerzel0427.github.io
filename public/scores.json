@@ -1,16 +1,16 @@
 {
   "competition": "Primera Division",
-  "date": "2026-09-13",
+  "date": "2026-09-16",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Levante",
-    "score": 2,
-    "crest": "https://crests.football-data.org/88.png"
-  },
-  "awayTeam": {
     "name": "Barça",
-    "score": 4,
+    "score": 7,
     "crest": "https://crests.football-data.org/81.png"
   },
-  "winner": "AWAY_TEAM"
+  "awayTeam": {
+    "name": "Santander",
+    "score": 2,
+    "crest": "https://crests.football-data.org/5335.png"
+  },
+  "winner": "HOME_TEAM"
 }
