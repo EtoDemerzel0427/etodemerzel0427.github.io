@@ -1,16 +1,16 @@
 {
   "competition": "Primera Division",
-  "date": "2026-09-16",
+  "date": "2026-09-19",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Barça",
-    "score": 7,
-    "crest": "https://crests.football-data.org/81.png"
+    "name": "Sevilla FC",
+    "score": 1,
+    "crest": "https://crests.football-data.org/559.png"
   },
   "awayTeam": {
-    "name": "Santander",
-    "score": 2,
-    "crest": "https://crests.football-data.org/5335.png"
+    "name": "Barça",
+    "score": 3,
+    "crest": "https://crests.football-data.org/81.png"
   },
-  "winner": "HOME_TEAM"
+  "winner": "AWAY_TEAM"
 }
