@@ -527,6 +527,27 @@ const BlogPost = ({ post }) => {
                                     const fontClass = (universe === 'retro') ? '!font-[Cubic]' : '';
                                     return <blockquote className={`${typo.quote} ${fontClass}`} {...props}>{children}</blockquote>
                                 },
+                                iframe: ({ node, ...props }) => (
+                                    <div className={`my-6 w-full overflow-hidden aspect-video shadow-lg break-inside-avoid ${
+                                        universe === 'comic'
+                                            ? 'border-[3px] border-black rounded-[1.5rem] shadow-[6px_6px_0_#000]'
+                                            : universe === 'terminal'
+                                            ? 'border border-[#33ff00] bg-black'
+                                            : universe === 'retro'
+                                            ? 'border-2 border-white/20 bg-black'
+                                            : universe === 'newspaper'
+                                            ? 'border-2 border-black rounded-lg bg-gray-100'
+                                            : 'rounded-2xl border border-current/10 bg-black/5'
+                                    }`}>
+                                        <iframe
+                                            className="w-full h-full border-0"
+                                            loading="lazy"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                            allowFullScreen
+                                            {...props}
+                                        />
+                                    </div>
+                                ),
                                 img: ({ node, ...props }) => {
                                     const isRetro = universe === 'retro';
                                     let altText = props.alt || '';
