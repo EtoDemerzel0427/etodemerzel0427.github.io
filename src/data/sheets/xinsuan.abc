@@ -52,7 +52,7 @@ x8 | x8 | x8 |
 x8 | x8 |
 x8 | x8 |
 x8 | x8 | x8 |
-x8 | x8 | C4 B,4 | x8 |
+x8 | x8 | C4 B,4 | [K:clef=treble] z2 x6 | [K:clef=bass]
 x8 | x8 | F4 E4 |
 x8 | x8 | x8 |
 x8 | x8 | x8 |
@@ -80,7 +80,7 @@ F,,C,[E,A,]C- C E,[F,B,]C | D,,A,,[D,^^F,]C [B,,G,]2[D,A,]2 | G,,D,G,B,-B,D,G,B,
 B, [FG]2 [FG]-[FG] [FG]-[FG] [FG] | D, [A,A]2 [A,A]-[A,A] [A,A]-[A,A] [A,A] |
 D, [A,A]2 [A,A]-[A,A] [A,A]-[A,A] [A,A] | G,,D,F,B,F4 |
 G,,D,B,F,[A,D]2G,2 | C,G,CG,C4 | z8 |
-[D,A,C^^F]4 z4 | G,,D,A,B,-B,4 | G,8 | [K:clef=treble]ACFcGCEc[K:clef=bass] |
+[D,A,C^^F]4 z4 | G,,D,A,B,-B,4 | G,8 | [K:clef=treble] [GA]CFc GCEc | [K:clef=bass]
 D,A,C^^F (3[C^^F]2[DG]2[=EA]2 | G,,D,B,D,G,4 | [G,B,]8 |
 [F,A,]C,A,CA,B,[^^F,C]B, | [A,^^F]D,A,C2A,CG | [G,,B,]D,A,D,[F,D]4 |
 [B,C]4 z4 | F,CEA-A3A | [A,^^F]D,A,C (3[C^^F]2[DG]2[=EA]2 |
