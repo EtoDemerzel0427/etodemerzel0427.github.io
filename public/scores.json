@@ -1,15 +1,15 @@
 {
-  "competition": "UEFA Champions League",
-  "date": "2026-10-13",
+  "competition": "Primera Division",
+  "date": "2026-10-17",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Galatasaray",
-    "score": 1,
-    "crest": "https://crests.football-data.org/610.png"
+    "name": "Real Betis",
+    "score": 2,
+    "crest": "https://crests.football-data.org/90.png"
   },
   "awayTeam": {
     "name": "Barça",
-    "score": 4,
+    "score": 5,
     "crest": "https://crests.football-data.org/81.png"
   },
   "winner": "AWAY_TEAM"
