@@ -1,16 +1,16 @@
 {
-  "competition": "UEFA Champions League",
-  "date": "2026-10-20",
+  "competition": "Primera Division",
+  "date": "2026-10-25",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "PSG",
-    "score": 4,
-    "crest": "https://crests.football-data.org/524.png"
-  },
-  "awayTeam": {
     "name": "Barça",
-    "score": 2,
+    "score": 1,
     "crest": "https://crests.football-data.org/81.png"
   },
-  "winner": "HOME_TEAM"
+  "awayTeam": {
+    "name": "Real Madrid",
+    "score": 2,
+    "crest": "https://crests.football-data.org/86.png"
+  },
+  "winner": "AWAY_TEAM"
 }
