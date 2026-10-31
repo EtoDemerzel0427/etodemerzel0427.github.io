@@ -1,16 +1,16 @@
 {
   "competition": "Primera Division",
-  "date": "2026-10-25",
+  "date": "2026-10-31",
   "status": "FINISHED",
   "homeTeam": {
     "name": "Barça",
-    "score": 1,
+    "score": 6,
     "crest": "https://crests.football-data.org/81.png"
   },
   "awayTeam": {
-    "name": "Real Madrid",
-    "score": 2,
-    "crest": "https://crests.football-data.org/86.png"
+    "name": "Alavés",
+    "score": 1,
+    "crest": "https://crests.football-data.org/263.png"
   },
-  "winner": "AWAY_TEAM"
+  "winner": "HOME_TEAM"
 }
