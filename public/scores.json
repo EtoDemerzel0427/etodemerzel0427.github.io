@@ -1,16 +1,16 @@
 {
-  "competition": "Primera Division",
-  "date": "2026-11-22",
+  "competition": "UEFA Champions League",
+  "date": "2026-11-25",
   "status": "FINISHED",
   "homeTeam": {
-    "name": "Barça",
-    "score": 3,
-    "crest": "https://crests.football-data.org/81.png"
+    "name": "Sabah FK",
+    "score": 1,
+    "crest": "https://crests.football-data.org/10233.png"
   },
   "awayTeam": {
-    "name": "Villarreal",
-    "score": 2,
-    "crest": "https://crests.football-data.org/94.png"
+    "name": "Barça",
+    "score": 4,
+    "crest": "https://crests.football-data.org/81.png"
   },
-  "winner": "HOME_TEAM"
+  "winner": "AWAY_TEAM"
 }
